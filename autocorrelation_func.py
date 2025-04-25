@@ -20,7 +20,7 @@ def autocorrelation_fft(x, max_lag=None):
     """
     n = len(x)
     if max_lag is None:
-        max_lag = min(n // 3, 2000)  # Cap at 2000 to prevent slow computation
+        max_lag = min(n // 3, 20000)  # Cap at 20000 to prevent slow computation
     
     # Remove mean and normalize
     x_norm = x - np.mean(x)
