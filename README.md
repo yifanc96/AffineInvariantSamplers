@@ -2,7 +2,7 @@
 
 Paper: https://arxiv.org/abs/2505.02987
 
-Samples are all in `samplers.py`
+mcmc samplers are all in `samplers.py`
 
 Run experiments (can first set a small number of iterations first, to see how the output looks like)
 `experiments_Gaussian.py`
