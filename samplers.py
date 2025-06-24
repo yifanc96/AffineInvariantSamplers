@@ -1,6 +1,6 @@
 import numpy as np
 
-def side_move(log_prob, initial, n_samples, n_walkers=20, gamma=1.6869, normal_std=1.0):
+def side_move(log_prob, initial, n_samples, n_walkers=20, gamma=1.6869, normal_std=1.0, n_thin = 1):
     """
     The "side move" algorithm.
     
@@ -18,6 +18,8 @@ def side_move(log_prob, initial, n_samples, n_walkers=20, gamma=1.6869, normal_s
         Differential evolution scale parameter
     normal_std : float
         Standard deviation of normal noise multiplier
+    n_thin : int
+        Thinning factor - store every n_thin sample (default: 1, no thinning)
     
     Returns:
     --------
@@ -44,14 +46,26 @@ def side_move(log_prob, initial, n_samples, n_walkers=20, gamma=1.6869, normal_s
     # Vectorized evaluation of initial log probabilities
     walker_log_probs = log_prob(walkers)
     
+    # Calculate total iterations needed based on thinning factor
+    total_iterations = n_samples * n_thin
+    
     # Storage for samples and tracking acceptance
     samples = np.zeros((n_walkers, n_samples, dim))
     accepts = np.zeros(n_walkers)
     
+    # Sample index to track where to store thinned samples
+    sample_idx = 0
+    
     # Main sampling loop
-    for i in range(n_samples):
-        # Store current state from all walkers
-        samples[:, i] = walkers
+    for i in range(total_iterations):
+        
+        # Store current state from all walkers (only every n_thin iterations)
+        if i % n_thin == 0 and sample_idx < n_samples:
+            samples[:, sample_idx] = walkers
+            sample_idx += 1
+            
+        # # Store current state from all walkers
+        # samples[:, i] = walkers
         
         # Update first half using second half
         # Create arrays of indices for the first and second walker sets
@@ -134,10 +148,11 @@ def side_move(log_prob, initial, n_samples, n_walkers=20, gamma=1.6869, normal_s
         accepts[half_walkers:][accepted_second] += 1
     
     # Return results from all walkers
-    acceptance_rates = accepts / n_samples
+    acceptance_rates = accepts / total_iterations
+    
     return samples, acceptance_rates
 
-def stretch_move(log_prob, initial, n_samples, n_walkers=20, a=2.0):
+def stretch_move(log_prob, initial, n_samples, n_walkers=20, a=2.0, n_thin = 1):
     """
     Vectorized implementation of the Ensemble MCMC with stretch moves.
     
@@ -154,6 +169,8 @@ def stretch_move(log_prob, initial, n_samples, n_walkers=20, a=2.0):
         Number of walkers in the ensemble (must be even)
     a : float
         Stretch parameter (controls proposal scale)
+    n_thin : int
+        Thinning factor - store every n_thin sample (default: 1, no thinning)
         
     Returns:
     --------
@@ -175,14 +192,22 @@ def stretch_move(log_prob, initial, n_samples, n_walkers=20, a=2.0):
     # Vectorized evaluation of initial log probabilities
     walker_log_probs = log_prob(walkers)
     
+    # Calculate total iterations needed based on thinning factor
+    total_iterations = n_samples * n_thin
+    
     # Storage for samples and tracking acceptance
     samples = np.zeros((n_walkers, n_samples, dim))
     accepts = np.zeros(n_walkers)
     
+    # Sample index to track where to store thinned samples
+    sample_idx = 0
+    
     # Main sampling loop
-    for i in range(n_samples):
-        # Store current state from all walkers
-        samples[:, i] = walkers
+    for i in range(total_iterations):
+        # Store current state from all walkers (only every n_thin iterations)
+        if i % n_thin == 0 and sample_idx < n_samples:
+            samples[:, sample_idx] = walkers
+            sample_idx += 1
         
         # Update first half, then second half
         for half in [0, 1]:
@@ -224,13 +249,16 @@ def stretch_move(log_prob, initial, n_samples, n_walkers=20, a=2.0):
             accepts[active_indices[accepted]] += 1
     
     # Return results from all walkers
-    acceptance_rates = accepts / n_samples
+    acceptance_rates = accepts / total_iterations
     return samples, acceptance_rates
 
-def hmc(log_prob, initial, n_samples, grad_fn, epsilon=0.1, L=10, n_chains=1):
+def hmc(log_prob, initial, n_samples, grad_fn, epsilon=0.1, L=10, n_chains=1, n_thin = 1):
     """
     Vectorized Hamiltonian Monte Carlo implementation.
     Processes all chains simultaneously for improved efficiency.
+    
+    n_thin : int
+        Thinning factor - store every n_thin sample (default: 1, no thinning)
     """
     
     dim = len(initial)
@@ -241,6 +269,9 @@ def hmc(log_prob, initial, n_samples, grad_fn, epsilon=0.1, L=10, n_chains=1):
     # Vectorized evaluation of initial log probabilities
     chain_log_probs = log_prob(chains)
     
+    # Calculate total iterations needed based on thinning factor
+    total_iterations = 1 + (n_samples - 1) * n_thin  # +1 for initial state
+    
     # Storage for samples and tracking acceptance
     samples = np.zeros((n_chains, n_samples, dim))
     accepts = np.zeros(n_chains)
@@ -248,8 +279,11 @@ def hmc(log_prob, initial, n_samples, grad_fn, epsilon=0.1, L=10, n_chains=1):
     # Store initial state
     samples[:, 0, :] = chains
     
+    # Sample index to track where to store thinned samples (start at 1 since we stored initial state)
+    sample_idx = 1
+    
     # Main sampling loop
-    for i in range(1, n_samples):
+    for i in range(1, total_iterations):
         # Generate momentum variables for all chains at once
         p = np.random.normal(size=(n_chains, dim))
         current_p = p.copy()
@@ -318,19 +352,24 @@ def hmc(log_prob, initial, n_samples, grad_fn, epsilon=0.1, L=10, n_chains=1):
         # Track acceptances
         accepts += accept_mask
         
-        # Store current state for all chains
-        samples[:, i, :] = chains
+        # Store current state for all chains (only every n_thin iterations after the first)
+        if (i - 1) % n_thin == 0 and sample_idx < n_samples:
+            samples[:, sample_idx, :] = chains
+            sample_idx += 1
     
     # Calculate acceptance rates for all chains
-    acceptance_rates = accepts / (n_samples - 1)
+    acceptance_rates = accepts / (total_iterations - 1)
     
     return samples, acceptance_rates
 
 def hamiltonian_side_move(gradient_func, potential_func, initial, n_samples, n_chains_per_group=5, 
-                       epsilon=0.01, n_leapfrog=10, beta=1.0):
+                       epsilon=0.01, n_leapfrog=10, beta=1.0, n_thin = 1):
     """
     Vectorized Ensemble Hamiltonian Side Move sampler.
     Each particle randomly selects one particle from the complementary group for preconditioning.
+
+    n_thin : int
+        Thinning factor - store every n_thin sample (default: 1, no thinning)
     """
     
     # Initialize
@@ -345,18 +384,26 @@ def hamiltonian_side_move(gradient_func, potential_func, initial, n_samples, n_c
     group1_indices = np.arange(n_chains_per_group)
     group2_indices = np.arange(n_chains_per_group, total_chains)
     
+    # Calculate total iterations needed based on thinning factor
+    total_iterations = n_samples * n_thin
+    
     # Storage for samples and acceptance tracking
     samples = np.zeros((total_chains, n_samples, flat_dim))
     accepts = np.zeros(total_chains)
+    
+    # Sample index to track where to store thinned samples
+    sample_idx = 0
     
     # Precompute some constants for efficiency
     beta_eps = beta * epsilon
     beta_eps_half = beta_eps / 2
     
     # Main sampling loop
-    for i in range(n_samples):
-        # Store current state from all chains
-        samples[:, i] = states
+    for i in range(total_iterations):
+        # Store current state from all chains (only every n_thin iterations)
+        if i % n_thin == 0 and sample_idx < n_samples:
+            samples[:, sample_idx] = states
+            sample_idx += 1
         
         #---------------------------------------------
         # First group update - VECTORIZED
@@ -544,14 +591,16 @@ def hamiltonian_side_move(gradient_func, potential_func, initial, n_samples, n_c
     samples = samples.reshape((total_chains, n_samples) + orig_dim)
     
     # Compute acceptance rates for all chains
-    acceptance_rates = accepts / n_samples
+    acceptance_rates = accepts / total_iterations
     
     return samples, acceptance_rates
 
 def hamiltonian_walk_move(gradient_func, potential_func, initial, n_samples, n_chains_per_group=5, 
-                       epsilon=0.01, n_leapfrog=10, beta=0.05):
+                       epsilon=0.01, n_leapfrog=10, beta=0.05, n_thin = 1):
     """
     Vectorized Hamiltonian Walk Move sampler.
+    n_thin : int
+        Thinning factor - store every n_thin sample (default: 1, no thinning)
     """
     
     # Initialize
@@ -566,18 +615,26 @@ def hamiltonian_walk_move(gradient_func, potential_func, initial, n_samples, n_c
     group1 = slice(0, n_chains_per_group)
     group2 = slice(n_chains_per_group, total_chains)
     
+    # Calculate total iterations needed based on thinning factor
+    total_iterations = n_samples * n_thin
+    
     # Storage for samples and acceptance tracking
     samples = np.zeros((total_chains, n_samples, flat_dim))
     accepts = np.zeros(total_chains)
+    
+    # Sample index to track where to store thinned samples
+    sample_idx = 0
     
     # Precompute some constants for efficiency
     beta_eps = beta * epsilon
     beta_eps_half = beta_eps / 2
     
     # Main sampling loop
-    for i in range(n_samples):
-        # Store current state from all chains
-        samples[:, i] = states
+    for i in range(total_iterations):
+        # Store current state from all chains (only every n_thin iterations)
+        if i % n_thin == 0 and sample_idx < n_samples:
+            samples[:, sample_idx] = states
+            sample_idx += 1
         
         # Compute centered ensembles for preconditioning
         centered2 = (states[group2] - np.mean(states[group2], axis=0)) / np.sqrt(n_chains_per_group)
@@ -717,6 +774,6 @@ def hamiltonian_walk_move(gradient_func, potential_func, initial, n_samples, n_c
     samples = samples.reshape((total_chains, n_samples) + orig_dim)
     
     # Compute acceptance rates for all chains
-    acceptance_rates = accepts / n_samples
+    acceptance_rates = accepts / total_iterations
     
     return samples, acceptance_rates
