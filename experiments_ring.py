@@ -228,9 +228,9 @@ def plot_ring_results(results, dim=10, sigma=0.1):
 
 # Run the benchmark for the ring distribution
 # Note: You need to have the sampler functions (side_move, stretch_move, etc.) defined elsewhere
-results, sigma = benchmark_samplers_ring(dim=50, n_samples=100000, burn_in=20000, sigma=0.5)
+results, sigma = benchmark_samplers_ring(dim=50, n_samples=100000, burn_in=20000, sigma=0.25)
 
 # Plot the results
-plot_ring_results(results, dim=50, sigma=0.5)
+plot_ring_results(results, dim=50, sigma=0.25)
 
 print("Ring distribution benchmark complete. Check the output directory for plots.")
