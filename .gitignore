@@ -1,0 +1,10 @@
+__pycache__/
+*/__pycache__/
+
+*.DS_Store
+
+*.pdf
+*.npz
+test_*
+.ipynb*/
+data*
