@@ -255,3 +255,51 @@ def example_usage():
 
 if __name__ == "__main__":
     samples, diagnostics = example_usage()
+
+import time
+
+# # Setup
+dim = 5
+n_samples = 5000
+burn_in = 1000
+total_samples = n_samples + burn_in
+
+# Create problem
+np.random.seed(42)
+cond_number = 1000
+eigenvals = 0.1 * np.linspace(1, cond_number, dim)
+H = np.random.randn(dim, dim)
+Q, _ = np.linalg.qr(H)
+precision = Q @ np.diag(eigenvals) @ Q.T
+precision = 0.5 * (precision + precision.T)
+
+true_mean = np.ones(dim)
+initial = np.ones(dim)
+
+# NumPy functions
+def grad_log_prob_fn(x):
+    diff = x - true_mean
+    return -np.dot(precision, diff)
+
+def log_prob_fn(x):
+    diff = x - true_mean
+    return -0.5 * np.dot(diff, np.dot(precision, diff))
+
+
+## test Gaussian
+start = time.time()
+sampler = NUTSSampler(log_prob_fn, grad_log_prob_fn, step_size=0.5)
+
+samples, diagnostics = sampler.sample(
+    initial, num_samples=n_samples
+)
+
+time_np = time.time() - start
+flat_np = samples[burn_in:, :].reshape(-1, dim)
+mean_np = np.mean(flat_np, axis=0)
+error_np = np.linalg.norm(mean_np - true_mean)
+print("=== NUTS Results ===")
+print(f"Divergent transitions: {diagnostics['n_divergent']}")
+print(f"mean error={error_np:.3f}, time={time_np:.1f}s")
+print(f"Average tree depth: {np.mean(diagnostics['tree_depths']):.2f}")
+

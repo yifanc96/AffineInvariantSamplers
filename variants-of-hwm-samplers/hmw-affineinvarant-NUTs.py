@@ -560,21 +560,83 @@ def example_ensemble_usage():
     
     return samples, diagnostics
 
+# if __name__ == "__main__":
+#     samples, diagnostics = example_ensemble_usage()
+
+# High-dimensional Gaussian test
+def test_high_dimensional():
+    """Test ensemble NUTS on high-dimensional Gaussian."""
+    
+    # Setup high-dimensional Gaussian
+    dim = 10
+    np.random.seed(42)
+    
+    # True parameters
+    true_mean = np.random.randn(dim) * 2
+    A = np.random.randn(dim, dim)
+    true_cov = A @ A.T + 0.1 * np.eye(dim)  # Ensure positive definite
+    true_cov_inv = np.linalg.inv(true_cov)
+    
+    def log_prob_fn(theta_batch):
+        if theta_batch.ndim == 1:
+            theta_batch = theta_batch[np.newaxis, :]
+        diff = theta_batch - true_mean
+        return -0.5 * np.sum(diff @ true_cov_inv * diff, axis=1)
+    
+    def grad_log_prob_fn(theta_batch):
+        if theta_batch.ndim == 1:
+            theta_batch = theta_batch[np.newaxis, :]
+        diff = theta_batch - true_mean
+        return -(diff @ true_cov_inv)
+    
+    # Run sampler
+    sampler = HWM_NUTSSampler(
+        log_prob_fn, grad_log_prob_fn,
+        n_chains_per_group=dim, step_size=0.2, beta=1.0
+    )
+    
+    samples, diag = sampler.sample(
+        np.zeros(dim), num_samples=10000, warmup=2000
+    )
+    
+    # Combine all chains
+    all_samples = samples.reshape(-1, dim)
+    
+    # Compute errors
+    sample_mean = np.mean(all_samples, axis=0)
+    sample_cov = np.cov(all_samples.T)
+    
+    mean_error = np.linalg.norm(sample_mean - true_mean)
+    cov_error = np.linalg.norm(sample_cov - true_cov, 'fro')
+    
+    print(f"=== High-Dimensional Test (dim={dim}) ===")
+    print(f"Chains: {diag['n_chains']}")
+    print(f"Samples: {len(all_samples)}")
+    print(f"Mean acceptance: {diag['mean_accept_prob']:.3f}")
+    print(f"Mean error (L2): {mean_error:.4f}")
+    print(f"Covariance error (Frobenius): {cov_error:.4f}")
+    print(f"Relative mean error: {mean_error/np.linalg.norm(true_mean):.4f}")
+    print(f"Relative cov error: {cov_error/np.linalg.norm(true_cov, 'fro'):.4f}")
+    
+    return samples, diag, mean_error, cov_error
+
 if __name__ == "__main__":
-    samples, diagnostics = example_ensemble_usage()
+    # Run high-dimensional test
+    samples, diagnostics, mean_err, cov_err = test_high_dimensional()
+
 
 
 # import time
 
 # # Setup
-# dim = 5
+# dim = 2
 # n_samples = 5000
 # burn_in = 1000
 # total_samples = n_samples + burn_in
 
 # # Create problem
 # np.random.seed(42)
-# cond_number = 1000
+# cond_number = 10
 # eigenvals = 0.1 * np.linspace(1, cond_number, dim)
 # H = np.random.randn(dim, dim)
 # Q, _ = np.linalg.qr(H)
@@ -582,7 +644,7 @@ if __name__ == "__main__":
 # precision = 0.5 * (precision + precision.T)
 
 # true_mean = np.ones(dim)
-# initial = np.ones(dim)
+# initial = np.zeros(dim)
 
 # # NumPy functions
 # def grad_log_prob_fn(x):
@@ -624,4 +686,7 @@ if __name__ == "__main__":
 # print(f"mean error={error_np:.3f}, time={time_np:.1f}s")
 # all_samples = samples.reshape(-1, samples.shape[-1])
 # print(f"Combined sample mean: {np.mean(all_samples, axis=0)}")
+
+
+
 
