@@ -2,9 +2,9 @@ import numpy as np
 from typing import Callable, Tuple, Optional
 import warnings
 
-class HWM_NUTSSampler:
+class EnsembleNUTSSampler:
     """
-    Affine invariant Hamiltonian walk move with No-U-Turn adaptation Sampler (HWM-NUTS) implementation.
+    Ensemble No-U-Turn Sampler (E-NUTS) implementation.
     
     Combines NUTS with ensemble methods for improved exploration and
     automatic adaptation in challenging geometries. Uses multiple chains
@@ -23,7 +23,7 @@ class HWM_NUTSSampler:
                  kappa: float = 0.75,
                  beta: float = 0.05):
         """
-        Initialize the HWM-NUTS sampler.
+        Initialize the Ensemble NUTS sampler.
         
         Args:
             log_prob_fn: Function that computes log probability (vectorized for multiple samples)
@@ -167,15 +167,8 @@ class HWM_NUTSSampler:
         # Convert momentum: p_position = r_ensemble @ centered_complement
         p_plus = np.dot(r_plus, centered_complement)
         p_minus = np.dot(r_minus, centered_complement)
-
-        # affine invariant version
-        # print(delta_theta.shape, centered_complement.shape, r_plus.shape)
-
-        # p_plus = np.linalg.lstsq(centered_complement, r_plus.T)[0].T
-        # p_minus = np.linalg.lstsq(centered_complement, r_minus.T)[0].T
-
+        
         # Compute dot products for U-turn criterion
-
         dot_plus = np.sum(delta_theta * p_plus, axis=1)
         dot_minus = np.sum(delta_theta * p_minus, axis=1)
         
@@ -530,13 +523,13 @@ def example_ensemble_usage():
         return grads
     
     # Initialize ensemble sampler
-    sampler = HWM_NUTSSampler(
+    sampler = EnsembleNUTSSampler(
         log_prob_fn, grad_log_prob_fn,
         n_chains_per_group=4,
         step_size=0.5,
         target_accept=0.8,
-        beta=1.0,
-        max_treedepth = 2
+        beta=0.5,
+        max_treedepth = 3
     )
     
     # Run sampler
@@ -546,7 +539,7 @@ def example_ensemble_usage():
         warmup=1000, adapt_step_size=True
     )
     
-    print("=== HWM-NUTS Results ===")
+    print("=== Ensemble NUTS Results ===")
     print(f"Number of chains: {diagnostics['n_chains']}")
     print(f"Mean acceptance probability: {diagnostics['mean_accept_prob']:.3f}")
     print(f"Sample means across chains:")
@@ -560,133 +553,5 @@ def example_ensemble_usage():
     
     return samples, diagnostics
 
-# if __name__ == "__main__":
-#     samples, diagnostics = example_ensemble_usage()
-
-# High-dimensional Gaussian test
-def test_high_dimensional():
-    """Test ensemble NUTS on high-dimensional Gaussian."""
-    
-    # Setup high-dimensional Gaussian
-    dim = 10
-    np.random.seed(42)
-    
-    # True parameters
-    true_mean = np.random.randn(dim) * 2
-    A = np.random.randn(dim, dim)
-    true_cov = A @ A.T + 0.1 * np.eye(dim)  # Ensure positive definite
-    true_cov_inv = np.linalg.inv(true_cov)
-    
-    def log_prob_fn(theta_batch):
-        if theta_batch.ndim == 1:
-            theta_batch = theta_batch[np.newaxis, :]
-        diff = theta_batch - true_mean
-        return -0.5 * np.sum(diff @ true_cov_inv * diff, axis=1)
-    
-    def grad_log_prob_fn(theta_batch):
-        if theta_batch.ndim == 1:
-            theta_batch = theta_batch[np.newaxis, :]
-        diff = theta_batch - true_mean
-        return -(diff @ true_cov_inv)
-    
-    # Run sampler
-    sampler = HWM_NUTSSampler(
-        log_prob_fn, grad_log_prob_fn,
-        n_chains_per_group=dim, step_size=0.2, beta=1.0
-    )
-    
-    samples, diag = sampler.sample(
-        np.zeros(dim), num_samples=10000, warmup=2000
-    )
-    
-    # Combine all chains
-    all_samples = samples.reshape(-1, dim)
-    
-    # Compute errors
-    sample_mean = np.mean(all_samples, axis=0)
-    sample_cov = np.cov(all_samples.T)
-    
-    mean_error = np.linalg.norm(sample_mean - true_mean)
-    cov_error = np.linalg.norm(sample_cov - true_cov, 'fro')
-    
-    print(f"=== High-Dimensional Test (dim={dim}) ===")
-    print(f"Chains: {diag['n_chains']}")
-    print(f"Samples: {len(all_samples)}")
-    print(f"Mean acceptance: {diag['mean_accept_prob']:.3f}")
-    print(f"Mean error (L2): {mean_error:.4f}")
-    print(f"Covariance error (Frobenius): {cov_error:.4f}")
-    print(f"Relative mean error: {mean_error/np.linalg.norm(true_mean):.4f}")
-    print(f"Relative cov error: {cov_error/np.linalg.norm(true_cov, 'fro'):.4f}")
-    
-    return samples, diag, mean_error, cov_error
-
-# if __name__ == "__main__":
-#     # Run high-dimensional test
-#     samples, diagnostics, mean_err, cov_err = test_high_dimensional()
-
-
-
-import time
-
-# Setup
-dim = 2
-n_samples = 5000
-burn_in = 1000
-total_samples = n_samples + burn_in
-
-# Create problem
-np.random.seed(42)
-cond_number = 10
-eigenvals = 0.1 * np.linspace(1, cond_number, dim)
-H = np.random.randn(dim, dim)
-Q, _ = np.linalg.qr(H)
-precision = Q @ np.diag(eigenvals) @ Q.T
-precision = 0.5 * (precision + precision.T)
-
-true_mean = np.ones(dim)
-initial = np.zeros(dim)
-
-# NumPy functions
-def grad_log_prob_fn(x):
-    if x.ndim == 1: x = x.reshape(1, -1)
-    return -np.einsum('jk,ij->ik', precision, x - true_mean)
-
-def log_prob_fn(x):
-    if x.ndim == 1: x = x.reshape(1, -1)
-    centered = x - true_mean
-    return -0.5 * np.einsum('ij,jk,ik->i', centered, precision, centered)
-
-
-
-
-## test Gaussian
-start = time.time()
-sampler = HWM_NUTSSampler(
-    log_prob_fn, grad_log_prob_fn,
-    n_chains_per_group=dim,
-    step_size=0.5,
-    target_accept=0.8,
-    beta=0.5,
-    max_treedepth = 2
-)
-
-samples, diagnostics = sampler.sample(
-    initial, num_samples=n_samples, 
-    warmup=burn_in, adapt_step_size=True
-)
-
-time_np = time.time() - start
-
-flat_np = samples[:, burn_in:, :].reshape(-1, dim)
-mean_np = np.mean(flat_np, axis=0)
-error_np = np.linalg.norm(mean_np - true_mean)
-print("=== HWM-NUTS Results ===")
-print(f"Number of chains: {diagnostics['n_chains']}")
-print(f"Mean acceptance probability: {diagnostics['mean_accept_prob']:.3f}")
-print(f"mean error={error_np:.3f}, time={time_np:.1f}s")
-all_samples = samples.reshape(-1, samples.shape[-1])
-print(f"Combined sample mean: {np.mean(all_samples, axis=0)}")
-
-
-
-
+if __name__ == "__main__":
+    samples, diagnostics = example_ensemble_usage()
