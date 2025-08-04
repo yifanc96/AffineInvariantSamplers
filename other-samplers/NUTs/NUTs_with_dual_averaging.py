@@ -434,25 +434,25 @@ def challenging_example():
     
     return samples, diagnostics
 
-if __name__ == "__main__":
-    # Run basic example
-    samples, diagnostics = example_usage()
+# if __name__ == "__main__":
+#     # Run basic example
+#     samples, diagnostics = example_usage()
     
-    # Run challenging example
-    funnel_samples, funnel_diagnostics = challenging_example()
+#     # Run challenging example
+#     funnel_samples, funnel_diagnostics = challenging_example()
 
 
 import time
 
 # # Setup
-dim = 50
+dim = 10
 n_samples = 5000
 burn_in = 1000
 total_samples = n_samples + burn_in
 
 # Create problem
 np.random.seed(42)
-cond_number = 10
+cond_number = 1000
 eigenvals = 0.1 * np.linspace(1, cond_number, dim)
 H = np.random.randn(dim, dim)
 Q, _ = np.linalg.qr(H)
@@ -474,7 +474,8 @@ def log_prob_fn(x):
 
 ## test Gaussian
 start = time.time()
-sampler = NUTSSampler(log_prob_fn, grad_log_prob_fn, step_size=0.5,target_accept=0.8)
+sampler = NUTSSampler(log_prob_fn, grad_log_prob_fn, step_size=0.5,target_accept=0.8,
+                      max_treedepth=5)
 
 samples, diagnostics = sampler.sample(
     initial, num_samples=n_samples, warmup=burn_in, adapt_step_size=True

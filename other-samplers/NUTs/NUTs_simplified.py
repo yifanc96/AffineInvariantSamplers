@@ -253,20 +253,20 @@ def example_usage():
     
     return samples, diagnostics
 
-if __name__ == "__main__":
-    samples, diagnostics = example_usage()
+# if __name__ == "__main__":
+#     samples, diagnostics = example_usage()
 
 import time
 
 # # Setup
-dim = 5
+dim = 10
 n_samples = 5000
 burn_in = 1000
 total_samples = n_samples + burn_in
 
 # Create problem
 np.random.seed(42)
-cond_number = 1000
+cond_number = 10
 eigenvals = 0.1 * np.linspace(1, cond_number, dim)
 H = np.random.randn(dim, dim)
 Q, _ = np.linalg.qr(H)

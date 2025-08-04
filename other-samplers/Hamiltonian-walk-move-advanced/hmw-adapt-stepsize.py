@@ -414,7 +414,7 @@ def hamiltonian_walk_move_auto(gradient_func, potential_func, initial, n_samples
 import time
 
 # Setup
-dim = 50
+dim = 10
 n_samples = 4000
 burn_in = 1000
 total_samples = n_samples + burn_in
@@ -432,7 +432,7 @@ true_mean = np.ones(dim)
 initial = np.zeros(dim)
 
 # Parameters
-params = {"n_chains_per_group": max(dim,20), "n_leapfrog": 5, "beta": 1.0}
+params = {"n_chains_per_group": max(dim,10), "n_leapfrog": 1, "beta": 1.0}
 
 print(f"{dim}D Gaussian test: {params}")
 
