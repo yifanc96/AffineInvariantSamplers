@@ -1,15 +1,13 @@
 import numpy as np
 from typing import Callable, Tuple
-import warnings
 import time
 
-class AffineInvariantEnsembleNUTSSampler:
+class HamiltonianSideMoveEnsembleNUTS:
     """
-    Affine Invariant Ensemble No-U-Turn Sampler (AIE-NUTS) implementation.
+    Hamiltonian Side Move Ensemble NUTS Sampler.
     
-    Uses two groups of dim chains each, where groups interact through 
-    ensemble-based preconditioning. Each group uses the other as a 
-    complement ensemble for momentum preconditioning.
+    Uses two groups of chains where each group performs NUTS steps with 
+    Hamiltonian side moves using the complement group for ensemble interaction.
     """
     
     def __init__(self, 
@@ -18,23 +16,17 @@ class AffineInvariantEnsembleNUTSSampler:
                  dim: int,
                  step_size: float = 0.1,
                  max_treedepth: int = 10,
-                 target_accept: float = 0.8,
-                 gamma: float = 0.05,
-                 t0: float = 10.0,
-                 kappa: float = 0.75,
-                 beta: float = 1.0):
+                 target_accept: float = 0.8):
         """
-        Initialize Affine Invariant Ensemble NUTS sampler.
+        Initialize Hamiltonian Side Move Ensemble NUTS sampler.
         
         Args:
             log_prob_fn: Vectorized log probability function (n_chains, dim) -> (n_chains,)
             grad_log_prob_fn: Vectorized gradient function (n_chains, dim) -> (n_chains, dim)
-            dim: Problem dimension and number of chains per group
+            dim: Problem dimension
             step_size: Initial step size
             max_treedepth: Maximum tree depth
             target_accept: Target acceptance probability for dual averaging
-            gamma, t0, kappa: Dual averaging parameters
-            beta: Ensemble interaction strength
         """
         self.log_prob_fn = log_prob_fn
         self.grad_log_prob_fn = grad_log_prob_fn
@@ -42,12 +34,13 @@ class AffineInvariantEnsembleNUTSSampler:
         self.step_size = step_size
         self.max_treedepth = max_treedepth
         self.target_accept = target_accept
-        self.gamma = gamma
-        self.t0 = t0
-        self.kappa = kappa
-        self.beta = beta
         
-        # Dual averaging state (single step size for all chains)
+        # Dual averaging parameters
+        self.gamma = 0.05
+        self.t0 = 10.0
+        self.kappa = 0.75
+        
+        # Dual averaging state
         self.mu = np.log(10 * step_size)
         self.log_epsilon_bar = 0.0
         self.H_bar = 0.0
@@ -66,105 +59,131 @@ class AffineInvariantEnsembleNUTSSampler:
         else:
             self.step_size = np.exp(self.log_epsilon_bar)
     
-    def compute_covariance_inv(self, complement_ensemble: np.ndarray) -> np.ndarray:
-        """Compute inverse empirical covariance of complement ensemble."""
-        # Center the complement ensemble
-        complement_mean = np.mean(complement_ensemble, axis=0)
-        centered = (complement_ensemble - complement_mean) / np.sqrt(self.dim)
-        
-        # Empirical covariance: C^T @ C
-        emp_cov = np.dot(centered.T, centered)
-        
-        # Add regularization and invert
-        reg = 1e-6 * np.eye(self.dim)
-        try:
-            return np.linalg.inv(emp_cov + reg)
-        except np.linalg.LinAlgError:
-            return np.linalg.pinv(emp_cov + reg)
-    
-    def ensemble_leapfrog(self, theta: np.ndarray, r: np.ndarray, 
-                         epsilon: float, complement_ensemble: np.ndarray, 
-                         direction: int = 1) -> Tuple[np.ndarray, np.ndarray]:
+    def direction(self, complement_ensemble: np.ndarray, n_chains: int) -> np.ndarray:
         """
-        Ensemble leapfrog step.
+        Generate side move directions using complement ensemble.
         
         Args:
-            theta: Positions (dim, dim)
-            r: Momenta (dim, dim) 
-            epsilon: Step size
-            complement_ensemble: Complement group positions (dim, dim)
-            direction: +1 for forward, -1 for backward
+            complement_ensemble: Complement group positions (n_complement, dim)
+            n_chains: Number of chains to generate directions for
+            
+        Returns:
+            side_directions: Direction vectors (n_chains, dim)
         """
-        # Compute centered complement
-        complement_mean = np.mean(complement_ensemble, axis=0)
-        centered_complement = (complement_ensemble - complement_mean) / np.sqrt(self.dim)
+        n_complement = complement_ensemble.shape[0]
         
+        # Choose two different random complement chains for each active chain
+        complement_indices1 = np.random.choice(n_complement, size=n_chains, replace=True)
+        complement_indices2 = np.random.choice(n_complement, size=n_chains, replace=True)
+        
+        # Ensure we have different complement chains when possible
+        if n_complement > 1:
+            mask = complement_indices1 == complement_indices2
+            while np.any(mask):
+                complement_indices2[mask] = np.random.choice(n_complement, size=np.sum(mask), replace=True)
+                mask = complement_indices1 == complement_indices2
+        
+        chosen_complements1 = complement_ensemble[complement_indices1]  # (n_chains, dim)
+        chosen_complements2 = complement_ensemble[complement_indices2]  # (n_chains, dim)
+        
+        # Side direction: difference between two complement particles, scaled by 1/sqrt(2*dim)
+        side_directions = (chosen_complements1 - chosen_complements2) / np.sqrt(2 * self.dim)  # (n_chains, dim)
+        
+        return side_directions
+    
+    def leapfrog_step(self, theta: np.ndarray, r: np.ndarray, epsilon: float, 
+                     side_directions: np.ndarray, direction: int = 1) -> Tuple[np.ndarray, np.ndarray]:
+        """
+        Leapfrog step with fixed side directions.
+        
+        Args:
+            theta: Positions (n_chains, dim)
+            r: Momenta (n_chains,) - scalar momentum for each chain
+            epsilon: Step size
+            side_directions: Fixed side move directions for this iteration (n_chains, dim)
+            direction: +1 for forward, -1 for backward
+            
+        Returns:
+            new_theta: Updated positions
+            new_r: Updated momenta
+        """
         if direction == 1:
-            # Forward: half momentum, full position, half momentum
+            # Forward leapfrog: half momentum, full position, half momentum
             grad = self.grad_log_prob_fn(theta)
-            r_half = r + 0.5 * epsilon * self.beta * np.dot(grad, centered_complement.T)  # Changed sign!
+            # Momentum update: project gradient onto side direction
+            grad_proj = np.sum(grad * side_directions, axis=1)  # (n_chains,)
+            r_half = r + 0.5 * epsilon * grad_proj
             
-            theta_new = theta + epsilon * self.beta * np.dot(r_half, centered_complement)
+            # Position update using scalar momentum and side directions
+            theta_new = theta + epsilon * r_half.reshape(-1, 1) * side_directions
             
+            # Final momentum update
             grad_new = self.grad_log_prob_fn(theta_new)
-            r_new = r_half + 0.5 * epsilon * self.beta * np.dot(grad_new, centered_complement.T)  # Changed sign!
+            grad_proj_new = np.sum(grad_new * side_directions, axis=1)
+            r_new = r_half + 0.5 * epsilon * grad_proj_new
         else:
-            # Backward: reverse the leapfrog
+            # Backward leapfrog
             grad = self.grad_log_prob_fn(theta)
-            r_half = r - 0.5 * epsilon * self.beta * np.dot(grad, centered_complement.T)  # Changed sign!
+            grad_proj = np.sum(grad * side_directions, axis=1)
+            r_half = r - 0.5 * epsilon * grad_proj
             
-            theta_new = theta - epsilon * self.beta * np.dot(r_half, centered_complement)
+            theta_new = theta - epsilon * r_half.reshape(-1, 1) * side_directions
             
             grad_new = self.grad_log_prob_fn(theta_new)
-            r_new = r_half - 0.5 * epsilon * self.beta * np.dot(grad_new, centered_complement.T)  # Changed sign!
+            grad_proj_new = np.sum(grad_new * side_directions, axis=1)
+            r_new = r_half - 0.5 * epsilon * grad_proj_new
         
         return theta_new, r_new
     
     def compute_uturn_criterion(self, theta_plus: np.ndarray, theta_minus: np.ndarray,
                                r_plus: np.ndarray, r_minus: np.ndarray,
-                               complement_ensemble: np.ndarray,
-                               cov_inv: np.ndarray) -> np.ndarray:
+                               side_directions: np.ndarray) -> np.ndarray:
         """
-        Compute U-turn criterion using ensemble-weighted metric.
+        Compute U-turn criterion for Hamiltonian side move.
         
-        Returns boolean array: True means continue, False means stop.
+        Args:
+            theta_plus, theta_minus: Boundary positions
+            r_plus, r_minus: Boundary momenta (scalars)
+            side_directions: Side move directions (n_chains, dim)
+            
+        Returns:
+            continue_mask: Boolean array, True means continue building tree
         """
-        delta_theta = theta_plus - theta_minus
+        # U-turn criterion: both terms should be non-negative
+        # Term 1: (theta_plus - theta_minus) · side_directions * r_plus >= 0
+        # Term 2: (theta_plus - theta_minus) · side_directions * r_minus >= 0
+        delta_theta = theta_plus - theta_minus  # (n_chains, dim)
         
-        # Convert ensemble momentum to position space
-        complement_mean = np.mean(complement_ensemble, axis=0)
-        centered_complement = (complement_ensemble - complement_mean) / np.sqrt(self.dim)
+        # Project position difference onto side directions
+        delta_theta_proj = np.sum(delta_theta * side_directions, axis=1)  # (n_chains,)
         
-        p_plus = np.dot(r_plus, centered_complement)
-        p_minus = np.dot(r_minus, centered_complement)
+        # Two terms for U-turn criterion
+        term_plus = delta_theta_proj * r_plus   # (n_chains,)
+        term_minus = delta_theta_proj * r_minus # (n_chains,)
         
-        # Weighted inner products: delta_theta^T * cov_inv * p
-        weighted_delta = np.dot(delta_theta, cov_inv)
-        dot_plus = np.sum(weighted_delta * p_plus, axis=1)
-        dot_minus = np.sum(weighted_delta * p_minus, axis=1)
-        
-        return (dot_plus >= 0) & (dot_minus >= 0)
+        # U-turn condition: both terms should be non-negative
+        return (term_plus >= 0) & (term_minus >= 0)
     
     def build_tree(self, theta: np.ndarray, r: np.ndarray, u: np.ndarray,
                    direction: int, depth: int, epsilon: float,
-                   complement_ensemble: np.ndarray, cov_inv: np.ndarray):
+                   side_directions: np.ndarray):
         """
-        Build NUTS tree for ensemble of chains.
+        Recursively build NUTS tree with fixed side directions.
         
-        Returns: theta_minus, r_minus, theta_plus, r_plus, theta_prime, 
-                n_prime, s_prime, alpha_prime
+        Returns:
+            theta_minus, r_minus, theta_plus, r_plus, theta_prime, 
+            n_prime, s_prime, alpha_prime
         """
         if depth == 0:
-            # Base case: single leapfrog step
-            theta_prime, r_prime = self.ensemble_leapfrog(
-                theta, r, epsilon, complement_ensemble, direction)
+            # Base case: single leapfrog step with fixed side directions
+            theta_prime, r_prime = self.leapfrog_step(theta, r, epsilon, side_directions, direction)
             
-            # Compute log probabilities and energies
+            # Compute energies
             log_prob_prime = self.log_prob_fn(theta_prime)
             log_prob_orig = self.log_prob_fn(theta)
             
-            kinetic_prime = 0.5 * np.sum(r_prime**2, axis=1)
-            kinetic_orig = 0.5 * np.sum(r**2, axis=1)
+            kinetic_prime = 0.5 * r_prime**2  # Scalar momentum
+            kinetic_orig = 0.5 * r**2
             
             joint_prime = log_prob_prime - kinetic_prime
             joint_orig = log_prob_orig - kinetic_orig
@@ -181,26 +200,23 @@ class AffineInvariantEnsembleNUTSSampler:
                    theta_prime, n_prime, s_prime, alpha_prime)
         
         else:
-            # Recursive case
-            # Build first subtree
+            # Recursive case: build subtrees
             (theta_minus, r_minus, theta_plus, r_plus,
              theta_prime, n_prime, s_prime, alpha_prime) = self.build_tree(
-                theta, r, u, direction, depth - 1, epsilon, complement_ensemble, cov_inv)
+                theta, r, u, direction, depth - 1, epsilon, side_directions)
             
             if np.any(s_prime == 1):
                 # Build second subtree
                 if direction == -1:
                     (theta_minus, r_minus, _, _, theta_double_prime,
                      n_double_prime, s_double_prime, alpha_double_prime) = self.build_tree(
-                        theta_minus, r_minus, u, direction, depth - 1, epsilon,
-                        complement_ensemble, cov_inv)
+                        theta_minus, r_minus, u, direction, depth - 1, epsilon, side_directions)
                 else:
                     (_, _, theta_plus, r_plus, theta_double_prime,
                      n_double_prime, s_double_prime, alpha_double_prime) = self.build_tree(
-                        theta_plus, r_plus, u, direction, depth - 1, epsilon,
-                        complement_ensemble, cov_inv)
+                        theta_plus, r_plus, u, direction, depth - 1, epsilon, side_directions)
                 
-                # Multinomial sampling
+                # Multinomial sampling for proposal
                 total_n = n_prime + n_double_prime
                 valid = total_n > 0
                 
@@ -215,33 +231,40 @@ class AffineInvariantEnsembleNUTSSampler:
                                      (n_prime * alpha_prime + n_double_prime * alpha_double_prime) / total_n,
                                      alpha_prime)
                 
-                # Update stopping criterion
-                continue_mask = self.compute_uturn_criterion(
-                    theta_plus, theta_minus, r_plus, r_minus, complement_ensemble, cov_inv)
+                # Check U-turn criterion using fixed side directions
+                continue_mask = self.compute_uturn_criterion(theta_plus, theta_minus, r_plus, r_minus, side_directions)
                 s_prime = s_double_prime * continue_mask.astype(int)
                 n_prime = total_n
             
             return (theta_minus, r_minus, theta_plus, r_plus,
                    theta_prime, n_prime, s_prime, alpha_prime)
     
-    def nuts_step(self, theta: np.ndarray, complement_ensemble: np.ndarray,
+    def nuts_step(self, theta: np.ndarray, complement_ensemble: np.ndarray, 
                   epsilon: float) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         """
         Single NUTS step for a group of chains.
         
-        Returns: new_theta, acceptance_probs, tree_depths
+        Args:
+            theta: Current positions (n_chains, dim)
+            complement_ensemble: Complement group positions (n_complement, dim)
+            epsilon: Step size
+            
+        Returns:
+            new_theta: Updated positions
+            accept_probs: Acceptance probabilities for each chain
+            tree_depths: Tree depths reached for each chain
         """
         n_chains = theta.shape[0]
         
-        # Precompute covariance inverse
-        cov_inv = self.compute_covariance_inv(complement_ensemble)
+        # Generate side directions ONCE at the beginning of the iteration
+        side_directions = self.direction(complement_ensemble, n_chains)
         
-        # Sample momentum
-        r = np.random.randn(n_chains, n_chains)
+        # Sample scalar momentum for each chain
+        r = np.random.randn(n_chains)
         
         # Compute slice variable
         log_prob_current = self.log_prob_fn(theta)
-        kinetic_current = 0.5 * np.sum(r**2, axis=1)
+        kinetic_current = 0.5 * r**2  # Scalar kinetic energy
         joint_current = log_prob_current - kinetic_current
         u = np.random.uniform(0, 1, n_chains) * np.exp(joint_current)
         
@@ -258,24 +281,25 @@ class AffineInvariantEnsembleNUTSSampler:
         alpha_sum = np.zeros(n_chains)
         n_alpha = np.zeros(n_chains)
         
-        # Build tree until U-turn or max depth
+        # Track final tree depth for each chain individually
+        final_tree_depths = np.zeros(n_chains, dtype=int)
+        
+        # Build tree until U-turn or max depth (side_directions fixed throughout)
         while np.any(s == 1) and depth < self.max_treedepth:
-            # Choose direction
+            # Choose direction randomly
             direction = np.random.choice([-1, 1])
             
-            # Expand tree
+            # Expand tree in chosen direction using fixed side directions
             if direction == -1:
                 (theta_minus, r_minus, _, _, theta_prime,
                  n_prime, s_prime, alpha_prime) = self.build_tree(
-                    theta_minus, r_minus, u, direction, depth, epsilon,
-                    complement_ensemble, cov_inv)
+                    theta_minus, r_minus, u, direction, depth, epsilon, side_directions)
             else:
                 (_, _, theta_plus, r_plus, theta_prime,
                  n_prime, s_prime, alpha_prime) = self.build_tree(
-                    theta_plus, r_plus, u, direction, depth, epsilon,
-                    complement_ensemble, cov_inv)
+                    theta_plus, r_plus, u, direction, depth, epsilon, side_directions)
             
-            # Update positions
+            # Update positions with multinomial sampling
             if np.any(s_prime == 1):
                 prob = np.minimum(1.0, n_prime / n)
                 accept_mask = (np.random.rand(n_chains) < prob) & (s_prime == 1)
@@ -287,66 +311,85 @@ class AffineInvariantEnsembleNUTSSampler:
                 alpha_sum[valid_alpha] += n_prime[valid_alpha] * alpha_prime[valid_alpha]
                 n_alpha[valid_alpha] += n_prime[valid_alpha]
             
-            # Update counts and stopping
+            # Update counters and stopping criterion
             n += n_prime
-            s = s_prime
+            
+            # Update final tree depth for chains that are still active
             depth += 1
+            final_tree_depths[s == 1] = depth
+            
+            # Update stopping criterion
+            s = s_prime
+        
+        # For chains that never stopped (reached max depth), set to max depth
+        final_tree_depths[final_tree_depths == 0] = depth
         
         # Compute final acceptance probabilities
         accept_probs = np.where(n_alpha > 0, alpha_sum / n_alpha, 0.0)
-        tree_depths = np.full(n_chains, depth)
         
-        return theta_new, accept_probs, tree_depths
+        return theta_new, accept_probs, final_tree_depths
     
     def sample(self, theta_init: np.ndarray, num_samples: int,
-               warmup: int = 1000, adapt_step_size: bool = True) -> Tuple[np.ndarray, dict]:
+               total_chains: int = None, warmup: int = 1000, 
+               adapt_step_size: bool = True) -> Tuple[np.ndarray, dict]:
         """
-        Run Ensemble NUTS sampling.
+        Run Hamiltonian Side Move Ensemble NUTS sampling.
         
         Args:
-            theta_init: Initial position (will be replicated)
+            theta_init: Initial position (will be replicated across chains)
             num_samples: Number of post-warmup samples
+            total_chains: Total number of chains (default: max(4, 2*dim))
             warmup: Number of warmup samples
-            adapt_step_size: Whether to adapt step size
+            adapt_step_size: Whether to adapt step size during warmup
             
         Returns:
-            samples: (total_samples, 2*dim, dim) array
-            diagnostics: Dictionary of diagnostic information
+            samples: Array of shape (num_samples, total_chains, dim)
+            diagnostics: Dictionary with diagnostic information
         """
-        total_samples = warmup + num_samples
-        total_chains = 2 * self.dim
+        if total_chains is None:
+            total_chains = max(4, 2 * self.dim)
+            
+        if total_chains < 4:
+            raise ValueError("total_chains must be at least 4")
         
-        # Initialize ensemble: two groups of dim chains each
-        theta_ensemble = np.tile(theta_init, (total_chains, 1))
+        # Split chains into two groups
+        group1_size = total_chains // 2
+        group2_size = total_chains - group1_size
+        
+        print(f"Running with {total_chains} chains: Group 1 ({group1_size}), Group 2 ({group2_size})")
+        
+        # Initialize chains
+        theta_ensemble = np.tile(theta_init.reshape(1, -1), (total_chains, 1))
         theta_ensemble += 0.1 * np.random.randn(total_chains, self.dim)
         
-        # Split into groups
-        group1 = theta_ensemble[:self.dim]
-        group2 = theta_ensemble[self.dim:]
+        group1 = theta_ensemble[:group1_size]
+        group2 = theta_ensemble[group1_size:]
         
         # Storage
-        samples = np.zeros((total_samples, total_chains, self.dim))
+        total_iterations = warmup + num_samples
+        samples = np.zeros((total_iterations, total_chains, self.dim))
         accept_probs_history = []
         tree_depths_history = []
         step_sizes_history = []
         
-        for i in range(total_samples):
+        # Sampling loop
+        for i in range(total_iterations):
             # Store current state
-            samples[i, :self.dim] = group1
-            samples[i, self.dim:] = group2
+            samples[i, :group1_size] = group1
+            samples[i, group1_size:] = group2
             
             # Update group 1 using group 2 as complement
             group1, accept1, depths1 = self.nuts_step(group1, group2, self.step_size)
             
-            # Update group 2 using group 1 as complement  
+            # Update group 2 using group 1 as complement
             group2, accept2, depths2 = self.nuts_step(group2, group1, self.step_size)
             
             # Combine diagnostics
             all_accepts = np.concatenate([accept1, accept2])
             all_depths = np.concatenate([depths1, depths2])
             
-            # Adapt step size
-            if adapt_step_size:
+            # Adapt step size during warmup
+            if adapt_step_size and i < warmup:
                 mean_accept = np.mean(all_accepts)
                 self.update_step_size(mean_accept, i, warmup)
             
@@ -355,11 +398,12 @@ class AffineInvariantEnsembleNUTSSampler:
             tree_depths_history.append(all_depths)
             step_sizes_history.append(self.step_size)
             
-            # Progress
+            # Progress reporting
             if (i + 1) % 1000 == 0:
-                print(f"Iteration {i+1}/{total_samples}, "
-                      f"Mean accept: {np.mean(all_accepts):.3f}, "
-                      f"Step size: {self.step_size:.4f}")
+                print(f"Iteration {i+1}/{total_iterations}, "
+                      f"Accept rate: {np.mean(all_accepts):.3f}, "
+                      f"Step size: {self.step_size:.4f}, "
+                      f"Avg tree depth: {np.mean(all_depths):.1f}")
         
         # Return post-warmup samples
         post_warmup_samples = samples[warmup:] if warmup > 0 else samples
@@ -370,18 +414,20 @@ class AffineInvariantEnsembleNUTSSampler:
             'step_sizes': np.array(step_sizes_history),
             'mean_accept_prob': np.mean(accept_probs_history[warmup:] if warmup > 0 else accept_probs_history),
             'final_step_size': self.step_size,
-            'warmup_samples': warmup
+            'warmup_iterations': warmup,
+            'total_chains': total_chains,
+            'group_sizes': (group1_size, group2_size)
         }
         
         return post_warmup_samples, diagnostics
 
 
 def test_ensemble_nuts():
-    """Test Ensemble NUTS on high-dimensional Gaussian."""
-    print("=== Testing Ensemble NUTS Sampler ===")
+    """Test Ensemble NUTS on high-dimensional Gaussian with different chain counts."""
+    print("=== Testing Hamiltonian Side Move Ensemble NUTS Sampler ===")
     
     # Problem setup
-    dim = 10
+    dim = 5
     n_samples = 5000
     warmup = 1000
     
@@ -411,18 +457,17 @@ def test_ensemble_nuts():
     
     # Run Ensemble NUTS
     start_time = time.time()
-    sampler = AffineInvariantEnsembleNUTSSampler(
+    sampler = HamiltonianSideMoveEnsembleNUTS(
         log_prob_fn=log_prob_fn,
         grad_log_prob_fn=grad_log_prob_fn,
-        max_treedepth=5,
         dim=dim,
         step_size=1.0,
-        target_accept=0.8,
-        beta=1.0
+        max_treedepth=5,
+        target_accept=0.8
     )
     
     samples, diagnostics = sampler.sample(
-        initial, num_samples=n_samples, warmup=warmup, adapt_step_size=True
+        initial, num_samples=n_samples, total_chains=2*dim, warmup=warmup, adapt_step_size=True
     )
 
     elapsed_time = time.time() - start_time
@@ -433,7 +478,7 @@ def test_ensemble_nuts():
     mean_error = np.linalg.norm(sample_mean - true_mean)
     
     print(f"\n=== Results ===")
-    print(f"Total chains: {2 * dim}")
+    print(f"Total chains: {diagnostics['total_chains']}")
     print(f"Samples shape: {samples.shape}")
     print(f"Mean error: {mean_error:.4f}")
     print(f"Time: {elapsed_time:.1f}s")
@@ -442,6 +487,7 @@ def test_ensemble_nuts():
     print(f"Average tree depth: {np.mean(diagnostics['tree_depths']):.2f}")
     
     return samples, diagnostics
+
 
 if __name__ == "__main__":
     samples, diagnostics = test_ensemble_nuts()

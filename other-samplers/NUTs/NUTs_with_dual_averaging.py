@@ -445,14 +445,14 @@ def challenging_example():
 import time
 
 # # Setup
-dim = 10
+dim = 5
 n_samples = 5000
 burn_in = 1000
 total_samples = n_samples + burn_in
 
 # Create problem
 np.random.seed(42)
-cond_number = 1000
+cond_number = 100
 eigenvals = 0.1 * np.linspace(1, cond_number, dim)
 H = np.random.randn(dim, dim)
 Q, _ = np.linalg.qr(H)

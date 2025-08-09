@@ -57,8 +57,6 @@ class EnsembleNUTSSampler:
         self.log_epsilon_bar = 0.0
         self.H_bar = 0.0
     
-
-    
     def ensemble_leapfrog(self, theta: np.ndarray, r: np.ndarray, v: int, 
                          epsilon: float, complement_ensemble: np.ndarray) -> Tuple[np.ndarray, np.ndarray]:
         """
@@ -368,8 +366,15 @@ class EnsembleNUTSSampler:
         n_alpha = np.zeros(n_chains)
         n_divergent = 0
         
+        # Track final tree depth for each chain individually
+        # Initialize to -1 to indicate not yet terminated
+        final_tree_depths = np.full(n_chains, -1, dtype=int)
+        
         # Build trees until U-turn or max depth
-        while np.any(s == 1):
+        while np.any(s == 1) and j < self.max_treedepth:
+            # Store which chains are active before this iteration
+            active_before = (s == 1).copy()
+            
             # Choose direction randomly
             v_j = np.random.choice([-1, 1])
             
@@ -384,10 +389,6 @@ class EnsembleNUTSSampler:
                  theta_prime, n_prime, s_prime, alpha_prime) = \
                     self.build_tree_ensemble(theta_plus, r_plus, u, 1, j, 
                                            step_size, complement_theta)
-            
-            # Check for divergences
-            if np.any(s_prime == 0):
-                n_divergent += np.sum(s_prime == 0)
             
             # Update only for chains that haven't stopped
             active_chains = s == 1
@@ -414,18 +415,34 @@ class EnsembleNUTSSampler:
             
             # Update variables
             n = total_n
-            s = s_prime
+            
+            # Increment depth BEFORE checking termination
             j += 1
             
-            # Prevent infinite loops
-            if j >= self.max_treedepth:
-                warnings.warn(f"Maximum tree depth {self.max_treedepth} reached")
-                break
+            # Record depth for chains that terminate in this iteration
+            # (were active before, but stopped now)
+            newly_stopped = active_before & (s_prime == 0)
+            final_tree_depths[newly_stopped] = j
+            
+            # Count divergent transitions for newly stopped chains
+            if np.any(newly_stopped):
+                n_divergent += np.sum(newly_stopped)
+            
+            # Update stopping criterion
+            s = s_prime
+        
+        # For chains still active at max depth, record max depth
+        still_active = (s == 1)
+        final_tree_depths[still_active] = j
+        
+        # Handle chains that stopped in first iteration (should have depth 1, not -1)
+        never_updated = (final_tree_depths == -1)
+        final_tree_depths[never_updated] = 1
         
         # Update positions
         group_theta[:] = theta_m
         
-        return alpha, np.full(n_chains, j), n_divergent
+        return alpha, final_tree_depths, n_divergent
 
 
 # Test with high-dimensional Gaussian - same as standard NUTS
@@ -434,7 +451,7 @@ def test_ensemble_nuts():
     print("=== Testing Ensemble NUTS Sampler ===")
     
     # Setup - same as standard NUTS test
-    dim = 10
+    dim = 5
     n_samples = 4000
     burn_in = 1000
     
