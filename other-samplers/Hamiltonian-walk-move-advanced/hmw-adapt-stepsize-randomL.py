@@ -117,7 +117,7 @@ def hamiltonian_walk_move_adaptive(gradient_func, potential_func, initial, n_sam
         
         # Randomize number of leapfrog steps for second group too
         if randomize_steps:
-            n_steps = np.random.randint(max(1, n_leapfrog//2), 2*n_leapfrog + 1)
+            n_steps = np.random.randint(max(1, n_leapfrog//2), 2*n_leapfrog)
         else:
             n_steps = n_leapfrog
         for step in range(n_steps):
@@ -181,8 +181,6 @@ def hamiltonian_walk_move_adaptive(gradient_func, potential_func, initial, n_sam
         
         p2_current -= beta_eps_half * np.dot(grad2, centered1.T)
         
-        # Full leapfrog steps
-        n_steps = n_leapfrog
         for step in range(n_steps):
             # Full position step - vectorized
             q2 += beta_eps * np.dot(p2_current, centered1)
@@ -437,7 +435,7 @@ true_mean = np.ones(dim)
 initial = np.zeros(dim)
 
 # Parameters
-params = {"n_chains_per_group": max(dim,20), "n_leapfrog": 5, "beta": 1.0}
+params = {"n_chains_per_group": max(dim,20), "n_leapfrog": 2, "beta": 1.0}
 
 print(f"{dim}D Gaussian test: {params}")
 

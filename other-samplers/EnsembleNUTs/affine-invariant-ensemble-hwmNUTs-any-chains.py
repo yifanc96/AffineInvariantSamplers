@@ -427,7 +427,7 @@ def test_ensemble_nuts():
     print("=== Testing Flexible Ensemble NUTS Sampler ===")
     
     # Problem setup
-    dim = 5
+    dim = 20
     n_samples = 5000
     warmup = 1000
     
