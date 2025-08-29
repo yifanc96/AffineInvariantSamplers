@@ -527,13 +527,13 @@ def test_funnel_k_values():
     initial[0] = 0.0  # Start v near 0
     initial[1:] = 0.1 * np.random.randn(dim-1)
     
-    n_samples = 100000
+    n_samples = 400000
     n_warmup = 20000
     n_chains_per_group = 4*dim
     
     # Different k values to test
-    k_values = [2,n_chains_per_group]  # k=10 is full ensemble (original EKM)
-    
+    # k_values = [2,n_chains_per_group]  # k=n_chains_per_group is full ensemble (original EKM)
+    k_values = [2]
     results = {}
     
     print("Testing funnel distribution with different k values...")
