@@ -1,52 +1,41 @@
-
 import numpy as np
-import matplotlib.pyplot as plt
-import time
 import os
-
-def ensemble_kalman_move_k_subset(forward_func, initial, n_samples, k=None, M=None,
-                                             n_chains_per_group=5, h=0.01, n_thin=1, use_metropolis=True,
-                                             target_accept=0.57, n_warmup=1000, gamma=0.05, t0=10, kappa=0.75):
+import time
+def hamiltonian_walk_move_k_subset(gradient_func, potential_func, initial, n_samples, k=None,
+                                             n_chains_per_group=5, epsilon_init=0.01, n_leapfrog=10, 
+                                             beta=0.05, n_thin=1, target_accept=0.65, n_warmup=1000,
+                                             gamma=0.05, t0=10, kappa=0.75):
     """
-    Ensemble Kalman Move sampler using k-subset of complementary ensemble for proposals.
+    Vectorized Hamiltonian Walk Move sampler using k-subset of complementary ensemble for preconditioning.
     
-    This vectorized implementation ensures that each chain gets a different random
-    subset of k chains from the complementary ensemble for its proposal.
-    
-    For density π(x) ∝ exp(-V(x)) with V(x) = ½G(x)ᵀMG(x) where G: ℝᵈ → ℝʳ.
-    
-    The proposal uses k randomly selected chains from the complementary group:
-    x' = x - h * B_S * F_S^T * M * G(x) + √(2h) * B_S * z
-    where:
-    - B_S: normalized centered ensemble from k selected chains (flat_dim, k)
-    - F_S: normalized centered G(x) from k selected chains (data_dim, k)  
-    - z ~ N(0, I_{k × k})
+    This implementation ensures each chain uses a different, randomly sampled k-subset
+    from the complementary ensemble for its leapfrog integration.
     
     Parameters:
     -----------
-    forward_func : callable
-        Function G(x) that maps parameters to data space ℝᵈ → ℝʳ
-        Must accept batch input: G(x_batch) where x_batch has shape (n_batch, *param_shape)
-        Returns array of shape (n_batch, data_dim)
-    initial : np.ndarray
+    gradient_func : callable
+        Function that computes gradients of the negative log probability (potential energy)
+    potential_func : callable  
+        Function that computes the negative log probability (potential energy)
+    initial : array_like
         Initial state
     n_samples : int
         Number of samples to collect (after warmup)
     k : int, optional
         Number of chains to use from complementary ensemble (default: n_chains_per_group)
         Must satisfy 2 <= k <= n_chains_per_group
-    M : np.ndarray, optional
-        Precision matrix in data space (default: identity)
     n_chains_per_group : int
         Number of chains per group (default: 5)
-    h : float
+    epsilon_init : float
         Initial step size (default: 0.01)
+    n_leapfrog : int
+        Number of leapfrog steps (default: 10)
+    beta : float
+        Preconditioning parameter (default: 0.05)
     n_thin : int
-        Thinning factor (default: 1, no thinning)
-    use_metropolis : bool
-        Whether to use Metropolis correction for exact sampling (default: True)
+        Thinning factor - store every n_thin sample (default: 1, no thinning)
     target_accept : float
-        Target acceptance rate for dual averaging (default: 0.57)
+        Target acceptance rate for dual averaging (default: 0.65)
     n_warmup : int
         Number of warmup iterations for step size adaptation (default: 1000)
     gamma : float
@@ -58,11 +47,11 @@ def ensemble_kalman_move_k_subset(forward_func, initial, n_samples, k=None, M=No
     
     Returns:
     --------
-    samples : np.ndarray
-        Collected samples from all chains (after warmup)
-    acceptance_rates : np.ndarray
-        Final acceptance rates for all chains
-    step_size_history : np.ndarray
+    samples : ndarray
+        Generated samples from all chains (after warmup)
+    acceptance_rates : ndarray
+        Final acceptance rates for each chain
+    step_size_history : ndarray
         History of step sizes during adaptation
     """
     
@@ -87,6 +76,7 @@ def ensemble_kalman_move_k_subset(forward_func, initial, n_samples, k=None, M=No
     group2_idx = slice(n_chains_per_group, total_chains)
     
     # Dual averaging initialization
+    h = epsilon_init
     log_h = np.log(h)
     log_h_bar = 0.0
     h_bar = 0.0  # FIX: Initialize h_bar for dual averaging
@@ -98,194 +88,146 @@ def ensemble_kalman_move_k_subset(forward_func, initial, n_samples, k=None, M=No
     
     # Storage for samples and acceptance tracking
     samples = np.zeros((total_chains, n_samples, flat_dim))
-    accepts_warmup = np.zeros(total_chains)
-    accepts_sampling = np.zeros(total_chains)
+    accepts_warmup = np.zeros(total_chains)  # Track accepts during warmup
+    accepts_sampling = np.zeros(total_chains)  # Track accepts during sampling
+    
+    # Sample index to track where to store thinned samples
     sample_idx = 0
     
-    # Determine data dimension from first forward model evaluation
-    test_G = forward_func(initial)
-    data_dim = len(test_G)
-    
-    # Set default M = I if not provided
-    if M is None:
-        M = np.eye(data_dim)
-    
     print(f"Using a unique random k-subset for each chain (k={k})")
-    
-    # Initial forward model evaluations for both groups
-    group1_reshaped = states[group1_idx].reshape(n_chains_per_group, *orig_dim)
-    group2_reshaped = states[group2_idx].reshape(n_chains_per_group, *orig_dim)
-    G_group1 = forward_func(group1_reshaped)  # (n_chains_per_group, data_dim)
-    G_group2 = forward_func(group2_reshaped)  # (n_chains_per_group, data_dim)
     
     # Main sampling loop
     for i in range(total_iterations):
         is_warmup = i < n_warmup
-        current_h = h if not is_warmup else np.exp(log_h)
+        current_epsilon = epsilon_init if not is_warmup else np.exp(log_h)
         
         # Store current state from all chains (only during sampling phase)
         if not is_warmup and (i - n_warmup) % n_thin == 0 and sample_idx < n_samples:
             samples[:, sample_idx] = states
             sample_idx += 1
         
+        # Precompute step size terms
+        beta_eps = beta * current_epsilon
+        beta_eps_half = beta_eps / 2
+        
         # --- Vectorized Update for Group 1 ---
         # Each chain in group 1 uses a unique random k-subset from group 2
         
         # 1. Generate random k-subsets for each chain in group 1 from group 2 chains
-        selected_indices_2 = np.array([np.random.choice(n_chains_per_group, size=k, replace=False) 
+        selected_indices_2 = np.array([np.random.choice(n_chains_per_group, size=k, replace=False)
                                        for _ in range(n_chains_per_group)]) # (n_cpg, k)
-
-        # 2. Use advanced indexing to get all needed states and G values at once
-        # These are now 3D arrays: (n_chains_per_group, k, dim)
+        
+        # 2. Use advanced indexing to get all needed states
         selected_states_2 = states[group2_idx][selected_indices_2] # (n_cpg, k, flat_dim)
-        G_selected_2 = G_group2[selected_indices_2] # (n_cpg, k, data_dim)
         
         # 3. Centering and normalization for each k-subset using broadcasting
-        mean_G_selected_2 = np.mean(G_selected_2, axis=1, keepdims=True) # (n_cpg, 1, data_dim)
-        F_S1 = (G_selected_2 - mean_G_selected_2) / np.sqrt(k) # (n_cpg, k, data_dim)
-        selected_centered_2 = selected_states_2 - np.mean(selected_states_2, axis=1, keepdims=True) # (n_cpg, k, flat_dim)
-        B_S1 = selected_centered_2 / np.sqrt(k) # (n_cpg, k, flat_dim)
-
-        current_q1 = states[group1_idx] # (n_cpg, flat_dim)
-        G_current1 = G_group1 # (n_cpg, data_dim)
-        current_U1 = 0.5 * np.sum(G_current1 * (G_current1 @ M), axis=1) # (n_cpg,)
-
-        # 4. Generate noise z ~ N(0, I_{k}) for each chain
-        z1 = np.random.randn(n_chains_per_group, k) # (n_cpg, k)
+        centered2 = (selected_states_2 - np.mean(selected_states_2, axis=1, keepdims=True)) / np.sqrt(k)
         
-        # 5. Vectorized proposal calculation using einsum
-        MG_current1 = G_current1 @ M # (n_cpg, data_dim)
-        # Corrected einsum for B_S @ F_S.T @ M @ G_current
-        drift_terms = -current_h * np.einsum('nsp,nsd,nd->np', B_S1, F_S1, MG_current1) # (n_cpg, flat_dim)
+        # Store current state and energy
+        current_q1 = states[group1_idx].copy()
+        current_q1_reshaped = current_q1.reshape(n_chains_per_group, *orig_dim)
+        current_U1 = potential_func(current_q1_reshaped)
         
-        # Corrected einsum for B_S @ z
-        noise_terms = np.sqrt(2 * current_h) * np.einsum('nsp,ns->np', B_S1, z1) # (n_cpg, flat_dim)
+        # Initialize momentum in k-dimensional subspace
+        p1 = np.random.randn(n_chains_per_group, k)
+        current_K1 = np.clip(0.5 * np.sum(p1**2, axis=1), 0, 1000)
+        
+        # Leapfrog integration
+        q1 = current_q1.copy()
+        p1_current = p1.copy()
+        
+        # Initial half-step for momentum
+        grad1 = gradient_func(q1.reshape(n_chains_per_group, *orig_dim))
+        grad1 = np.nan_to_num(grad1, nan=0.0)
+        p1_current -= beta_eps_half * np.einsum('np,nsp->ns', grad1, centered2)
 
-        proposed_q1 = current_q1 + drift_terms + noise_terms
-        
-        accepts1 = np.zeros(n_chains_per_group, dtype=bool)
+        for step in range(n_leapfrog):
+            # Position update with ensemble preconditioning
+            q1 += beta_eps * np.einsum('ns,nsp->np', p1_current, centered2)
 
-        if use_metropolis:
-            proposed_q1_reshaped = proposed_q1.reshape(n_chains_per_group, *orig_dim)
-            G_proposed1 = forward_func(proposed_q1_reshaped)
-            proposed_U1 = 0.5 * np.sum(G_proposed1 * (G_proposed1 @ M), axis=1)
-            
-            mean_forward = current_q1 + drift_terms
-            
-            MG_proposed1 = G_proposed1 @ M
-            reverse_drift = -current_h * np.einsum('nsp,nsd,nd->np', B_S1, F_S1, MG_proposed1)
-            mean_reverse = proposed_q1 + reverse_drift
-            
-            residual_forward = proposed_q1 - mean_forward
-            residual_reverse = current_q1 - mean_reverse
-            
-            # Corrected einsum for the Gram matrix: B_S^T @ B_S
-            reg_gram = np.einsum('nsp,nqp->nsq', B_S1, B_S1) + 1e-12 * np.eye(k) # (n_cpg, k, k)
-            
-            # Log proposal probabilities
-            try:
-                # Corrected einsum for alpha terms
-                alpha_forward = np.linalg.solve(reg_gram, np.einsum('nsp,np->ns', B_S1, residual_forward)) # (n_cpg, k)
-                alpha_reverse = np.linalg.solve(reg_gram, np.einsum('nsp,np->ns', B_S1, residual_reverse)) # (n_cpg, k)
-                
-                log_q_forward = -np.sum(alpha_forward**2, axis=1) / (4 * current_h)
-                log_q_reverse = -np.sum(alpha_reverse**2, axis=1) / (4 * current_h)
-            except np.linalg.LinAlgError:
-                print(f"Warning: Numerical issues with regularized Gram matrix at iteration {i} (Group 1)")
-                log_q_forward = np.zeros(n_chains_per_group)
-                log_q_reverse = np.zeros(n_chains_per_group)
-            
-            log_ratio = - (proposed_U1 - current_U1) + log_q_reverse - log_q_forward
-            
-            accept_probs1 = np.clip(np.exp(log_ratio), 0.0, 1.0)
-            accepts1 = np.random.random(n_chains_per_group) < accept_probs1
-            
-            states[group1_idx][accepts1] = proposed_q1[accepts1]
-            G_group1[accepts1] = G_proposed1[accepts1]
+            if step < n_leapfrog - 1:
+                # Momentum update
+                grad1 = gradient_func(q1.reshape(n_chains_per_group, *orig_dim))
+                grad1 = np.nan_to_num(grad1, nan=0.0)
+                p1_current -= beta_eps * np.einsum('np,nsp->ns', grad1, centered2)
         
-        else: # Pure Ensemble Kalman
-            states[group1_idx] = proposed_q1
-            accepts1 = np.ones(n_chains_per_group, dtype=bool)
-            G_group1 = forward_func(proposed_q1.reshape(n_chains_per_group, *orig_dim))
+        # Final half-step for momentum
+        grad1 = gradient_func(q1.reshape(n_chains_per_group, *orig_dim))
+        grad1 = np.nan_to_num(grad1, nan=0.0)
+        p1_current -= beta_eps_half * np.einsum('np,nsp->ns', grad1, centered2)
+        
+        # Compute proposed energy
+        proposed_U1 = potential_func(q1.reshape(n_chains_per_group, *orig_dim))
+        proposed_K1 = np.clip(0.5 * np.sum(p1_current**2, axis=1), 0, 1000)
+        
+        # Metropolis acceptance with numerical stability
+        dH1 = (proposed_U1 + proposed_K1) - (current_U1 + current_K1)
+        
+        accept_probs1 = np.ones_like(dH1)
+        exp_needed = dH1 > 0
+        if np.any(exp_needed):
+            safe_dH = np.clip(dH1[exp_needed], None, 100)
+            accept_probs1[exp_needed] = np.exp(-safe_dH)
+        
+        accepts1 = np.random.random(n_chains_per_group) < accept_probs1
+        states[group1_idx][accepts1] = q1[accepts1]
         
         # Track acceptances
         if is_warmup:
             accepts_warmup[group1_idx] += accepts1
         else:
             accepts_sampling[group1_idx] += accepts1
-            
+        
         # --- Vectorized Update for Group 2 (Symmetric) ---
         # Each chain in group 2 uses a unique random k-subset from group 1
-        selected_indices_1 = np.array([np.random.choice(n_chains_per_group, size=k, replace=False) 
+        
+        selected_indices_1 = np.array([np.random.choice(n_chains_per_group, size=k, replace=False)
                                        for _ in range(n_chains_per_group)]) # (n_cpg, k)
-
+        
         selected_states_1 = states[group1_idx][selected_indices_1]
-        G_selected_1 = G_group1[selected_indices_1]
         
-        mean_G_selected_1 = np.mean(G_selected_1, axis=1, keepdims=True)
-        F_S2 = (G_selected_1 - mean_G_selected_1) / np.sqrt(k)
-        selected_centered_1 = selected_states_1 - np.mean(selected_states_1, axis=1, keepdims=True)
-        B_S2 = selected_centered_1 / np.sqrt(k)
+        centered1 = (selected_states_1 - np.mean(selected_states_1, axis=1, keepdims=True)) / np.sqrt(k)
+        
+        current_q2 = states[group2_idx].copy()
+        current_q2_reshaped = current_q2.reshape(n_chains_per_group, *orig_dim)
+        current_U2 = potential_func(current_q2_reshaped)
+        
+        p2 = np.random.randn(n_chains_per_group, k)
+        current_K2 = np.clip(0.5 * np.sum(p2**2, axis=1), 0, 1000)
+        
+        q2 = current_q2.copy()
+        p2_current = p2.copy()
+        
+        grad2 = gradient_func(q2.reshape(n_chains_per_group, *orig_dim))
+        grad2 = np.nan_to_num(grad2, nan=0.0)
+        p2_current -= beta_eps_half * np.einsum('np,nsp->ns', grad2, centered1)
 
-        current_q2 = states[group2_idx]
-        G_current2 = G_group2
-        current_U2 = 0.5 * np.sum(G_current2 * (G_current2 @ M), axis=1)
-
-        z2 = np.random.randn(n_chains_per_group, k)
+        for step in range(n_leapfrog):
+            q2 += beta_eps * np.einsum('ns,nsp->np', p2_current, centered1)
+            
+            if step < n_leapfrog - 1:
+                grad2 = gradient_func(q2.reshape(n_chains_per_group, *orig_dim))
+                grad2 = np.nan_to_num(grad2, nan=0.0)
+                p2_current -= beta_eps * np.einsum('np,nsp->ns', grad2, centered1)
         
-        MG_current2 = G_current2 @ M
-        # Corrected einsum for B_S @ F_S.T @ M @ G_current
-        drift_terms = -current_h * np.einsum('nsp,nsd,nd->np', B_S2, F_S2, MG_current2)
-        # Corrected einsum for B_S @ z
-        noise_terms = np.sqrt(2 * current_h) * np.einsum('nsp,ns->np', B_S2, z2)
-
-        proposed_q2 = current_q2 + drift_terms + noise_terms
+        grad2 = gradient_func(q2.reshape(n_chains_per_group, *orig_dim))
+        grad2 = np.nan_to_num(grad2, nan=0.0)
+        p2_current -= beta_eps_half * np.einsum('np,nsp->ns', grad2, centered1)
         
-        accepts2 = np.zeros(n_chains_per_group, dtype=bool)
-
-        if use_metropolis:
-            proposed_q2_reshaped = proposed_q2.reshape(n_chains_per_group, *orig_dim)
-            G_proposed2 = forward_func(proposed_q2_reshaped)
-            proposed_U2 = 0.5 * np.sum(G_proposed2 * (G_proposed2 @ M), axis=1)
-            
-            mean_forward = current_q2 + drift_terms
-            
-            MG_proposed2 = G_proposed2 @ M
-            reverse_drift = -current_h * np.einsum('nsp,nsd,nd->np', B_S2, F_S2, MG_proposed2)
-            mean_reverse = proposed_q2 + reverse_drift
-            
-            residual_forward = proposed_q2 - mean_forward
-            residual_reverse = current_q2 - mean_reverse
-            
-            # Corrected einsum for the Gram matrix: B_S^T @ B_S
-            reg_gram = np.einsum('nsp,nqp->nsq', B_S2, B_S2) + 1e-12 * np.eye(k)
-            
-            try:
-                # Corrected einsum for alpha terms
-                alpha_forward = np.linalg.solve(reg_gram, np.einsum('nsp,np->ns', B_S2, residual_forward))
-                alpha_reverse = np.linalg.solve(reg_gram, np.einsum('nsp,np->ns', B_S2, residual_reverse))
-                
-                log_q_forward = -np.sum(alpha_forward**2, axis=1) / (4 * current_h)
-                log_q_reverse = -np.sum(alpha_reverse**2, axis=1) / (4 * current_h)
-            except np.linalg.LinAlgError:
-                print(f"Warning: Numerical issues with regularized Gram matrix at iteration {i} (Group 2)")
-                log_q_forward = np.zeros(n_chains_per_group)
-                log_q_reverse = np.zeros(n_chains_per_group)
-            
-            log_ratio = - (proposed_U2 - current_U2) + log_q_reverse - log_q_forward
-            
-            accept_probs2 = np.clip(np.exp(log_ratio), 0.0, 1.0)
-            accepts2 = np.random.random(n_chains_per_group) < accept_probs2
-            
-            states[group2_idx][accepts2] = proposed_q2[accepts2]
-            G_group2[accepts2] = G_proposed2[accepts2]
+        proposed_U2 = potential_func(q2.reshape(n_chains_per_group, *orig_dim))
+        proposed_K2 = np.clip(0.5 * np.sum(p2_current**2, axis=1), 0, 1000)
         
-        else: # Pure Ensemble Kalman
-            states[group2_idx] = proposed_q2
-            accepts2 = np.ones(n_chains_per_group, dtype=bool)
-            G_group2 = forward_func(proposed_q2.reshape(n_chains_per_group, *orig_dim))
+        dH2 = (proposed_U2 + proposed_K2) - (current_U2 + current_K2)
         
-        # Track acceptances
+        accept_probs2 = np.ones_like(dH2)
+        exp_needed = dH2 > 0
+        if np.any(exp_needed):
+            safe_dH = np.clip(dH2[exp_needed], None, 100)
+            accept_probs2[exp_needed] = np.exp(-safe_dH)
+            
+        accepts2 = np.random.random(n_chains_per_group) < accept_probs2
+        states[group2_idx][accepts2] = q2[accepts2]
+        
         if is_warmup:
             accepts_warmup[group2_idx] += accepts2
         else:
@@ -315,8 +257,8 @@ def ensemble_kalman_move_k_subset(forward_func, initial, n_samples, k=None, M=No
         
         # After warmup, fix step size to the adapted value
         if i == n_warmup - 1:
-            h = np.exp(log_h)
-            print(f"Warmup complete. Final adapted step size: {h:.6f}")
+            epsilon_init = np.exp(log_h)
+            print(f"Warmup complete. Final adapted step size: {epsilon_init:.6f}")
     
     # Reshape final samples to original dimensions
     samples = samples.reshape((total_chains, n_samples) + orig_dim)
@@ -502,18 +444,6 @@ def benchmark_samplers(dim=40, n_samples=10000, burn_in=1000, condition_number=1
             
         return result
         
-    def forward_func(x_batch):
-        """
-        Forward model G(x) = x - μ
-        x_batch: (n_batch, dim)
-        returns: (n_batch, dim)  # data dimension = parameter dimension
-        """
-        if x_batch.ndim == 1:
-            x_batch = x_batch.reshape(1, -1)
-        
-        # G(x) = x - μ
-        return x_batch - true_mean  # (n_batch, dim)
-    
     # For this construction, M = Λ (precision matrix)
     M = np.diag(precision_diag)
     
@@ -529,7 +459,20 @@ def benchmark_samplers(dim=40, n_samples=10000, burn_in=1000, condition_number=1
     
     # Define samplers to benchmark - adjust parameters for high-dimensional case
     samplers = {
-        "Ensemble Kalman Move": lambda: ensemble_kalman_move_k_subset(forward_func=forward_func, M = M, k=2, initial=initial, n_samples=total_samples, n_warmup=burn_in, n_chains_per_group=dim, h=1.362/(dim**(1/2)), target_accept=0.57, n_thin=n_thin, use_metropolis=True),
+        "Hamiltonian Walk Move": lambda: hamiltonian_walk_move_k_subset(
+            gradient_func=gradient, 
+            potential_func=potential, 
+            initial=initial, 
+            n_samples=total_samples, 
+            n_warmup=burn_in, 
+            n_chains_per_group=dim, 
+            epsilon_init=1/(dim**(1/4)), 
+            n_leapfrog=3, 
+            beta=1.0,
+            target_accept=0.65, 
+            n_thin=n_thin,
+            k=dim//2
+        ),
     }
     
     for name, sampler_func in samplers.items():
