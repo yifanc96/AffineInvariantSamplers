@@ -272,7 +272,7 @@ def benchmark_sampler_gaussian(dim, n_samples, n_warmup, n_chains_per_group, k, 
         n_warmup=n_warmup,
         subset_size=k,
         stepsize=0.1,  # A conservative initial step size
-        target_accept=0.5,
+        target_accept=0.45,
         n_thin=1
     )
     elapsed = time.time() - start_time
@@ -291,31 +291,26 @@ def benchmark_sampler_gaussian(dim, n_samples, n_warmup, n_chains_per_group, k, 
     print(f"  Mean MSE: {mean_mse:.6f}")
     print(f"  Covariance MSE: {cov_mse:.6f}")
     print(f"  Integrated Autocorrelation Time: {tau:.2f}")
-    print(f"  Effective Sample Size: {ess:.1f}")
     print(f"  Total Time: {elapsed:.2f}s")
     
     return samples, accept_rates
 
 if __name__ == '__main__':
-    dim = 20
-    n_samples = 5000
-    n_warmup = 1000
-    n_chains_per_group = 20
-    condition_number = 100
-    
-    print(f"Benchmarking Walk Move Sampler on {dim}-D Gaussian...")
-    
-    # Test with k=2
-    print("\n--- Running with k=2 ---")
-    samples_k2, accept_rates_k2 = benchmark_sampler_gaussian(
+    dim_array = [4, 8, 16, 32]
+    n_samples = 100000
+    n_warmup = 10000
+    condition_number = 1000
+    k = None
+    print(f"Benchmarking Walk Move Sampler on {dim_array}-D Gaussian...")
+
+
+    for dim in dim_array:
+        print(f"\nDimension: {dim}")
+        n_chains_per_group = dim
+        samples, accept_rates = benchmark_sampler_gaussian(
         dim=dim, n_samples=n_samples, n_warmup=n_warmup, 
-        n_chains_per_group=n_chains_per_group, k=2, condition_number=condition_number
+        n_chains_per_group=n_chains_per_group, k=k, condition_number=condition_number
     )
     
-    # Test with full complementary ensemble (k=n_chains_per_group)
-    print(f"\n--- Running with k={n_chains_per_group} (Full Ensemble) ---")
-    samples_full, accept_rates_full = benchmark_sampler_gaussian(
-        dim=dim, n_samples=n_samples, n_warmup=n_warmup, 
-        n_chains_per_group=n_chains_per_group, k=n_chains_per_group, condition_number=condition_number
-    )
+
 
