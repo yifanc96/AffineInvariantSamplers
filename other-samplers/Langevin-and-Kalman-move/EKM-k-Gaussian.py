@@ -529,7 +529,7 @@ def benchmark_samplers(dim=40, n_samples=10000, burn_in=1000, condition_number=1
     
     # Define samplers to benchmark - adjust parameters for high-dimensional case
     samplers = {
-        "Ensemble Kalman Move": lambda: ensemble_kalman_move_k_subset(forward_func=forward_func, M = M, k=2, initial=initial, n_samples=total_samples, n_warmup=burn_in, n_chains_per_group=dim, h=1.362/(dim**(1/2)), target_accept=0.57, n_thin=n_thin, use_metropolis=True),
+        "Ensemble Kalman Move": lambda: ensemble_kalman_move_k_subset(forward_func=forward_func, M = M, k=dim, initial=initial, n_samples=total_samples, n_warmup=burn_in, n_chains_per_group=dim, h=1.362/(dim**(1/2)), target_accept=0.57, n_thin=n_thin, use_metropolis=True),
     }
     
     for name, sampler_func in samplers.items():

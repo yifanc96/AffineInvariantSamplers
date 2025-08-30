@@ -1,6 +1,10 @@
 import numpy as np
 import os
 import time
+import matplotlib.pyplot as plt
+from scipy.stats import norm
+
+
 def hamiltonian_walk_move_k_subset(gradient_func, potential_func, initial, n_samples, k=None,
                                              n_chains_per_group=5, epsilon_init=0.01, n_leapfrog=10, 
                                              beta=0.05, n_thin=1, target_accept=0.65, n_warmup=1000,
@@ -269,7 +273,6 @@ def hamiltonian_walk_move_k_subset(gradient_func, potential_func, initial, n_sam
     return samples, acceptance_rates, np.array(step_size_history)
 
 def autocorrelation_fft(x, max_lag=None):
-
     """
     Efficiently compute autocorrelation function using FFT.
     
@@ -292,6 +295,8 @@ def autocorrelation_fft(x, max_lag=None):
     # Remove mean and normalize
     x_norm = x - np.mean(x)
     var = np.var(x_norm)
+    if var == 0:
+        return np.zeros(max_lag)
     x_norm = x_norm / np.sqrt(var)
     
     # Compute autocorrelation using FFT
@@ -380,178 +385,318 @@ def integrated_autocorr_time(x, M=5, c=10):
     
     return tau, acf, ess
 
-
-def create_high_dim_precision(dim, condition_number=100):
-    """Create a high-dimensional diagonal precision matrix with given condition number."""
-    # For reproducibility
-    np.random.seed(42)
-    
-    # Create diagonal eigenvalues with desired condition number
-    eigenvalues = 0.1 * np.linspace(1, condition_number, dim)
-    
-    # For diagonal matrices, we can just return the eigenvalues
-    # This avoids storing the full matrix which is mostly zeros
-    return eigenvalues
-
-def benchmark_samplers(dim=40, n_samples=10000, burn_in=1000, condition_number=100, n_thin = 1, save_dir = None):
+def funnel_log_density(x, sigma_theta=3.0):
     """
-    Benchmark different MCMC samplers on a high-dimensional Gaussian.
-    """
-    # Create precision matrix (inverse covariance) - just the diagonal values
-    precision_diag = create_high_dim_precision(dim, condition_number)
+    Log density of Neal's funnel distribution with numerical stability.
     
-    # Compute covariance matrix diagonal for reference (needed for evaluation)
-    # For diagonal matrices, inverse is just reciprocal of diagonal elements
-    cov_diag = 1.0 / precision_diag
+    Neal's funnel distribution is defined as:
+    - theta ~ Normal(0, sigma_theta^2)  [Neal uses sigma_theta = 3]
+    - x_i | theta ~ Normal(0, exp(theta/2)^2) = Normal(0, exp(theta)) for i = 1, ..., d-1
     
-    true_mean = np.ones(dim)
-    
-    def log_density(x):
-        """Optimized log density of the multivariate Gaussian with diagonal precision"""
-        if x.ndim == 1:
-            x = x.reshape(1, -1)
-            
-        # Vectorized operation for all samples using broadcasting
-        centered = x - true_mean
-        # For diagonal precision, this simplifies to sum of elementwise products
-        # This avoids the expensive einsum operation
-        result = -0.5 * np.sum(centered**2 * precision_diag, axis=1)
-            
-        return result
-    
-    def gradient(x):
-        """Optimized gradient of the negative log density with diagonal precision"""
-        if x.ndim == 1:
-            x = x.reshape(1, -1)
-            
-        # Vectorized operation for all samples
-        centered = x - true_mean
-        # For diagonal precision, this is just elementwise multiplication
-        # This avoids the expensive einsum operation
-        result = centered * precision_diag[np.newaxis, :]
-            
-        return result
-    
-    def potential(x):
-        """Optimized negative log density (potential energy) with diagonal precision"""
-        if x.ndim == 1:
-            x = x.reshape(1, -1)
-            
-        # Vectorized operation for all samples
-        centered = x - true_mean
-        # For diagonal precision, this simplifies to sum of elementwise products
-        result = 0.5 * np.sum(centered**2 * precision_diag, axis=1)
-            
-        return result
+    Parameters:
+    -----------
+    x : array_like
+        Input array of shape (..., d) where d is the dimension
+    sigma_theta : float
+        Standard deviation for the theta parameter (default: 3.0)
         
-    # For this construction, M = Λ (precision matrix)
-    M = np.diag(precision_diag)
+    Returns:
+    --------
+    log_prob : array
+        Log probability density values
+    """
+    if x.ndim == 1:
+        x = x.reshape(1, -1)
     
-    # Initial state
+    dim = x.shape[-1]
+    theta = np.clip(x[..., 0], -10, 10)  # Clip theta to prevent overflow
+    x_rest = x[..., 1:]  # Remaining dimensions
+    
+    # Log density components
+    # p(theta) = Normal(0, sigma_theta^2)
+    log_p_theta = -0.5 * (theta / sigma_theta)**2 - 0.5 * np.log(2 * np.pi * sigma_theta**2)
+    
+    # p(x_i | theta) = Normal(0, exp(theta/2)^2) = Normal(0, exp(theta))
+    # log p(x_i | theta) = -0.5 * x_i^2 / exp(theta) - 0.5 * log(2*pi) - theta/2
+    log_p_x_given_theta = -0.5 * np.sum(x_rest**2, axis=-1) * np.exp(-theta)
+    log_p_x_given_theta -= 0.5 * (dim - 1) * np.log(2 * np.pi)
+    log_p_x_given_theta -= (dim - 1) * theta / 2  # This is the correct term!
+    
+    # Handle extreme theta values
+    result = log_p_theta + log_p_x_given_theta
+    result = np.where(np.isfinite(result), result, -np.inf)
+    
+    return result
+
+def funnel_gradient(x, sigma_theta=3.0):
+    """
+    Gradient of the negative log density (for HMC) with numerical stability.
+    Corrected for Neal's funnel: x_i | theta ~ Normal(0, exp(theta/2)^2)
+    
+    Parameters:
+    -----------
+    x : array_like
+        Input array of shape (..., d)
+    sigma_theta : float
+        Standard deviation for the theta parameter
+        
+    Returns:
+    --------
+    grad : array
+        Gradient of negative log density
+    """
+    if x.ndim == 1:
+        x = x.reshape(1, -1)
+    
+    dim = x.shape[-1]
+    theta = np.clip(x[..., 0], -10, 10)  # Clip theta to prevent overflow
+    x_rest = x[..., 1:]
+    
+    # Gradient w.r.t. theta
+    grad_theta = theta / (sigma_theta**2)  # From p(theta)
+    
+    # From p(x|theta) - corrected for Neal's funnel
+    exp_neg_theta = np.exp(-theta)
+    exp_neg_theta = np.clip(exp_neg_theta, 0, 1e10)  # Prevent extreme values
+    
+    # Gradient from the quadratic term: d/d_theta[-0.5 * sum(x_i^2) * exp(-theta)]
+    grad_theta += 0.5 * np.sum(x_rest**2, axis=-1) * exp_neg_theta
+    
+    # Gradient from the normalization term: d/d_theta[-(dim-1) * theta/2]
+    grad_theta += (dim - 1) / 2
+    
+    # Gradient w.r.t. x_rest: d/d_x_i[-0.5 * x_i^2 * exp(-theta)]
+    grad_x_rest = x_rest * exp_neg_theta[..., np.newaxis]
+    
+    # Combine gradients
+    grad = np.concatenate([grad_theta[..., np.newaxis], grad_x_rest], axis=-1)
+    
+    # Handle non-finite values
+    grad = np.where(np.isfinite(grad), grad, 0.0)
+    
+    return grad
+
+def funnel_potential(x, sigma_theta=3.0):
+    """
+    Potential energy (negative log density) for the funnel distribution with numerical stability.
+    
+    Parameters:
+    -----------
+    x : array_like
+        Input array of shape (..., d)
+    sigma_theta : float
+        Standard deviation for the theta parameter
+        
+    Returns:
+    --------
+    potential : array
+        Potential energy values
+    """
+    log_dens = funnel_log_density(x, sigma_theta)
+    potential = -log_dens
+    
+    # Handle infinite log density (zero probability regions)
+    potential = np.where(np.isfinite(potential), potential, 1e10)
+    
+    return potential
+
+def compute_autocorrelation(chain, max_lag=50):
+    """Compute autocorrelation function up to max_lag."""
+    return autocorrelation_fft(chain, max_lag)
+
+def effective_sample_size(chain, max_lag=None):
+    """Estimate effective sample size using autocorrelation."""
+    tau_int, acf, ess = integrated_autocorr_time(chain, M=5, c=10)
+    return ess, tau_int
+
+def test_funnel_k_values():
+    """Test HWM with different k values on the funnel distribution."""
+    
+    # Problem setup
+    dim = 5  # Total dimensions (v + 9 other dimensions)
     initial = np.zeros(dim)
+    initial[0] = 0.0  # Start v near 0
+    initial[1:] = 0.1 * np.random.randn(dim-1)
     
-    # Dictionary to store results
+    n_samples = 400000
+    n_warmup = 20000
+    n_chains_per_group = 4*dim
+    
+    # Different k values to test
+    # k_values = [2,n_chains_per_group]  # k=n_chains_per_group is full ensemble (original HWM)
+    k_values = [2]
     results = {}
     
-    # Define samplers to benchmark with burn-in
-    total_samples = n_samples
+    print("Testing funnel distribution with different k values...")
+    print(f"Dimension: {dim}, Chains per group: {n_chains_per_group}")
+    print("-" * 60)
     
-    
-    # Define samplers to benchmark - adjust parameters for high-dimensional case
-    samplers = {
-        "Hamiltonian Walk Move": lambda: hamiltonian_walk_move_k_subset(
-            gradient_func=gradient, 
-            potential_func=potential, 
+    for k in k_values:
+        print(f"Running HWM with k={k}...")
+        
+        samples, accept_rates, step_history = hamiltonian_walk_move_k_subset(
+            gradient_func=funnel_gradient, 
+            potential_func=funnel_potential, 
             initial=initial, 
-            n_samples=total_samples, 
-            n_warmup=burn_in, 
+            n_samples=n_samples, 
+            n_warmup=n_warmup, 
             n_chains_per_group=dim, 
             epsilon_init=1/(dim**(1/4)), 
-            n_leapfrog=2, 
+            n_leapfrog=5, 
             beta=1.0,
-            target_accept=0.65, 
-            n_thin=n_thin,
+            target_accept=0.2, 
+            n_thin=1,
             k=2
-        ),
-    }
-    
-    for name, sampler_func in samplers.items():
-        print(f"Running {name}...")
-        start_time = time.time()
-        samples, acceptance_rates, step_size_history = sampler_func()
-        elapsed = time.time() - start_time
+        )
+
         
-        post_burn_in_samples = samples
+        # Extract v (first dimension) from all chains
+        v_samples = samples[:, :, 0].flatten()  # Shape: (total_chains * n_samples,)
         
-        # Flatten samples from all chains
-        flat_samples = post_burn_in_samples.reshape(-1, dim)
+        # Compute statistics
+        mean_accept = np.mean(accept_rates)
+        final_step_size = step_history[-1] if len(step_history) > 0 else 0.1
         
-        # Compute sample mean and covariance
-        sample_mean = np.mean(flat_samples, axis=0)
-        
-        # For MSE calculation, we don't need to compute the full covariance matrix
-        # We can compute the diagonal elements directly
-        sample_var = np.var(flat_samples, axis=0)
-        
-        # Calculate mean squared error for mean and covariance
-        mean_mse = np.mean((sample_mean - true_mean)**2) / np.mean(true_mean**2)
-        # For diagonal covariance, we only compare diagonal elements
-        cov_mse = np.sum((sample_var - cov_diag)**2) / np.sum(cov_diag**2)
-        
-        # Compute autocorrelation for first dimension
-        # Average over chains to compute autocorrelation
-        acf = autocorrelation_fft(np.mean(post_burn_in_samples[:, :, 0], axis=0))
-        
-        # Compute integrated autocorrelation time for first dimension
-        try:
-            tau, _, ess = integrated_autocorr_time(np.mean(post_burn_in_samples[:, :, 0], axis=0))
-        except:
-            tau, ess = np.nan, np.nan
+        # Autocorrelation analysis for v
+        ess_v, tau_int_v = effective_sample_size(v_samples)
         
         # Store results
-        results[name] = {
-            "samples": flat_samples,
-            "acceptance_rates": acceptance_rates,
-            "mean_mse": mean_mse,
-            "cov_mse": cov_mse,
-            "autocorrelation": acf,
-            "tau": tau,
-            "ess": ess,
-            "time": elapsed
+        results[k] = {
+            'samples': samples,
+            'v_samples': v_samples,
+            'accept_rate': mean_accept,
+            'final_step_size': final_step_size,
+            'ess_v': ess_v,
+            'tau_int_v': tau_int_v,
+            'v_mean': np.mean(v_samples),
+            'v_std': np.std(v_samples)
         }
         
-        print(f"  Acceptance rate: {np.mean(acceptance_rates):.2f}")
-        print(f"  Mean MSE: {mean_mse:.6f}")
-        print(f"  Covariance MSE: {cov_mse:.6f}")
-        print(f"  Integrated autocorrelation time: {tau:.2f}")
-        print(f"  Time: {elapsed:.2f} seconds")
+        print(f"  k={k}: Accept rate = {mean_accept:.3f}, ESS(v) = {ess_v:.1f}, τ_int(v) = {tau_int_v:.2f}")
+    
+    # Create comprehensive plots
+    fig, axes = plt.subplots(2, 3, figsize=(15, 10))
+    fig.suptitle('HWM k-subset Analysis: Funnel Distribution', fontsize=16)
+    
+    # Plot 1: Acceptance rates vs k
+    k_list = list(k_values)
+    accept_rates_list = [results[k]['accept_rate'] for k in k_list]
+    axes[0, 0].plot(k_list, accept_rates_list, 'o-', linewidth=2, markersize=8)
+    axes[0, 0].set_xlabel('k (subset size)')
+    axes[0, 0].set_ylabel('Acceptance Rate')
+    axes[0, 0].set_title('Acceptance Rate vs k')
+    axes[0, 0].grid(True, alpha=0.3)
+    axes[0, 0].set_ylim(0, 1)
+    
+    # Plot 2: Effective Sample Size vs k
+    ess_list = [results[k]['ess_v'] for k in k_list]
+    axes[0, 1].plot(k_list, ess_list, 'o-', linewidth=2, markersize=8, color='green')
+    axes[0, 1].set_xlabel('k (subset size)')
+    axes[0, 1].set_ylabel('ESS for v')
+    axes[0, 1].set_title('Effective Sample Size vs k')
+    axes[0, 1].grid(True, alpha=0.3)
+    
+    # Plot 3: Integrated Autocorrelation Time vs k
+    tau_list = [results[k]['tau_int_v'] for k in k_list]
+    axes[0, 2].plot(k_list, tau_list, 'o-', linewidth=2, markersize=8, color='red')
+    axes[0, 2].set_xlabel('k (subset size)')
+    axes[0, 2].set_ylabel('τ_int for v')
+    axes[0, 2].set_title('Autocorrelation Time vs k')
+    axes[0, 2].grid(True, alpha=0.3)
+    
+    # Plot 4: Marginal distribution of v for different k values
+    colors = plt.cm.viridis(np.linspace(0, 1, len(k_values)))
+    for i, k in enumerate(k_values):
+        v_samples = results[k]['v_samples']
+        axes[1, 0].hist(v_samples, bins=50, alpha=0.6, density=True, 
+                       color=colors[i], label=f'k={k}', histtype='stepfilled')
+    
+    # Theoretical distribution N(0, 3)
+    x_theo = np.linspace(-10, 10, 100)
+    y_theo = norm.pdf(x_theo, 0, 3)
+    axes[1, 0].plot(x_theo, y_theo, 'k--', linewidth=2, label='True N(0,9)')
+    axes[1, 0].set_xlabel('v (first dimension)')
+    axes[1, 0].set_ylabel('Density')
+    axes[1, 0].set_title('Marginal Distribution of v')
+    axes[1, 0].legend()
+    axes[1, 0].set_xlim(-10, 10)
+    
+    # Plot 5: Autocorrelation functions
+    max_lag = 5000
+    for i, k in enumerate(k_values):
+        v_samples = results[k]['v_samples']
+        autocorr = compute_autocorrelation(v_samples, max_lag)
+        lags = np.arange(len(autocorr))
+        axes[1, 1].plot(lags, autocorr, '-', color=colors[i], label=f'k={k}', linewidth=2)
+    
+    axes[1, 1].axhline(y=0, color='black', linestyle='--', alpha=0.5)
+    axes[1, 1].axhline(y=0.05, color='red', linestyle=':', alpha=0.5, label='5% cutoff')
+    axes[1, 1].set_xlabel('Lag')
+    axes[1, 1].set_ylabel('Autocorrelation')
+    axes[1, 1].set_title('Autocorrelation Functions')
+    axes[1, 1].legend()
+    axes[1, 1].grid(True, alpha=0.3)
+    
+    # Plot 6: Summary statistics table
+    axes[1, 2].axis('off')
+    
+    # Create summary table
+    table_data = []
+    headers = ['k', 'Accept Rate', 'ESS(v)', 'τ_int(v)', 'Mean(v)', 'Std(v)']
+    
+    for k in k_values:
+        row = [
+            k,
+            f"{results[k]['accept_rate']:.3f}",
+            f"{results[k]['ess_v']:.1f}",
+            f"{results[k]['tau_int_v']:.2f}",
+            f"{results[k]['v_mean']:.3f}",
+            f"{results[k]['v_std']:.3f}"
+        ]
+        table_data.append(row)
+    
+    # Add theoretical values
+    table_data.append(['True', '-', '-', '-', '0.000', '3.000'])
+    
+    # Create table
+    table = axes[1, 2].table(cellText=table_data, colLabels=headers,
+                            cellLoc='center', loc='center')
+    table.auto_set_font_size(False)
+    table.set_fontsize(10)
+    table.scale(1, 2)
+    axes[1, 2].set_title('Summary Statistics')
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Print detailed summary
+    print("\n" + "="*60)
+    print("DETAILED RESULTS SUMMARY")
+    print("="*60)
+    
+    print(f"\nTrue distribution: v ~ N(0, 3), x_i|v ~ N(0, exp(v/2))")
+    print(f"Theoretical: Mean(v) = 0.000, Std(v) = 3.000")
+    print()
+    
+    best_ess_k = max(k_values, key=lambda k: results[k]['ess_v'])
+    best_accept_k = max(k_values, key=lambda k: abs(results[k]['accept_rate'] - 0.6))
+    
+    for k in k_values:
+        r = results[k]
+        print(f"k = {k}:")
+        print(f"  Acceptance Rate: {r['accept_rate']:.3f}")
+        print(f"  Final Step Size: {r['final_step_size']:.4f}")
+        print(f"  ESS(v): {r['ess_v']:.1f}")
+        print(f"  τ_int(v): {r['tau_int_v']:.2f}")
+        print(f"  Sample Mean(v): {r['v_mean']:.3f} (True: 0.000)")
+        print(f"  Sample Std(v): {r['v_std']:.3f} (True: 3.000)")
+        print()
+    
+    print(f"Best ESS: k = {best_ess_k} (ESS = {results[best_ess_k]['ess_v']:.1f})")
+    print(f"Best Accept Rate: k = {best_accept_k} (Rate = {results[best_accept_k]['accept_rate']:.3f})")
+    
+    return results
 
-        if save_dir:
-            np.save(os.path.join(save_dir, f"samples_{name}.npy"), post_burn_in_samples)
-            np.save(os.path.join(save_dir, f"acf_{name}.npy"), acf)
-            
-    return results, true_mean, cov_diag
-    
-
-n_samples = 20000
-burn_in = 10**3
-array_dim = [4, 8, 16, 32]
-n_thin = 1
-# array_dim = [128]
-
-print(f'n_sample{n_samples}, burn_in{burn_in}, n_thin{n_thin}')
-    
-for dim in array_dim:
-    print(f"dim={dim}")
-    save_dir = None
-    
-    
-    # Run benchmarks and save results
-    results, true_mean, cov_diag = benchmark_samplers(
-    dim=dim, 
-    n_samples=n_samples, 
-    burn_in=burn_in, 
-    condition_number=1000,
-    n_thin=n_thin,
-    save_dir=save_dir
-)
+if __name__ == "__main__":
+    # Run the test
+    results = test_funnel_k_values()

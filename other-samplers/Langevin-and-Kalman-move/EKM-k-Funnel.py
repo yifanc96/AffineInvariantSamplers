@@ -528,7 +528,7 @@ def test_funnel_k_values():
     initial[1:] = 0.1 * np.random.randn(dim-1)
     
     n_samples = 400000
-    n_warmup = 20000
+    n_warmup = 40000
     n_chains_per_group = 4*dim
     
     # Different k values to test
