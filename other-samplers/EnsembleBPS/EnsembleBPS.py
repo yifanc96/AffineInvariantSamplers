@@ -202,11 +202,11 @@ def example_usage():
     samples, diagnostics = ensemble_bps(
         grad_log_prob=grad_log_prob,
         initial=initial,
-        n_samples=1000,
+        n_samples=5000,
         n_walkers=20,
         dt=0.05,
         refresh_rate=2.0,
-        n_thin=5
+        n_thin=1
     )
     
     print(f"Sample shape: {samples.shape}")
