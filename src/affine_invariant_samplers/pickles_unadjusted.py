@@ -29,9 +29,6 @@ Step-size adaptation options:
                h = h_base / max(1, sqrt(max_pgn / target)).
   None/False — no adaptation
 
-Reference: Tan, Osher & Chen, "Ensemble preconditioning kinetic Langevin"
-           Leimkuhler, Matthews & Weare, Stat. Comput. 2018
-           Leimkuhler, Sherlock & Singh, 2025  (SamAdams)
 """
 
 import jax

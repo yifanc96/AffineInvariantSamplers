@@ -9,7 +9,6 @@ Adaptation (warmup only, toggleable):
   Heuristic initial scale search    (side variant; find_init_gamma)
   Dual averaging → base parameter gamma (side variant; adapt_gamma)
 
-Reference: https://arxiv.org/abs/2505.02987
 """
 
 import jax

@@ -27,8 +27,6 @@ Adaptation (warmup only, each independently toggleable):
 Setting all three flags to False reduces warmup to a plain burn-in at the
 user-supplied (step_size, L), leaving only NaN guards in effect.
 
-Reference: Tan, Osher & Chen, "Ensemble preconditioning kinetic Langevin"
-           Chen, arXiv:2505.02987  (peaches / peanuts framework)
 """
 
 import jax

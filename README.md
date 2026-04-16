@@ -125,7 +125,7 @@ samples.shape  = (20000, 50, 5)                            # 1 000 000 total sam
 info           = {'acceptance_rate': 0.712,                # any of the 3 DR stages
                   'stage1_rate':     0.248,                # accepted at h directly
                   'final_step_size': 0.056,
-                  'n_grad_evals':    3_000_000}            # one grad per DR stage
+                  'n_grad_evals':    4_000_000}            # 1 + n_try grads per iter per walker
 v              : mean = -0.02  var = 9.08   (target: 0, 9)
 x_i (averaged) : mean = -0.01  var = 59.2   (target: 0, ≈ 90.0)
 min ESS        : 2654
@@ -219,6 +219,32 @@ Gradient-free samplers (`sampler_walk`, `sampler_stretch`, `sampler_side`,
 `sampler_kalman_dr`) do not evaluate gradients at all — the Kalman moves
 instead take a forward model `forward_fn` and a data-space precision `M`
 from which the drift is derived.
+
+### Reading the `info` dict
+
+Two fields deserve a specific note:
+
+- **`nominal_L`** (returned by `sampler_peaches`, `sampler_peams`,
+  `sampler_pickles`) is the ChEES-converged mean number of leapfrog
+  steps per trajectory — equivalently `round(T / eps)` where `T` is the
+  final ChEES integration time and `eps` is `final_step_size`.  During
+  production each trajectory uses a Halton-**jittered** length
+  `cur_L = ceil(T_jit / eps)` with `T_jit ∈ [0.4 T, T]`, mean `≈ 0.7 T`,
+  so the actual per-trajectory leapfrog count varies around `nominal_L`.
+
+- **`n_grad_evals`** counts production-phase gradient evaluations only
+  (warmup grads are not included).  It is:
+  - **Exact** for fixed-work samplers:
+    `sampler_langevin_walk` (2 grads × `n_chains` per iter),
+    `sampler_gndr` (`(1 + n_try)` × `n_chains` per iter),
+    `sampler_aldi` and `sampler_pickles_unadjusted`
+    (1 grad × `N` per iter, with caching).
+  - **An upper bound** for the ChEES-jittered HMC samplers
+    (`sampler_peaches`, `sampler_peams`, `sampler_pickles`):
+    the formula is `num_samples · nominal_L · n_chains`, but because the
+    Halton jitter makes the realised `L` average to `≈ 0.7 · nominal_L`,
+    the actual gradient cost is roughly 30 % lower than reported.
+    Treat this value as a conservative ceiling.
 
 See each sampler's docstring for its full signature and specific toggles.
 

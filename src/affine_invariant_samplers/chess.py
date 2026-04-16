@@ -10,7 +10,7 @@ Adaptation (warmup only, each independently toggleable):
 Setting all three flags to False reduces warmup to a plain burn-in at the
 user-supplied (step_size, L).
 
-Reference: https://arxiv.org/abs/2505.02987
+Reference: https://proceedings.mlr.press/v130/hoffman21a.html
 """
 
 import jax

@@ -30,8 +30,6 @@ Step-size adaptation options:
   None/False — no adaptation
 
 Reference: Garbuno-Inigo, Nusken & Reich, SIADS 2020  (ALDI)
-           Tan, Osher & Chen, "Ensemble preconditioning kinetic Langevin"
-           Leimkuhler, Sherlock & Singh, 2025  (SamAdams)
 """
 
 import jax

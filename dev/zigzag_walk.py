@@ -9,7 +9,6 @@ Uses Poisson thinning with local bounds in W-space.
 Fresh velocity drawn at the start of each group update.
 
 Reference (Zig-Zag): Bierkens, Fearnhead & Roberts, arXiv:1607.03188
-Reference (PEACHES): https://arxiv.org/abs/2505.02987
 """
 
 import jax

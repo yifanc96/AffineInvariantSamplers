@@ -14,7 +14,6 @@ Adaptation:
 Setting adapt_step_size=False and find_init_step_size=False reduces step-size
 handling to a plain burn-in at the user-supplied `step_size`.
 
-Reference: https://arxiv.org/abs/2505.02987
 """
 
 import jax

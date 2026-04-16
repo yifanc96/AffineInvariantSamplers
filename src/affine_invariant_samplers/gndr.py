@@ -505,9 +505,12 @@ def sampler_gndr(
 
     samples = all_states[::thin_by][:num_samples]
 
-    # Per DR iteration: n_try proposals, each needing grad + Hessian at the
-    # proposal position.  Count grad calls only (Hessian cost is separate).
-    n_grad_evals = int(num_samples * thin_by) * int(n_try) * int(n_chains)
+    # Per DR iteration per walker: 1 grad at the current position  x
+    # (for all stage proposals, shared) + n_try grads at the proposals.
+    # Hessians are separate and not counted.
+    n_grad_evals = (int(num_samples * thin_by)
+                     * (int(n_try) + 1)
+                     * int(n_chains))
     info = dict(acceptance_rate=float(jnp.mean(all_acc)),
                 stage1_rate=float(jnp.mean(all_s1)),
                 final_step_size=float(final_h),

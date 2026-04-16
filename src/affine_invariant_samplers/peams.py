@@ -20,8 +20,6 @@ Adaptation (warmup only, toggleable):
   Dual averaging  → step size          (adapt_step_size)
   ChEES criterion → integration length
 
-Reference (MAMS):    Robnik, Cohn-Gordon & Seljak, arXiv:2503.01707
-Reference (PEACHES): https://arxiv.org/abs/2505.02987
 """
 
 import jax

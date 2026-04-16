@@ -7,7 +7,7 @@ Proposal:  x' = x_j + z * (x_i - x_j),  z ~ g(z) on [1/a, a].
 Adaptation (warmup only, toggleable):
   Dual averaging → stretch parameter a    (adapt_a)
 
-Reference: https://arxiv.org/abs/2505.02987
+Reference: https://msp.org/camcos/2010/5-1/camcos-v5-n1-p04-p.pdf
 """
 
 import jax

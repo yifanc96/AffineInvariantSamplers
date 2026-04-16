@@ -9,7 +9,6 @@ Time-stepping discretisation with midpoint rate evaluation.
 Fresh velocity drawn at the start of each group update.
 
 Reference (BPS):     Bouchard-Côté, Vollmer & Doucet, arXiv:1510.02451
-Reference (PEACHES): https://arxiv.org/abs/2505.02987
 """
 
 import jax

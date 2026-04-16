@@ -11,7 +11,6 @@ Adaptation (warmup only, toggleable):
   Heuristic initial step-size search   (find_init_step_size)
   Dual averaging → step size h         (adapt_step_size)
 
-Reference: https://arxiv.org/abs/2505.02987
 """
 
 import jax
