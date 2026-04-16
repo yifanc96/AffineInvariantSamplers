@@ -337,34 +337,22 @@ family live under [`dev/`](./dev/):
 
 ## Diagnostics
 
-`autocorrelation`, `integrated_autocorr_time`, and `effective_sample_size`
-are re-exported at the package level.  All three accept samples in any of
-`(N,)`, `(N, D)`, or `(N, n_chains, D)` shape — chains are averaged per
-dimension.
-
 ```python
 from affine_invariant_samplers import (
     effective_sample_size, integrated_autocorr_time,
 )
 
-tau  = integrated_autocorr_time(samples)   # array, shape (D,)
-ess  = effective_sample_size(samples)      # array, shape (D,) — one ESS per dim
+tau  = integrated_autocorr_time(samples)   # shape (D,)  — per-dimension τ
+ess  = effective_sample_size(samples)      # shape (D,)  — per-dimension ESS
 ```
 
-For each coordinate,  **ESS = N<sub>total</sub> / τ**, where τ is the
-integrated autocorrelation time.  It measures how many *independent*
-draws would give the same Monte-Carlo variance as the correlated chain:
-IID ⇒ ESS ≈ N<sub>total</sub>; a chain with τ = 50 gives ESS ≈
-N<sub>total</sub>/50.  When examples report `min_ESS`, they mean the
-smallest ESS across the D dimensions — the worst-mixing direction, which
-is the bottleneck for joint statistics.
+**ESS** (effective sample size) = how many *independent* draws would give
+the same Monte-Carlo variance as your correlated chain.  Reported
+per-dimension because coordinates mix at different rates; `min_ESS` —
+the smallest across dimensions — is the bottleneck for joint estimates.
 
-The estimator is Sokal's self-consistent-window rule (same as emcee /
-arviz) with pairwise-averaging fallback for short chains.
-`effective_sample_size` clamps τ at 1 so that ESS never exceeds the
-sample count (HMC with long trajectories is often slightly antithetic,
-so raw τ can be < 1 — you can still see that via
-`integrated_autocorr_time`).
+All diagnostics accept samples of shape `(N,)`, `(N, D)`, or
+`(N, n_chains, D)` (chains are averaged).
 
 ## Plotting
 
