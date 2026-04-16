@@ -42,8 +42,9 @@ from affine_invariant_samplers import (
     sampler_peanuts,
     sampler_pickles,
     sampler_chess,
-    # interacting Langevin
+    # unadjusted Langevin
     sampler_aldi,
+    sampler_pickles_unadjusted,
 )
 
 
@@ -179,11 +180,10 @@ def test_gaussian_2d_all():
         _assert_basic(s, (20, dim))
         _assert_gaussian_2d(s, cov)
 
-    # interacting Langevin (aldi)
-    for fn in (sampler_aldi,):
+    # unadjusted Langevin (aldi, pickles_unadjusted) — looser bounds (no MH)
+    for fn in (sampler_aldi, sampler_pickles_unadjusted):
         s, info = fn(lp, init_ens, NUM_SAMPLES, warmup=WARMUP, seed=SEED, verbose=False)
         _assert_basic(s, (20, dim))
-        # aldi is unadjusted — accept looser bounds
         _assert_gaussian_2d(s, cov, tol_mean=0.5, tol_cov=0.8)
 
 

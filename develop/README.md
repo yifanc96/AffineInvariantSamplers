@@ -23,12 +23,6 @@ samples, info = bps.sampler_bps(log_prob, init, num_samples=1000)
 | `zigzag.py`        | Zig-zag sampler.                                        |
 | `zigzag_walk.py`   | Ensemble-walk variant of zig-zag.                       |
 
-## Unadjusted Langevin
-
-| File                      | Description                                      |
-|---------------------------|--------------------------------------------------|
-| `pickles_unadjusted.py`   | Unadjusted (no-MH) variant of PICKLES.           |
-
 ## Variational inference / normalizing flows
 
 | File             | Description                                               |

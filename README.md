@@ -68,7 +68,7 @@ samples, info = sampler_xxx(
 
 | Form                            | Samplers                                                                                                             |
 |---------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| batched  `(n_chains, D) -> (n_chains,)` | `sampler_walk`, `sampler_stretch`, `sampler_side`, `sampler_ensemble_dr_{stretch,side}`, `sampler_langevin_walk`, `sampler_kalman_move`, `sampler_kalman_dr`, `sampler_nuts`, `sampler_peaches`, `sampler_peams`, `sampler_peanuts`, `sampler_pickles`, `sampler_chess`, `sampler_aldi` |
+| batched  `(n_chains, D) -> (n_chains,)` | `sampler_walk`, `sampler_stretch`, `sampler_side`, `sampler_ensemble_dr_{stretch,side}`, `sampler_langevin_walk`, `sampler_kalman_move`, `sampler_kalman_dr`, `sampler_nuts`, `sampler_peaches`, `sampler_peams`, `sampler_peanuts`, `sampler_pickles`, `sampler_chess`, `sampler_aldi`, `sampler_pickles_unadjusted` |
 | single-point  `(D,) -> scalar`  | `sampler_malt`, `sampler_mams`, `sampler_gndr`                                                                       |
 
 See each sampler's docstring for the full signature and its specific toggles.
@@ -116,11 +116,15 @@ length-adaptation toggle (ChEES-based, NUTS tree-depth, etc.).
 | `sampler_pickles`  | Parallel interacting covariance-preconditioned kinetic Langevin. |
 | `sampler_chess`    | Standard HMC with joint DA + ChEES integration-length tuning.    |
 
-### Interacting Langevin dynamics
+### Unadjusted Langevin dynamics (ensemble / interacting)
 
-| Function         | Idea                                                         |
-|------------------|--------------------------------------------------------------|
-| `sampler_aldi`   | Affine-invariant Langevin dynamics (interacting particles).  |
+No Metropolis correction — these target the continuous-time invariant
+distribution; discretisation introduces an O(h²) bias.
+
+| Function                       | Idea                                                              |
+|--------------------------------|-------------------------------------------------------------------|
+| `sampler_aldi`                 | Affine-invariant Langevin dynamics (interacting particles).       |
+| `sampler_pickles_unadjusted`   | Unadjusted (no-MH) variant of PICKLES: kinetic Langevin with BAOAB.|
 
 ## `develop/` — related methods
 
@@ -128,7 +132,6 @@ Samplers that don't belong in the main affine-invariant MCMC family but are
 retained for comparison live under [`develop/`](./develop/):
 
 - **PDMPs**: `bps.py`, `bps_walk.py`, `zigzag.py`, `zigzag_walk.py`
-- **Unadjusted Langevin**: `pickles_unadjusted.py`
 - **Variational inference / normalizing flows**: `gvi.py`, `gmbbvi.py`, `dfgmvi.py`, `ig.py`
 
 See [`develop/README.md`](./develop/README.md).

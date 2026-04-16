@@ -44,8 +44,9 @@ from .peanuts import sampler_peanuts
 from .pickles import sampler_pickles
 from .chess   import sampler_chess
 
-# ─── Interacting Langevin dynamics ──────────────────────────────────────────
-from .aldi import sampler_aldi
+# ─── Unadjusted Langevin dynamics (ensemble / interacting) ──────────────────
+from .aldi               import sampler_aldi
+from .pickles_unadjusted import sampler_pickles_unadjusted
 
 
 __all__ = [
@@ -70,8 +71,9 @@ __all__ = [
     "sampler_peanuts",
     "sampler_pickles",
     "sampler_chess",
-    # interacting Langevin
+    # unadjusted Langevin
     "sampler_aldi",
+    "sampler_pickles_unadjusted",
 ]
 
 __version__ = "0.1.0"
