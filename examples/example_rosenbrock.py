@@ -138,29 +138,48 @@ if __name__ == "__main__":
                    y=0.99)
     fig_c.tight_layout()
 
-    # Per-method corner plots on the first 4 dims (two even/odd pairs)
-    # with analytical 1D marginals (where closed-form) and 2D banana contours.
+    # Per-method corner plots on the first 4 dims (two independent even/odd
+    # pairs) with full analytical truth overlays:
+    #   x_even ~ N(a, 1/2)
+    #   x_odd  ~ ∫ N(x_o; x_e², 1/(2b)) · N(x_e; a, 1/2) dx_e    (via quadrature)
+    #   adjacent (x_e, x_o) pairs: banana  exp(-b(x_o − x_e²)² − (x_e − a)²)
+    #   other pairs are independent ⇒ 2-D product of the respective 1-D marginals.
     K = 4
     labels = [f"x{i}" + (" (e)" if i % 2 == 0 else " (o)") for i in range(K)]
     truths = [a if i % 2 == 0 else a ** 2 + 0.5 for i in range(K)]
 
-    # 1D truths:  x_even ~ N(a, 1/2);  x_odd has no simple closed form, omit.
-    truth_1d_r = {}
-    xe_grid = np.linspace(-2.0, 4.0, 200)
-    xe_pdf  = np.exp(-(xe_grid - a) ** 2) / np.sqrt(np.pi)   # N(a, 1/2)
-    for i in range(0, K, 2):
-        truth_1d_r[i] = (xe_grid, xe_pdf)
+    xe_grid = np.linspace(-2.0, 4.0, 300)
+    xe_pdf  = np.exp(-(xe_grid - a) ** 2) / np.sqrt(np.pi)                 # N(a, 1/2)
 
-    # 2D truths: (x_e, x_o) pair has density ∝ exp(-b·(x_o − x_e²)² − (x_e − a)²)
-    xg = np.linspace(-2.0, 3.0, 200)
-    yg = np.linspace(-1.0, 6.0, 200)
-    Xg, Yg = np.meshgrid(xg, yg)
-    banana = np.exp(-(b * (Yg - Xg ** 2) ** 2 + (Xg - a) ** 2))
+    xo_grid = np.linspace(-1.0, 6.0, 300)
+    # p(x_o) = ∫ N(x_o; x_e², 1/(2b)) · N(x_e; a, 1/2) dx_e  (quadrature)
+    xe_q = np.linspace(-3.0, 5.0, 600)
+    p_xe = np.exp(-(xe_q - a) ** 2) / np.sqrt(np.pi)
+    dxe  = xe_q[1] - xe_q[0]
+    sqrt_b_over_pi = np.sqrt(b / np.pi)
+    xo_pdf = np.zeros_like(xo_grid)
+    for xe_k, pk in zip(xe_q, p_xe):
+        xo_pdf += pk * sqrt_b_over_pi * np.exp(-b * (xo_grid - xe_k ** 2) ** 2)
+    xo_pdf *= dxe
+
+    def grid_and_pdf_1d(i):
+        return (xe_grid, xe_pdf) if i % 2 == 0 else (xo_grid, xo_pdf)
+
+    truth_1d_r = {i: grid_and_pdf_1d(i) for i in range(K)}
+
+    # 2D truths — banana for adjacent (x_e, x_o) pair, independent product otherwise
     truth_2d_r = {}
-    for j in range(0, K, 2):           # column (x_even)
-        i = j + 1                       # row (x_odd)
-        if i < K:
-            truth_2d_r[(i, j)] = (xg, yg, banana)
+    for i in range(K):
+        for j in range(i):
+            xg, pxg = grid_and_pdf_1d(j)
+            yg, pyg = grid_and_pdf_1d(i)
+            same_pair = (i // 2 == j // 2) and (i % 2 != j % 2)
+            if same_pair:
+                Xg, Yg = np.meshgrid(xg, yg)
+                pdf_2d = np.exp(-(b * (Yg - Xg ** 2) ** 2 + (Xg - a) ** 2))
+            else:
+                pdf_2d = np.outer(pyg, pxg)    # shape (len(yg), len(xg))
+            truth_2d_r[(i, j)] = (xg, yg, pdf_2d)
 
     for name, s in results.items():
         s_sub = np.asarray(s).reshape(-1, dim)[:, :K]

@@ -5,8 +5,23 @@ Compares two unadjusted (no Metropolis correction) samplers on Rosenbrock:
     * sampler_aldi                — affine-invariant Langevin dynamics
     * sampler_pickles_unadjusted  — kinetic Langevin with ensemble preconditioning
 
-Both target the continuous-time invariant distribution.  The finite step size
-introduces discretisation bias — larger h ⇒ faster mixing, more bias.
+Both target the continuous-time invariant distribution.  Finite step size
+introduces an O(h²) discretisation bias — larger h ⇒ faster mixing, more bias.
+
+Both methods are ensemble-preconditioned, but differ in their dynamics:
+
+  * `sampler_aldi` is **overdamped** Langevin (first-order in position).
+    The ensemble covariance provides the affine-invariant preconditioner,
+    but without momentum the sampler has to follow the curved banana point-
+    by-point.  It cannot "glide" along the narrow valley the way an
+    inertial method can — expect visible bias in both mean and variance on
+    Rosenbrock.
+
+  * `sampler_pickles_unadjusted` uses **kinetic (underdamped)** Langevin
+    with the same ensemble preconditioning but a BAOAB momentum update.
+    The momentum lets trajectories traverse the curved valley in long
+    strokes; combined with PGN step-size rescaling this tracks Rosenbrock
+    much better and recovers the target moments reasonably well.
 
 Same target as `example_rosenbrock.py`:  (a, b) = (1, 100), D = 10.
 Exact marginals:  x_even ~ N(a, 1/2)        mean = 1, var = 0.5
@@ -85,19 +100,22 @@ if __name__ == "__main__":
 
     results = {}
 
-    # Use a small step size — unadjusted methods have O(h²) bias, so we trade
-    # mixing rate for accuracy.  If the step size is too large the sampler
-    # biases toward the shoulder of the banana.
+    # aldi: step_size=0.1 is a reasonable compromise.  Too small and x_even
+    # barely migrates off the origin; too large and x_odd becomes unstable.
+    # Even so, aldi is expected to show visible bias on Rosenbrock.
     t0 = time.time()
     s, info = sampler_aldi(log_prob, init, n_samp, warmup=warmup,
-                            step_size=0.001, seed=seed, verbose=False)
+                            step_size=0.1, seed=seed, verbose=False)
     _report("aldi",               s, a, info, time.time() - t0)
     results["aldi"] = s
 
+    # pickles_unadjusted: its PGN adaptation rescales h by the ensemble
+    # gradient norm, so a base step of 0.2 is safe and much larger than
+    # what aldi can tolerate.  Expect nearly-correct moments.
     t0 = time.time()
     s, info = sampler_pickles_unadjusted(
         log_prob, init, n_samp, warmup=warmup,
-        step_size=0.05, gamma=2.0, seed=seed, verbose=False)
+        step_size=0.2, gamma=2.0, seed=seed, verbose=False)
     _report("pickles_unadjusted", s, a, info, time.time() - t0)
     results["pickles_unadjusted"] = s
 
@@ -131,26 +149,42 @@ if __name__ == "__main__":
                    y=0.99)
     fig_c.tight_layout()
 
-    # Per-method corner plots on the first 4 dims
+    # Per-method corner plots on the first 4 dims with full truth overlays
+    # (see example_rosenbrock.py for the derivation).
     K = 4
     labels = [f"x{i}" + (" (e)" if i % 2 == 0 else " (o)") for i in range(K)]
     truths = [a if i % 2 == 0 else a ** 2 + 0.5 for i in range(K)]
 
-    truth_1d_r = {}
-    xe_grid = np.linspace(-2.0, 4.0, 200)
-    xe_pdf  = np.exp(-(xe_grid - a) ** 2) / np.sqrt(np.pi)       # N(a, 1/2)
-    for i in range(0, K, 2):
-        truth_1d_r[i] = (xe_grid, xe_pdf)
+    xe_grid = np.linspace(-2.0, 4.0, 300)
+    xe_pdf  = np.exp(-(xe_grid - a) ** 2) / np.sqrt(np.pi)
 
-    xg = np.linspace(-2.0, 3.0, 200)
-    yg = np.linspace(-1.0, 6.0, 200)
-    Xg, Yg = np.meshgrid(xg, yg)
-    banana = np.exp(-(b * (Yg - Xg ** 2) ** 2 + (Xg - a) ** 2))
+    xo_grid = np.linspace(-1.0, 6.0, 300)
+    xe_q = np.linspace(-3.0, 5.0, 600)
+    p_xe = np.exp(-(xe_q - a) ** 2) / np.sqrt(np.pi)
+    dxe  = xe_q[1] - xe_q[0]
+    sqrt_b_over_pi = np.sqrt(b / np.pi)
+    xo_pdf = np.zeros_like(xo_grid)
+    for xe_k, pk in zip(xe_q, p_xe):
+        xo_pdf += pk * sqrt_b_over_pi * np.exp(-b * (xo_grid - xe_k ** 2) ** 2)
+    xo_pdf *= dxe
+
+    def grid_and_pdf_1d(i):
+        return (xe_grid, xe_pdf) if i % 2 == 0 else (xo_grid, xo_pdf)
+
+    truth_1d_r = {i: grid_and_pdf_1d(i) for i in range(K)}
+
     truth_2d_r = {}
-    for j in range(0, K, 2):
-        i = j + 1
-        if i < K:
-            truth_2d_r[(i, j)] = (xg, yg, banana)
+    for i in range(K):
+        for j in range(i):
+            xg, pxg = grid_and_pdf_1d(j)
+            yg, pyg = grid_and_pdf_1d(i)
+            same_pair = (i // 2 == j // 2) and (i % 2 != j % 2)
+            if same_pair:
+                Xg, Yg = np.meshgrid(xg, yg)
+                pdf_2d = np.exp(-(b * (Yg - Xg ** 2) ** 2 + (Xg - a) ** 2))
+            else:
+                pdf_2d = np.outer(pyg, pxg)
+            truth_2d_r[(i, j)] = (xg, yg, pdf_2d)
 
     for name, s in results.items():
         s_sub = np.asarray(s).reshape(-1, dim)[:, :K]
