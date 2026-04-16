@@ -94,8 +94,8 @@ def _report(name, samples, accept, elapsed):
 if __name__ == "__main__":
     dim      = 5
     n_chains = 100
-    n_samp   = 10_000
-    warmup   = 2_000
+    n_samp   = 20_000
+    warmup   = 5_000
     seed     = 42
 
     log_prob, log_prob_single, residual = make_funnel(dim=dim)
@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
     t0 = time.time()
     s, info = sampler_ensemble_dr_stretch(log_prob, init_ens, n_samp, warmup=warmup,
-                                           seed=seed, verbose=False)
+                                           seed=seed, shrink=0.2, verbose=False)
     _report("stretch-DR",      s, info["acceptance_rate"], time.time() - t0)
 
     t0 = time.time()

@@ -36,16 +36,31 @@ def test_autocorrelation_ar1():
 
 
 def test_iat_and_ess_iid():
-    """IID ⇒ τ ≈ 1, ESS ≈ N."""
+    """IID ⇒ τ ≈ 1, ESS ≈ N.  ESS is clamped at N (never exceeds it)."""
     from affine_invariant_samplers import (
         integrated_autocorr_time, effective_sample_size,
     )
     rng = np.random.default_rng(7)
-    x = rng.standard_normal(5000)
+    N = 5000
+    x = rng.standard_normal(N)
     tau = integrated_autocorr_time(x)
     ess = effective_sample_size(x)
     assert 0.5 < tau < 2.5
-    assert 2000 < ess < 10_000
+    assert 2000 < ess <= N          # capped at N even if τ < 1
+
+
+def test_ess_clamped_at_n():
+    """Even with contrived antithetic samples (τ < 1), ESS must not exceed N."""
+    from affine_invariant_samplers import effective_sample_size
+    rng = np.random.default_rng(0)
+    n = 4000
+    # Construct x with strong lag-1 anticorrelation: x[i] ≈ -0.8 x[i-1] + noise
+    z = rng.standard_normal(n)
+    x = np.zeros(n); x[0] = z[0]
+    for i in range(1, n):
+        x[i] = -0.8 * x[i - 1] + z[i]
+    ess = effective_sample_size(x)
+    assert ess <= n
 
 
 def test_iat_ar1():
@@ -113,6 +128,7 @@ if __name__ == "__main__":
     test_autocorrelation_iid()
     test_autocorrelation_ar1()
     test_iat_and_ess_iid()
+    test_ess_clamped_at_n()
     test_iat_ar1()
     test_diagnostics_3d_input()
     test_corner_plot()

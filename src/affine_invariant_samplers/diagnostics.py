@@ -188,21 +188,30 @@ def integrated_autocorr_time(samples, M=5, c=10):
 
 
 def effective_sample_size(samples, M=5, c=10):
-    """Effective sample size per dimension.
+    """Effective sample size per dimension, capped at the sample count.
 
     Args:
         samples : (N,) or (N, D) or (N, n_chains, D).
         M, c    : Passed to the self-consistent-window estimator.
 
     Returns:
-        ess : 1D array of length D, giving `(N · n_chains) / τ_d`.
+        ess : 1D array of length D, giving `(N · n_chains) / max(τ_d, 1)`.
               Scalar if input was 1D.
+
+    Notes:
+        Well-tuned HMC can produce antithetic samples (ρ(1) < 0), for which
+        Sokal's window estimator returns τ < 1 and a naive ESS = N / τ would
+        exceed N.  Following emcee / arviz, we clamp τ at 1 inside this
+        function so ESS is bounded above by the actual sample count.
+        `integrated_autocorr_time` does *not* clamp — its τ < 1 is useful
+        diagnostic information.
     """
     s = _to_3d(samples)
     N, C, D = s.shape
-    tau = integrated_autocorr_time(samples, M=M, c=c)
+    tau = np.asarray(integrated_autocorr_time(samples, M=M, c=c))
+    tau_eff = np.maximum(tau, 1.0)
     n_total = N * C
-    ess = n_total / np.asarray(tau)
+    ess = n_total / tau_eff
     if np.asarray(samples).ndim == 1:
         return float(ess)
     return ess
