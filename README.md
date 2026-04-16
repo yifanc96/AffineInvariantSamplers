@@ -137,9 +137,7 @@ stage-1 proposal at the full step gets rejected 75% of the time and the
 chain stalls in the neck.
 
 `v` is essentially spot-on and the tail is well explored; the `x_i` variance
-undershoots because gndr is a single-chain method (no ensemble-spread) and
-the lower tail of `v` (which produces the big `x_i` excursions) is still
-rarely visited even with DR.
+undershoots and it will improve with more iterations (20k is not enough)
 
 <p align="center">
   <img src="assets/quickstart_gndr_funnel.png" width="620">
@@ -196,6 +194,31 @@ Not all samplers accept the same form:
 |------------------------------------------|----------|
 | batched  `(n_chains, D) → (n_chains,)`   | `sampler_walk`, `sampler_stretch`, `sampler_side`, `sampler_ensemble_dr_{stretch,side}`, `sampler_langevin_walk`, `sampler_kalman_move`, `sampler_kalman_dr`, `sampler_nuts`, `sampler_peaches`, `sampler_peams`, `sampler_peanuts`, `sampler_pickles`, `sampler_chess`, `sampler_aldi`, `sampler_pickles_unadjusted` |
 | single-point  `(D,) → scalar`            | `sampler_malt`, `sampler_mams`, `sampler_gndr`  |
+
+### Gradient handling
+
+Every gradient-based sampler differentiates `log_prob_fn` **automatically**
+through `jax.grad` — by default you do not need to provide a gradient.
+If you have a hand-written gradient (for speed or numerical stability), pass
+it as `grad_log_prob_fn=` (or `grad_fn=` for `sampler_gndr`); it must match
+the `log_prob_fn` convention above, i.e. batched `(n_chains, D) → (n_chains, D)`
+or single-point `(D,) → (D,)`.
+
+```python
+# 1. Auto-diff (default) — no extra work:
+samples, info = sampler_peaches(log_prob, init, num_samples=5000, warmup=1000)
+
+# 2. Hand-written gradient:
+grad_log_prob = jax.vmap(jax.grad(log_prob_single))        # match batched shape
+samples, info = sampler_peaches(log_prob, init, num_samples=5000, warmup=1000,
+                                 grad_log_prob_fn=grad_log_prob)
+```
+
+Gradient-free samplers (`sampler_walk`, `sampler_stretch`, `sampler_side`,
+`sampler_ensemble_dr_{stretch,side}`, `sampler_kalman_move`,
+`sampler_kalman_dr`) do not evaluate gradients at all — the Kalman moves
+instead take a forward model `forward_fn` and a data-space precision `M`
+from which the drift is derived.
 
 See each sampler's docstring for its full signature and specific toggles.
 
