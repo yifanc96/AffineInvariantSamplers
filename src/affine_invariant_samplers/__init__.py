@@ -48,6 +48,12 @@ from .chess   import sampler_chess
 from .aldi               import sampler_aldi
 from .pickles_unadjusted import sampler_pickles_unadjusted
 
+# ─── Diagnostics (autocorrelation, IAT, ESS) ─────────────────────────────────
+from .diagnostics import (
+    autocorrelation,
+    integrated_autocorr_time,
+    effective_sample_size,
+)
 
 __all__ = [
     # ensemble affine-invariant
@@ -74,6 +80,10 @@ __all__ = [
     # unadjusted Langevin
     "sampler_aldi",
     "sampler_pickles_unadjusted",
+    # diagnostics
+    "autocorrelation",
+    "integrated_autocorr_time",
+    "effective_sample_size",
 ]
 
 __version__ = "0.1.0"

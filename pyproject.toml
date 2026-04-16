@@ -30,7 +30,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-test = ["pytest>=7"]
+plot = ["matplotlib>=3.6"]
+test = ["pytest>=7", "matplotlib>=3.6"]
 
 [project.urls]
 Homepage    = "https://github.com/yifanc96/AffineInvariantSamplers"

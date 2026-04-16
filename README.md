@@ -136,13 +136,56 @@ retained for comparison live under [`develop/`](./develop/):
 
 See [`develop/README.md`](./develop/README.md).
 
+## Diagnostics
+
+`autocorrelation`, `integrated_autocorr_time`, and `effective_sample_size` are
+re-exported at the package level.  All three accept samples in any of
+`(N,)`, `(N, D)`, or `(N, n_chains, D)` shape — chains are averaged per
+dimension.
+
+```python
+from affine_invariant_samplers import (
+    sampler_walk, effective_sample_size, integrated_autocorr_time,
+)
+
+samples, _ = sampler_walk(log_prob, init, num_samples=5000, warmup=1000)
+tau  = integrated_autocorr_time(samples)   # array, shape (D,)
+ess  = effective_sample_size(samples)      # array, shape (D,)
+print(tau, ess)
+```
+
+The integrated autocorrelation time uses Sokal's self-consistent-window rule
+(the same estimator as emcee / arviz), with pairwise-averaging fallback when
+the chain is too short for a robust window.
+
+## Plotting
+
+Requires `matplotlib` — install as `pip install "affine-invariant-samplers[plot]"`.
+
+```python
+from affine_invariant_samplers.plotting import (
+    corner_plot, trace_plot, autocorrelation_plot,
+)
+
+fig = corner_plot(samples, labels=["x", "y"], truths=[0.0, 0.0])
+fig.savefig("posterior.png", dpi=150)
+
+trace_plot(samples, labels=["x", "y"])
+autocorrelation_plot(samples, labels=["x", "y"], max_lag=200)
+```
+
+`corner_plot` produces a lower-triangular grid with 1D histograms on the
+diagonal and 2D histograms below.  It pure-matplotlib — no `corner` package
+dependency.
+
 ## Examples
 
 Runnable comparison scripts are in [`examples/`](./examples/):
 
-- `run_samplers.py`        — full cross-sampler comparison on Gaussian + Rosenbrock + Funnel
-- `run_ensemble.py`        — ensemble-sampler showcase
-- `run_funnel_*.py`        — Neal's-funnel comparisons for each family
+- `run_samplers.py`             — full cross-sampler comparison on Gaussian + Rosenbrock + Funnel
+- `run_ensemble.py`             — ensemble-sampler showcase
+- `run_funnel_gndr.py`          — Gauss–Newton DR on Neal's funnel
+- `run_funnel_ensemble_dr.py`   — ensemble DR on Neal's funnel
 
 ```bash
 python examples/run_samplers.py
