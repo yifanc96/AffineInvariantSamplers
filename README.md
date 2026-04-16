@@ -27,9 +27,9 @@ add `[plot]`; for tests, add `[test]`.
 
 ## Which sampler should I use?
 
-- **Curved geometry** (e.g. Rosenbrock) — start with `sampler_peaches`.
-  Other strong choices in the same family: `sampler_peanuts` (NUTS),
-  `sampler_pickles` (kinetic Langevin), `sampler_peams` (microcanonical
+- **Curved geometry** (e.g. Rosenbrock) — start with `sampler_peaches` (affine invariant ChEES-HMC).
+  Other strong choices in the same family: `sampler_peanuts` (affine invariant NUTS),
+  `sampler_pickles` (affine invariant metropolized kinetic Langevin), `sampler_peams` (affine invariant metropolized microcanonical
   HMC).  All are ensemble affine-invariant versions of well-tuned HMC.
 - **Multiscale geometry** (e.g. Neal's funnel) — use a delayed-rejection
   sampler: `sampler_ensemble_dr_stretch` (gradient-free) or
@@ -81,7 +81,61 @@ statistics.
 </p>
 
 Blue histograms = posterior samples, red curves/contours = exact Rosenbrock
-marginals.  
+marginals.
+
+### A harder target: Neal's funnel with `sampler_gndr`
+
+Neal's funnel mixes a heavy-tailed latent `v ~ N(0, 9)` with a Gaussian
+conditional `x_i | v ~ N(0, exp(v))`: the target variance of each `x_i`
+is `E[exp(v)] = e^{9/2} ≈ 90`, and the neck collapses to width ~`e^{v/2}`
+which becomes very small at `v ≪ 0`.  Plain HMC fails here because no
+single step size works for both the neck and the mouth.  `sampler_gndr`
+handles it via a Gauss–Newton proposal (step size rescaled by a
+state-dependent Hessian approximation) plus 2-stage delayed rejection:
+
+```python
+import jax, jax.numpy as jnp
+from affine_invariant_samplers import sampler_gndr
+
+dim = 5; d = dim - 1
+
+def log_prob(z):                               # single-point: (D,) -> scalar
+    v, xs = z[0], z[1:]
+    return (-0.5 * v**2 / 9.0 - 0.5 * d * v
+            - 0.5 * jnp.sum(xs**2) * jnp.exp(-v))
+
+def residual(z):                               # for the Gauss-Newton Hessian
+    v, xs = z[0], z[1:]
+    return jnp.concatenate([jnp.array([v / 3.0]),
+                             jnp.exp(-v / 2.0) * xs])
+
+init = jax.random.normal(jax.random.key(99), (50, dim))
+samples, info = sampler_gndr(log_prob, init, num_samples=20_000,
+                              warmup=4_000, step_size=0.5, n_try=3,
+                              residual_fn=residual, shrink=0.3, seed=42)
+```
+
+**Output** (seed 42):
+
+```
+samples.shape  = (20000, 50, 5)                            # 1 000 000 total samples
+info           = {'acceptance_rate': 0.712, 'stage1_rate': 0.248,
+                  'final_step_size': 0.056, 'n_grad_evals': 3_000_000}
+v              : mean = -0.02  var = 9.08   (target: 0, 9)
+x_i (averaged) : mean = -0.01  var = 59.2   (target: 0, ≈ 90.0)
+min ESS        : 2654
+```
+
+`v` is essentially spot-on and the tail is well explored; the `x_i` variance
+undershoots because gndr is a single-chain method (no ensemble-spread) and
+the lower tail of `v` (which produces the big `x_i` excursions) is still
+rarely visited even with DR.
+
+<p align="center">
+  <img src="assets/quickstart_gndr_funnel.png" width="620">
+</p>
+
+
 
 Every sampler in the package has this same shape:
 
@@ -108,12 +162,19 @@ of your own; dual averaging will refine it during warmup.
 
 ### Import styles
 
-Every sampler is re-exported at the package top level, so:
+Every sampler is re-exported at the package top level, so the following
+three forms are **equivalent** — pick whichever reads best in your script,
+they all resolve to the same function object:
 
 ```python
-from affine_invariant_samplers import sampler_peaches           # flat
-from affine_invariant_samplers.peaches import sampler_peaches   # namespaced
-from affine_invariant_samplers import peaches                   # module
+# 1. flat — function imported directly
+from affine_invariant_samplers import sampler_peaches
+
+# 2. namespaced — function imported from its sub-module
+from affine_invariant_samplers.peaches import sampler_peaches
+
+# 3. module — import the sub-module and dot into it
+from affine_invariant_samplers import peaches
 peaches.sampler_peaches(...)
 ```
 
