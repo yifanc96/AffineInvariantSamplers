@@ -33,7 +33,7 @@ add `[plot]`; for tests, add `[test]`.
   HMC).  All are ensemble affine-invariant versions of well-tuned HMC.
 - **Multiscale geometry** (e.g. Neal's funnel) — use a delayed-rejection
   sampler: `sampler_ensemble_dr_stretch` (gradient-free) or
-  `sampler_gndr` (gradient + Gauss–Newton Hessian).
+  `sampler_gndr` (gradient + Gauss–Newton preconditioned Langevin).
 - **High dimension** — prefer gradient-based ensemble HMC (peaches,
   peanuts, pickles, peams).  If you have no gradient, `sampler_kalman_move`
   achieves Langevin-like scaling on approximately Gaussian targets.
