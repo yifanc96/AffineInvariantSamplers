@@ -126,15 +126,15 @@ distribution; discretisation introduces an O(h²) bias.
 | `sampler_aldi`                 | Affine-invariant Langevin dynamics (interacting particles).       |
 | `sampler_pickles_unadjusted`   | Unadjusted (no-MH) variant of PICKLES: kinetic Langevin with BAOAB.|
 
-## `develop/` — related methods
+## `dev/` — related methods
 
 Samplers that don't belong in the main affine-invariant MCMC family but are
-retained for comparison live under [`develop/`](./develop/):
+retained for comparison live under [`dev/`](./dev/):
 
 - **PDMPs**: `bps.py`, `bps_walk.py`, `zigzag.py`, `zigzag_walk.py`
 - **Variational inference / normalizing flows**: `gvi.py`, `gmbbvi.py`, `dfgmvi.py`, `ig.py`
 
-See [`develop/README.md`](./develop/README.md).
+See [`dev/README.md`](./dev/README.md).
 
 ## Diagnostics
 
