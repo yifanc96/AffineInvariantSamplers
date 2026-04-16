@@ -260,36 +260,17 @@ from which the drift is derived.
 
 ### Reading the `info` dict
 
-Two fields deserve a specific note:
+Most fields are self-explanatory (`acceptance_rate`, `final_step_size`, …).
+Two deserve a short note:
 
-- **`nominal_L` / `mean_L`** (returned by `sampler_peaches`, `sampler_peams`,
-  `sampler_pickles`).  `nominal_L` is the ChEES-converged base number of
-  leapfrog steps per trajectory (`round(T / eps)` where `T` is the final
-  ChEES integration time and `eps` is `final_step_size`).  During
-  production each trajectory uses a Halton-**jittered** length
-  `cur_L = ceil(T_jit / eps)` with `T_jit ∈ [0.4 T, T]` (and clipped at
-  `max_L`).  `mean_L` is the empirical mean of `cur_L` across the actual
-  production iterations — a more accurate indicator of realised
-  trajectory cost.  When `max_L` saturates the jitter, `mean_L` equals
-  `nominal_L`; otherwise `mean_L < nominal_L`.
+- **`nominal_L`** / **`mean_L`** (ChEES samplers: `peaches`, `peams`,
+  `pickles`) — `nominal_L` is the base leapfrog count ChEES converged on;
+  `mean_L` is the empirical mean of the Halton-jittered length actually
+  used during production.  Use `mean_L` as the realised cost per trajectory.
+- **`n_grad_evals`** — exact count of gradient evaluations in the production
+  phase (warmup not counted), accumulated through the scan.
 
-- **`n_grad_evals`** counts **exact** production-phase gradient evaluations
-  for every sampler that reports it.  Warmup gradients are not counted.
-  Per iteration the cost is:
-  - `sampler_peaches`, `sampler_peams`:  `(cur_L + 1) × n_chains` gradients
-    (one initial grad + one per leapfrog step; no caching).  The actual
-    `cur_L` is accumulated through the production scan and summed:
-    `n_grad_evals = (Σ cur_L + n_iters) × n_chains`.
-  - `sampler_pickles`:  `cur_L × n_chains` gradients — the initial grad
-    is **cached** across trajectories and re-projected onto the new
-    centered matrix.  `n_grad_evals = Σ cur_L × n_chains`.
-  - `sampler_langevin_walk`:  `2 × n_chains` (forward + reverse grad).
-  - `sampler_gndr`:  `(1 + n_try) × n_chains` (current position + each DR
-    proposal).
-  - `sampler_aldi`, `sampler_pickles_unadjusted`:  `N_particles`
-    (one grad / step with BAOAB caching).
-
-See each sampler's docstring for its full signature and specific toggles.
+See each sampler's docstring for the full calling signature.
 
 ## Samplers
 
