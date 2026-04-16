@@ -30,7 +30,7 @@ add `[plot]`; for tests, add `[test]`.
 - **Curved geometry** (e.g. Rosenbrock) — start with `sampler_peaches` (affine invariant ChEES-HMC).
   Other strong choices in the same family: `sampler_peanuts` (affine invariant NUTS),
   `sampler_pickles` (affine invariant metropolized kinetic Langevin), `sampler_peams` (affine invariant metropolized microcanonical
-  HMC).  All are ensemble affine-invariant versions of well-tuned HMC.
+  HMC).  All are ensemble affine-invariant versions of affine-invariant-tuned HMC.
 - **Multiscale geometry** (e.g. Neal's funnel) — use a delayed-rejection
   sampler: `sampler_ensemble_dr_stretch` (gradient-free) or
   `sampler_gndr` (gradient + Gauss–Newton preconditioned Langevin).
@@ -447,3 +447,4 @@ the diagnostics test covers ACF / IAT / ESS and the corner/trace/acf plots.
   year={2025}
 }
 ```
+Many forthcoming!
