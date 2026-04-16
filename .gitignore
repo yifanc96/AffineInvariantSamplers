@@ -1,10 +1,22 @@
+# Python
 __pycache__/
 */__pycache__/
+*.pyc
+*.pyo
 
+# Packaging
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+
+# OS / editor
 *.DS_Store
-*png
+
+# Experiment artifacts (do not commit)
+*.png
 *.pdf
 *.npz
-test_*
-.ipynb*/
-data*
+
+# Jupyter
+.ipynb_checkpoints/

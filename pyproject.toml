@@ -1,0 +1,44 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "affine-invariant-samplers"
+version = "0.1.0"
+description = "Affine-invariant ensemble MCMC samplers and their dimensional scaling (JAX)."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [
+    { name = "Yifan Chen" },
+]
+keywords = ["mcmc", "sampling", "affine-invariant", "ensemble", "hmc", "nuts", "langevin", "jax"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Mathematics",
+]
+dependencies = [
+    "jax>=0.4.0",
+    "jaxlib>=0.4.0",
+    "numpy>=1.24",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[project.urls]
+Homepage    = "https://github.com/yifanc96/AffineInvariantSamplers"
+Paper       = "https://arxiv.org/abs/2505.02987"
+Source      = "https://github.com/yifanc96/AffineInvariantSamplers"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-dir]
+"" = "src"
