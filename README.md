@@ -60,20 +60,30 @@ samples, info = sampler_peaches(log_prob, init, num_samples=5000, warmup=1000,
 for the last line):
 
 ```
-samples.shape  = (5000, 100, 10)
+samples.shape  = (5000, 100, 10)                            # 500 000 total samples
 info           = {'acceptance_rate': 0.993, 'final_step_size': 0.0118,
                   'nominal_L': 20, 'n_grad_evals': 10_000_000}
 x_even moments : mean = 0.99  var = 0.50   (target: 1.00, 0.500)
 x_odd  moments : mean = 1.48  var = 2.44   (target: 1.50, 2.505)
-min ESS        : 1031
+min ESS        : 1031                                       # worst-mixing of the 10 coordinates
 ```
+
+`min_ESS` is the smallest entry of `effective_sample_size(samples)`, i.e.
+the **worst-mixing dimension**.  ESS = N<sub>total</sub> / τ where τ is the
+integrated autocorrelation time; it tells you how many *independent* draws
+would give the same Monte-Carlo variance.  Here ≈ 1 000 of the 500 000
+samples' worth of information is realised in the hardest direction (the
+long Rosenbrock axis) — that dimension sets the bottleneck for joint
+statistics.
 
 <p align="center">
   <img src="assets/quickstart_peaches_rosenbrock.png" width="620">
 </p>
 
 Blue histograms = posterior samples, red curves/contours = exact Rosenbrock
-marginals.  Every sampler in the package has this same shape:
+marginals.  
+
+Every sampler in the package has this same shape:
 
 ```python
 samples, info = sampler_xxx(
@@ -195,14 +205,23 @@ from affine_invariant_samplers import (
 )
 
 tau  = integrated_autocorr_time(samples)   # array, shape (D,)
-ess  = effective_sample_size(samples)      # array, shape (D,) — clamped ≤ N
+ess  = effective_sample_size(samples)      # array, shape (D,) — one ESS per dim
 ```
 
-The estimator is Sokal's self-consistent-window rule (same as emcee / arviz)
-with pairwise-averaging fallback for short chains.  `effective_sample_size`
-clamps τ at 1 so that ESS never exceeds the sample count (HMC with long
-trajectories is often slightly antithetic, so raw τ can be < 1 — and you
-can still see that via `integrated_autocorr_time`).
+For each coordinate,  **ESS = N<sub>total</sub> / τ**, where τ is the
+integrated autocorrelation time.  It measures how many *independent*
+draws would give the same Monte-Carlo variance as the correlated chain:
+IID ⇒ ESS ≈ N<sub>total</sub>; a chain with τ = 50 gives ESS ≈
+N<sub>total</sub>/50.  When examples report `min_ESS`, they mean the
+smallest ESS across the D dimensions — the worst-mixing direction, which
+is the bottleneck for joint statistics.
+
+The estimator is Sokal's self-consistent-window rule (same as emcee /
+arviz) with pairwise-averaging fallback for short chains.
+`effective_sample_size` clamps τ at 1 so that ESS never exceeds the
+sample count (HMC with long trajectories is often slightly antithetic,
+so raw τ can be < 1 — you can still see that via
+`integrated_autocorr_time`).
 
 ## Plotting
 
