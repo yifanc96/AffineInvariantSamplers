@@ -83,15 +83,18 @@ statistics.
 Blue histograms = posterior samples, red curves/contours = exact Rosenbrock
 marginals.
 
-### A harder target: Neal's funnel with `sampler_gndr`
+### A multiscale target: Neal's funnel with `sampler_gndr`
 
-Neal's funnel mixes a heavy-tailed latent `v ~ N(0, 9)` with a Gaussian
+Neal's funnel mixes a Gaussian latent `v ~ N(0, 9)` with a Gaussian
 conditional `x_i | v ~ N(0, exp(v))`: the target variance of each `x_i`
 is `E[exp(v)] = e^{9/2} ≈ 90`, and the neck collapses to width ~`e^{v/2}`
-which becomes very small at `v ≪ 0`.  Plain HMC fails here because no
+which becomes very small at `v ≪ 0`.  Plain MCMC fails here because no
 single step size works for both the neck and the mouth.  `sampler_gndr`
 handles it via a Gauss–Newton proposal (step size rescaled by a
-state-dependent Hessian approximation) plus 2-stage delayed rejection:
+state-dependent Hessian approximation) plus `n_try`-stage delayed
+rejection, where each stage shrinks the step size by a factor `shrink`
+(so the successive trial step sizes are `h, shrink·h, shrink²·h, …`).
+Here we use `n_try=3` and `shrink=0.3`:
 
 ```python
 import jax, jax.numpy as jnp
@@ -119,12 +122,19 @@ samples, info = sampler_gndr(log_prob, init, num_samples=20_000,
 
 ```
 samples.shape  = (20000, 50, 5)                            # 1 000 000 total samples
-info           = {'acceptance_rate': 0.712, 'stage1_rate': 0.248,
-                  'final_step_size': 0.056, 'n_grad_evals': 3_000_000}
+info           = {'acceptance_rate': 0.712,                # any of the 3 DR stages
+                  'stage1_rate':     0.248,                # accepted at h directly
+                  'final_step_size': 0.056,
+                  'n_grad_evals':    3_000_000}            # one grad per DR stage
 v              : mean = -0.02  var = 9.08   (target: 0, 9)
 x_i (averaged) : mean = -0.01  var = 59.2   (target: 0, ≈ 90.0)
 min ESS        : 2654
 ```
+
+The 25% stage-1 rate plus the fall-back to smaller step sizes in stages
+2 and 3 is what gives the overall ~71% acceptance.  Without DR, the
+stage-1 proposal at the full step gets rejected 75% of the time and the
+chain stalls in the neck.
 
 `v` is essentially spot-on and the tail is well explored; the `x_i` variance
 undershoots because gndr is a single-chain method (no ensemble-spread) and
