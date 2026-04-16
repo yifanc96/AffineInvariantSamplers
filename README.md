@@ -78,12 +78,27 @@ samples' worth of information is realised in the hardest direction (the
 long Rosenbrock axis) — that dimension sets the bottleneck for joint
 statistics.
 
+**Samples visualisation — 2-D marginal of (x₀, x₁)** (the canonical
+Rosenbrock banana):
+
+<p align="center">
+  <img src="assets/quickstart_peaches_rosenbrock_scatter.png" width="520">
+</p>
+
+The blue 2-D histogram traces the posterior samples; the red contours are
+the exact Rosenbrock density `∝ exp(−b(x₁ − x₀²)² − (x₀ − a)²)`.
+
+**Corner plot** — first 4 dimensions (two (even, odd) Rosenbrock pairs):
+
 <p align="center">
   <img src="assets/quickstart_peaches_rosenbrock.png" width="620">
 </p>
 
-Blue histograms = posterior samples, red curves/contours = exact Rosenbrock
-marginals.
+Diagonals are 1-D histograms of each coordinate; lower-triangular panels
+are 2-D histograms of each pair.  Red curves / contours show the exact
+analytical marginals — `N(a, 1/2)` for `x_even`, the x_odd marginal via
+numerical quadrature, banana density for adjacent (x_e, x_o) pairs,
+axis-aligned products for independent pairs.
 
 ### A multiscale target: Neal's funnel with `sampler_gndr`
 
@@ -138,12 +153,33 @@ The 25% stage-1 rate plus the fall-back to smaller step sizes in stages
 stage-1 proposal at the full step gets rejected 75% of the time and the
 chain stalls in the neck.
 
-`v` is essentially spot-on and the tail is well explored; the `x_i` variance
-undershoots and it will improve with more iterations (20k is not enough)
+`v` is essentially spot-on and the tail is well explored; the `x_i`
+variance undershoots and will improve with more iterations (20 k per
+chain is not enough for the deep tails).
+
+**Samples visualisation — 2-D marginal of (v, x₀)** (the iconic funnel
+neck):
+
+<p align="center">
+  <img src="assets/quickstart_gndr_funnel_scatter.png" width="520">
+</p>
+
+Blue dots are posterior samples (subsampled to 20 k for clarity); red
+contours are the exact marginal `p(v, x₀) ∝ e^{−v²/18} · e^{−v/2} ·
+N(x₀; 0, eᵛ)`.  Note how the chain reaches deep into `v ≪ 0` where the
+neck collapses — the hardest part of the target.
+
+**Corner plot** — all 5 dimensions:
 
 <p align="center">
   <img src="assets/quickstart_gndr_funnel.png" width="620">
 </p>
+
+Diagonals are 1-D histograms overlaid with the exact marginals
+(`N(0, 9)` for v; a quadrature-computed mixture for each x_i);
+lower-triangular panels are 2-D histograms of each pair with the
+analytical joint density in red (closed-form for (v, x_i), quadrature
+for (x_i, x_j)).
 
 
 
