@@ -180,15 +180,19 @@ dependency.
 
 ## Examples
 
-Runnable comparison scripts are in [`examples/`](./examples/):
+Three comparison scripts in [`examples/`](./examples/) — each reports
+mean/variance accuracy, acceptance rate, minimum ESS, and wall-clock time.
 
-- `run_samplers.py`             — full cross-sampler comparison on Gaussian + Rosenbrock + Funnel
-- `run_ensemble.py`             — ensemble-sampler showcase
-- `run_funnel_gndr.py`          — Gauss–Newton DR on Neal's funnel
-- `run_funnel_ensemble_dr.py`   — ensemble DR on Neal's funnel
+| Script                    | Target                           | Samplers compared                                     |
+|---------------------------|----------------------------------|-------------------------------------------------------|
+| `example_gaussian.py`     | 20-D anisotropic Gaussian, κ=1000 | `stretch`, `langevin_walk`, `kalman_move`, `peaches`  |
+| `example_rosenbrock.py`   | 10-D Rosenbrock, (a, b)=(1, 100)  | `peaches`, `pickles`, `peams`                         |
+| `example_funnel.py`       | 5-D Neal's funnel                 | `stretch`, `stretch-DR`, `gndr`                       |
 
 ```bash
-python examples/run_samplers.py
+python examples/example_gaussian.py
+python examples/example_rosenbrock.py
+python examples/example_funnel.py
 ```
 
 ## Tests
