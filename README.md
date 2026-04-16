@@ -263,12 +263,11 @@ from which the drift is derived.
 Most fields are self-explanatory (`acceptance_rate`, `final_step_size`, …).
 Two deserve a short note:
 
-- **`nominal_L`** / **`mean_L`** (ChEES samplers: `peaches`, `peams`,
-  `pickles`) — `nominal_L` is the base leapfrog count ChEES converged on;
-  `mean_L` is the empirical mean of the Halton-jittered length actually
-  used during production.  Use `mean_L` as the realised cost per trajectory.
-- **`n_grad_evals`** — exact count of gradient evaluations in the production
-  phase (warmup not counted), accumulated through the scan.
+- **`nominal_L`** / **`mean_L`** — the **maximum** leapfrog trajectory
+  length and the **empirical mean** after per-iteration randomisation.
+  Use `mean_L` as the realised cost per trajectory.
+- **`n_grad_evals`** — exact gradient-evaluation count in the production
+  phase (warmup not counted).
 
 See each sampler's docstring for the full calling signature.
 
