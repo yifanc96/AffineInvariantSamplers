@@ -409,19 +409,25 @@ def sampler_peams(
 
         state  = jnp.concatenate([g1, g2])
         accept = jnp.concatenate([a1, a2]).astype(float)
-        return (g1, g2, lp1, lp2, step_i + 1), (state, accept)
+        return (g1, g2, lp1, lp2, step_i + 1), (state, accept, cur_L)
 
     key, k  = jax.random.split(key)
     flat    = jax.random.split(k, num_samples * thin_by * 4)
     skeys   = flat.reshape(num_samples * thin_by, 4, *flat.shape[1:])
-    (g1, g2, lp1, lp2, _), (all_states, all_acc) = jax.lax.scan(
+    (g1, g2, lp1, lp2, _), (all_states, all_acc, all_L) = jax.lax.scan(
         _step, (g1, g2, lp1, lp2, jnp.int32(0)), skeys)
 
     samples = all_states[::thin_by]
-    n_grad_evals = int(num_samples * thin_by) * int(nominal_L) * int(n_chains)
+    # Per iteration each group's OBABO trajectory costs (cur_L + 1) gradient
+    # evaluations per walker (initial projection + one per OBABO step); no
+    # caching across trajectories.
+    total_L = int(jnp.sum(all_L))
+    n_iters = int(num_samples * thin_by)
+    n_grad_evals = (total_L + n_iters) * int(n_chains)
     info = dict(acceptance_rate=float(jnp.mean(all_acc)),
                 final_step_size=float(final_eps),
                 nominal_L=int(nominal_L),
+                mean_L=float(jnp.mean(all_L)),
                 n_grad_evals=n_grad_evals)
     if verbose:
         print(f"Done.  accept={info['acceptance_rate']:.3f}")

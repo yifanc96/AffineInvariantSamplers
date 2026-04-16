@@ -453,19 +453,24 @@ def sampler_pickles(
 
         state  = jnp.concatenate([g1, g2])
         accept = jnp.concatenate([a1, a2]).astype(float)
-        return (g1, g2, lp1, lp2, gu1, gu2, step_i + 1), (state, accept)
+        return (g1, g2, lp1, lp2, gu1, gu2, step_i + 1), (state, accept, cur_L)
 
     key, k  = jax.random.split(key)
     flat    = jax.random.split(k, num_samples * thin_by * 4)
     skeys   = flat.reshape(num_samples * thin_by, 4, *flat.shape[1:])
-    (g1, g2, lp1, lp2, gu1, gu2, _), (all_states, all_acc) = jax.lax.scan(
+    (g1, g2, lp1, lp2, gu1, gu2, _), (all_states, all_acc, all_L) = jax.lax.scan(
         _step, (g1, g2, lp1, lp2, gu1, gu2, jnp.int32(0)), skeys)
 
     samples = all_states[::thin_by]
-    n_grad_evals = int(num_samples * thin_by) * int(nominal_L) * int(n_chains)
+    # Per iteration each BAB-O trajectory of cur_L steps costs exactly cur_L
+    # gradient evaluations per walker — the initial gradient is cached from
+    # the previous trajectory and re-projected onto the new centered matrix.
+    total_L = int(jnp.sum(all_L))
+    n_grad_evals = total_L * int(n_chains)
     info = dict(acceptance_rate=float(jnp.mean(all_acc)),
                 final_step_size=float(final_eps),
                 nominal_L=int(nominal_L),
+                mean_L=float(jnp.mean(all_L)),
                 gamma=float(gamma),
                 n_grad_evals=n_grad_evals)
     if verbose:

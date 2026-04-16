@@ -399,22 +399,26 @@ def sampler_peaches(
         g2, a2 = _mh(g2, p2, la2, ka2);   lp2 = jnp.where(a2, lp2n, lp2)
         state  = jnp.concatenate([g1, g2])
         accept = jnp.concatenate([a1, a2]).astype(float)
-        return (g1, g2, lp1, lp2, step_i + 1), (state, accept)
+        return (g1, g2, lp1, lp2, step_i + 1), (state, accept, Lc)
 
     key, k  = jax.random.split(key)
     flat    = jax.random.split(k, num_samples * thin_by * 4)
     skeys   = flat.reshape(num_samples * thin_by, 4, *flat.shape[1:])
-    (g1, g2, lp1, lp2, _), (all_states, all_acc) = jax.lax.scan(
+    (g1, g2, lp1, lp2, _), (all_states, all_acc, all_L) = jax.lax.scan(
         _step, (g1, g2, lp1, lp2, jnp.int32(0)), skeys)
 
     samples = all_states[::thin_by]
-    # Production gradient evals: nominal_L per trajectory per walker, across
-    # num_samples * thin_by iterations and n_chains walkers.  Gradient caching
-    # between trajectories is ignored (off-by-one per iteration).
-    n_grad_evals = int(num_samples * thin_by) * int(nominal_L) * int(n_chains)
+    # Production gradient evals: per iteration each of the 2 groups of walkers
+    # runs one leapfrog trajectory of cur_L steps (Halton-jittered), costing
+    # (cur_L + 1) gradient evaluations per walker — one for the initial
+    # half-kick plus one per leapfrog step.  No caching across trajectories.
+    total_L = int(jnp.sum(all_L))
+    n_iters = int(num_samples * thin_by)
+    n_grad_evals = (total_L + n_iters) * int(n_chains)
     info = dict(acceptance_rate=float(jnp.mean(all_acc)),
                 final_step_size=float(final_eps),
                 nominal_L=int(nominal_L),
+                mean_L=float(jnp.mean(all_L)),
                 n_grad_evals=n_grad_evals)
     if verbose:
         print(f"Done.  accept={info['acceptance_rate']:.3f}")

@@ -61,8 +61,10 @@ for the last line):
 
 ```
 samples.shape  = (5000, 100, 10)                            # 500 000 total samples
-info           = {'acceptance_rate': 0.993, 'final_step_size': 0.0118,
-                  'nominal_L': 20, 'n_grad_evals': 10_000_000}
+info           = {'acceptance_rate': 0.993,
+                  'final_step_size': 0.0118,
+                  'nominal_L': 20, 'mean_L': 20.0,          # saturated at default max_L=20
+                  'n_grad_evals':    10_500_000}            # = (Σ cur_L + n_iters)·n_chains
 x_even moments : mean = 0.99  var = 0.50   (target: 1.00, 0.500)
 x_odd  moments : mean = 1.48  var = 2.44   (target: 1.50, 2.505)
 min ESS        : 1031                                       # worst-mixing of the 10 coordinates
@@ -224,27 +226,32 @@ from which the drift is derived.
 
 Two fields deserve a specific note:
 
-- **`nominal_L`** (returned by `sampler_peaches`, `sampler_peams`,
-  `sampler_pickles`) is the ChEES-converged mean number of leapfrog
-  steps per trajectory — equivalently `round(T / eps)` where `T` is the
-  final ChEES integration time and `eps` is `final_step_size`.  During
+- **`nominal_L` / `mean_L`** (returned by `sampler_peaches`, `sampler_peams`,
+  `sampler_pickles`).  `nominal_L` is the ChEES-converged base number of
+  leapfrog steps per trajectory (`round(T / eps)` where `T` is the final
+  ChEES integration time and `eps` is `final_step_size`).  During
   production each trajectory uses a Halton-**jittered** length
-  `cur_L = ceil(T_jit / eps)` with `T_jit ∈ [0.4 T, T]`, mean `≈ 0.7 T`,
-  so the actual per-trajectory leapfrog count varies around `nominal_L`.
+  `cur_L = ceil(T_jit / eps)` with `T_jit ∈ [0.4 T, T]` (and clipped at
+  `max_L`).  `mean_L` is the empirical mean of `cur_L` across the actual
+  production iterations — a more accurate indicator of realised
+  trajectory cost.  When `max_L` saturates the jitter, `mean_L` equals
+  `nominal_L`; otherwise `mean_L < nominal_L`.
 
-- **`n_grad_evals`** counts production-phase gradient evaluations only
-  (warmup grads are not included).  It is:
-  - **Exact** for fixed-work samplers:
-    `sampler_langevin_walk` (2 grads × `n_chains` per iter),
-    `sampler_gndr` (`(1 + n_try)` × `n_chains` per iter),
-    `sampler_aldi` and `sampler_pickles_unadjusted`
-    (1 grad × `N` per iter, with caching).
-  - **An upper bound** for the ChEES-jittered HMC samplers
-    (`sampler_peaches`, `sampler_peams`, `sampler_pickles`):
-    the formula is `num_samples · nominal_L · n_chains`, but because the
-    Halton jitter makes the realised `L` average to `≈ 0.7 · nominal_L`,
-    the actual gradient cost is roughly 30 % lower than reported.
-    Treat this value as a conservative ceiling.
+- **`n_grad_evals`** counts **exact** production-phase gradient evaluations
+  for every sampler that reports it.  Warmup gradients are not counted.
+  Per iteration the cost is:
+  - `sampler_peaches`, `sampler_peams`:  `(cur_L + 1) × n_chains` gradients
+    (one initial grad + one per leapfrog step; no caching).  The actual
+    `cur_L` is accumulated through the production scan and summed:
+    `n_grad_evals = (Σ cur_L + n_iters) × n_chains`.
+  - `sampler_pickles`:  `cur_L × n_chains` gradients — the initial grad
+    is **cached** across trajectories and re-projected onto the new
+    centered matrix.  `n_grad_evals = Σ cur_L × n_chains`.
+  - `sampler_langevin_walk`:  `2 × n_chains` (forward + reverse grad).
+  - `sampler_gndr`:  `(1 + n_try) × n_chains` (current position + each DR
+    proposal).
+  - `sampler_aldi`, `sampler_pickles_unadjusted`:  `N_particles`
+    (one grad / step with BAOAB caching).
 
 See each sampler's docstring for its full signature and specific toggles.
 
@@ -286,10 +293,10 @@ etc.).
 
 | Function           | Idea                                                                    |
 |--------------------|-------------------------------------------------------------------------|
-| `sampler_peaches`  | **PEACHES**: ensemble-preconditioned ChEES-tuned HMC (walk + HMC).      |
-| `sampler_peams`    | **PEAMS**: ensemble-preconditioned microcanonical HMC (walk + MAMS).    |
-| `sampler_peanuts`  | **PEANUTS**: ensemble-preconditioned NUTS.                              |
-| `sampler_pickles`  | **PICKLES**: parallel interacting covariance-preconditioned kinetic Langevin. |
+| `sampler_peaches`  | **PEACHES**: Parallel Ensemble Affine-invariant ChEES.      |
+| `sampler_peams`    | **PEAMS**: Parallel Ensemble Affine-invariant Microcanonical Sampling.    |
+| `sampler_peanuts`  | **PEANUTS**: Parallel Ensemble Affine-invariant NUTS.                              |
+| `sampler_pickles`  | **PICKLES**: Parallel Interacting Covariance-preconditioned Kinetic Langevin Sampler. |
 | `sampler_chess`    | Standard HMC with joint dual-averaging + ChEES length tuning.           |
 
 ### Unadjusted Langevin (ensemble / interacting)
