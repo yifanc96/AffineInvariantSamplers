@@ -21,6 +21,8 @@ from __future__ import annotations
 import time
 import jax
 import jax.numpy as jnp
+import numpy as np
+import matplotlib.pyplot as plt
 
 from affine_invariant_samplers import (
     sampler_stretch,
@@ -29,6 +31,7 @@ from affine_invariant_samplers import (
     sampler_peaches,
     effective_sample_size,
 )
+from affine_invariant_samplers.plotting import corner_plot
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -82,27 +85,76 @@ if __name__ == "__main__":
           f"n_chains={n_chains}  n_samp={n_samp}  warmup={warmup}")
     print("=" * 80)
 
+    results = {}
+
     t0 = time.time()
     s, info = sampler_stretch(log_prob, init, n_samp, warmup=warmup, seed=seed,
                               verbose=False)
     _report("stretch",       s, cov, info["acceptance_rate"], time.time() - t0)
+    results["stretch"] = s
 
     t0 = time.time()
     s, info = sampler_langevin_walk(log_prob, init, n_samp, warmup=warmup,
                                      step_size=0.01, seed=seed, verbose=False)
     _report("langevin_walk", s, cov, info["acceptance_rate"], time.time() - t0)
+    results["langevin_walk"] = s
 
     t0 = time.time()
     s, info = sampler_kalman_move(log_prob, lambda x: x, prec, init, n_samp,
                                    warmup=warmup, step_size=0.01, seed=seed,
                                    verbose=False)
     _report("kalman_move",   s, cov, info["acceptance_rate"], time.time() - t0)
+    results["kalman_move"] = s
 
     t0 = time.time()
     s, info = sampler_peaches(log_prob, init, n_samp, warmup=warmup,
                                step_size=0.01, seed=seed, verbose=False)
     _report("peaches",       s, cov, info["acceptance_rate"], time.time() - t0)
+    results["peaches"] = s
 
     print("=" * 80)
     print(f"Target: diag(cov) spans [{float(jnp.diag(cov).min()):.2f}, "
           f"{float(jnp.diag(cov).max()):.2f}]  (ratio = kappa = {kappa})")
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Plots
+    # ──────────────────────────────────────────────────────────────────────
+
+    # 2D projection onto the top-2 principal axes (largest eigenvalues).
+    # These are the hardest directions to sample.
+    cov_np = np.asarray(cov)
+    eigvals_np, eigvecs_np = np.linalg.eigh(cov_np)
+    pc1, pc2 = eigvecs_np[:, -1], eigvecs_np[:, -2]
+    l1, l2   = eigvals_np[-1], eigvals_np[-2]
+
+    # True 2D contour in PC-space is N(0, diag(l1, l2))
+    xmax = 3.5 * np.sqrt(l1);  ymax = 3.5 * np.sqrt(l2)
+    gx, gy = np.meshgrid(np.linspace(-xmax, xmax, 200),
+                         np.linspace(-ymax, ymax, 200))
+    true_density = np.exp(-0.5 * (gx ** 2 / l1 + gy ** 2 / l2))
+
+    fig_c, axes_c = plt.subplots(1, len(results), figsize=(4 * len(results), 4.2),
+                                  sharex=True, sharey=True)
+    for ax, (name, s) in zip(axes_c, results.items()):
+        flat = np.asarray(s).reshape(-1, dim)
+        proj1, proj2 = flat @ pc1, flat @ pc2
+        ax.hist2d(proj1, proj2, bins=80, range=[[-xmax, xmax], [-ymax, ymax]],
+                  cmap="Blues", density=True)
+        ax.contour(gx, gy, true_density, levels=6, colors="k",
+                   linewidths=0.8, alpha=0.7)
+        ax.set_title(name, fontsize=11)
+        ax.set_xlabel("PC1 (λ = {:.0f})".format(l1))
+    axes_c[0].set_ylabel("PC2 (λ = {:.0f})".format(l2))
+    fig_c.suptitle("Top-2 principal-axis projection  (black = true 2-σ contours)",
+                   y=0.99)
+    fig_c.tight_layout()
+
+    # Per-method corner plots on the first 5 dims
+    K = 5
+    labels = [f"x{i}" for i in range(K)]
+    for name, s in results.items():
+        s_sub = np.asarray(s).reshape(-1, dim)[:, :K]
+        fig = corner_plot(s_sub, labels=labels, truths=[0.0] * K,
+                          title=f"{name} — first {K} dims")
+
+    plt.show()

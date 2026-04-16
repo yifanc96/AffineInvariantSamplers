@@ -22,6 +22,8 @@ from __future__ import annotations
 import time
 import jax
 import jax.numpy as jnp
+import numpy as np
+import matplotlib.pyplot as plt
 
 from affine_invariant_samplers import (
     sampler_peaches,
@@ -29,6 +31,7 @@ from affine_invariant_samplers import (
     sampler_peams,
     effective_sample_size,
 )
+from affine_invariant_samplers.plotting import corner_plot
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -82,20 +85,63 @@ if __name__ == "__main__":
           f"n_chains={n_chains}  n_samp={n_samp}  warmup={warmup}")
     print("=" * 100)
 
+    results = {}
+
     t0 = time.time()
     s, info = sampler_peaches(log_prob, init, n_samp, warmup=warmup,
                                step_size=0.01, seed=seed, verbose=False)
     _report("peaches", s, a, info["acceptance_rate"], time.time() - t0)
+    results["peaches"] = s
 
     t0 = time.time()
     s, info = sampler_pickles(log_prob, init, n_samp, warmup=warmup,
                                step_size=0.01, gamma=2.0, seed=seed, verbose=False)
     _report("pickles", s, a, info["acceptance_rate"], time.time() - t0)
+    results["pickles"] = s
 
     t0 = time.time()
     s, info = sampler_peams(log_prob, init, n_samp, warmup=warmup,
                              step_size=0.01, seed=seed, verbose=False)
     _report("peams",   s, a, info["acceptance_rate"], time.time() - t0)
+    results["peams"] = s
 
     print("=" * 100)
     print(f"Target: x_e mean={a}, var=0.50   x_o mean={a**2 + 0.5:.2f}, var≈2.505")
+
+    # ──────────────────────────────────────────────────────────────────────
+    # Plots
+    # ──────────────────────────────────────────────────────────────────────
+
+    # 2D marginal of (x_0, x_1) — the first banana.  Exact 2D density:
+    #   p(x_0, x_1) ∝ exp(-b·(x_1 − x_0²)² − (x_0 − a)²)
+    xr = np.linspace(-2.5, 2.5, 400)
+    yr = np.linspace(-1.5, 6.0, 400)
+    gx, gy = np.meshgrid(xr, yr)
+    true_density = np.exp(-(b * (gy - gx ** 2) ** 2 + (gx - a) ** 2))
+
+    fig_c, axes_c = plt.subplots(1, len(results), figsize=(4.2 * len(results), 4.2),
+                                  sharex=True, sharey=True)
+    for ax, (name, s) in zip(axes_c, results.items()):
+        flat = np.asarray(s).reshape(-1, dim)
+        ax.hist2d(flat[:, 0], flat[:, 1], bins=80,
+                  range=[[xr[0], xr[-1]], [yr[0], yr[-1]]],
+                  cmap="Blues", density=True)
+        ax.contour(gx, gy, true_density, levels=8, colors="k",
+                   linewidths=0.8, alpha=0.7)
+        ax.set_title(name, fontsize=11)
+        ax.set_xlabel("x₀ (even)")
+    axes_c[0].set_ylabel("x₁ (odd)")
+    fig_c.suptitle("Rosenbrock 2D marginal (x₀, x₁)  (black = true contours)",
+                   y=0.99)
+    fig_c.tight_layout()
+
+    # Per-method corner plots on the first 4 dims (two even/odd pairs)
+    K = 4
+    labels = [f"x{i}" + (" (e)" if i % 2 == 0 else " (o)") for i in range(K)]
+    truths = [a if i % 2 == 0 else a ** 2 + 0.5 for i in range(K)]
+    for name, s in results.items():
+        s_sub = np.asarray(s).reshape(-1, dim)[:, :K]
+        fig = corner_plot(s_sub, labels=labels, truths=truths,
+                          title=f"{name} — first {K} dims")
+
+    plt.show()
