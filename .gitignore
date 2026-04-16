@@ -13,10 +13,11 @@ dist/
 # OS / editor
 *.DS_Store
 
-# Experiment artifacts (do not commit)
+# Experiment artifacts (do not commit) — but keep README images under assets/
 *.png
 *.pdf
 *.npz
+!assets/*.png
 
 # Jupyter
 .ipynb_checkpoints/

@@ -3,11 +3,16 @@
 JAX implementations of affine-invariant ensemble MCMC samplers and related
 Hamiltonian Monte Carlo variants.
 
-Paper: [New affine invariant ensemble samplers and their dimensional scaling](https://arxiv.org/abs/2505.02987)
+Paper: [**New affine invariant ensemble samplers and their dimensional
+scaling**](https://arxiv.org/abs/2505.02987)
 
 The original numpy implementation that accompanied the paper lives on the
 [`initial-samplers`](https://github.com/yifanc96/AffineInvariantSamplers/tree/initial-samplers)
-branch.  This `main` branch contains a redesigned, JAX-based package with much more samplers that can handle high dimensional distributions, curved geometry, and heterogeneous/multiscale geometry, with or without gradient evaluations of the target distributions. More papers are coming associated with the analysis and methodological development of these samplers.
+branch.  This `main` branch is a redesigned JAX-based package with a
+much larger family of samplers that target high-dimensional distributions,
+curved geometry, and heterogeneous / multiscale geometry — with or without
+access to gradients of the target.  More papers on analysis and
+methodological development are forthcoming.
 
 ## Install
 
@@ -17,15 +22,23 @@ cd AffineInvariantSamplers
 pip install -e .
 ```
 
-Requires Python ≥ 3.10, `jax`, `jaxlib`, `numpy`.
+Requires Python ≥ 3.10, `jax`, `jaxlib`, `numpy`.  For plotting utilities,
+add `[plot]`; for tests, add `[test]`.
 
-## Recommendation of samplers
-- For sampling curved geometry such as Rosenbrock, we recommend peaches (affine-invariant ChEES), peanuts (affine-invariant NUTs), pickles (affine-invariant kinetic Langevin), peams (affine-invariant microcanonical HMC) which are ensemble affine-invariant version of well tuned HMC sampler. Try peaches first.
-- For sampling multiscale distributions such as Funnel, we recommend ensemble sampler with delayed rejection such as sampler_stretch_dr (gradient-free) and sampler_gndr (gauss-Newton-delayed-rejection; gradient based). 
-- For sampling high dimensional distribuions, we recommend gradient based approaches such as affine invariant Hamiltonian sampler: peaches, peanuts, pickles, peams, or use gradient-free ensemble kalman move which achieves gradient Langevin-like scaling if the target is Gaussian-like.
+## Which sampler should I use?
+
+- **Curved geometry** (e.g. Rosenbrock) — start with `sampler_peaches`.
+  Other strong choices in the same family: `sampler_peanuts` (NUTS),
+  `sampler_pickles` (kinetic Langevin), `sampler_peams` (microcanonical
+  HMC).  All are ensemble affine-invariant versions of well-tuned HMC.
+- **Multiscale geometry** (e.g. Neal's funnel) — use a delayed-rejection
+  sampler: `sampler_ensemble_dr_stretch` (gradient-free) or
+  `sampler_gndr` (gradient + Gauss–Newton Hessian).
+- **High dimension** — prefer gradient-based ensemble HMC (peaches,
+  peanuts, pickles, peams).  If you have no gradient, `sampler_kalman_move`
+  achieves Langevin-like scaling on approximately Gaussian targets.
 
 ## Quick start
-
 
 ```python
 import jax, jax.numpy as jnp
@@ -38,174 +51,191 @@ def log_prob(x):
     return -(b * jnp.sum((xo - xe ** 2) ** 2, axis=1)
              + jnp.sum((xe - a) ** 2, axis=1))
 
-init = jax.random.normal(jax.random.key(0), (100, 10))      # 100 walkers, D=10
-samples, info = sampler_peaches(log_prob, init,
-                                 num_samples=5000, warmup=1000, step_size=0.01)
-print(samples.shape)   # (5000, 100, 10)
-print(info)            # {'acceptance_rate': ..., 'final_step_size': ...,
-                       #  'nominal_L': ..., 'n_grad_evals': ...}
+init = jax.random.normal(jax.random.key(0), (100, 10))   # 100 walkers, D=10
+samples, info = sampler_peaches(log_prob, init, num_samples=5000, warmup=1000,
+                                 step_size=0.01)
 ```
 
-Every sampler is re-exported at top level, so you can import it either way:
+**Output** (seed 0, with `affine_invariant_samplers.effective_sample_size`
+for the last line):
+
+```
+samples.shape  = (5000, 100, 10)
+info           = {'acceptance_rate': 0.993, 'final_step_size': 0.0118,
+                  'nominal_L': 20, 'n_grad_evals': 10_000_000}
+x_even moments : mean = 0.99  var = 0.50   (target: 1.00, 0.500)
+x_odd  moments : mean = 1.48  var = 2.44   (target: 1.50, 2.505)
+min ESS        : 1031
+```
+
+<p align="center">
+  <img src="assets/quickstart_peaches_rosenbrock.png" width="620">
+</p>
+
+Blue histograms = posterior samples, red curves/contours = exact Rosenbrock
+marginals.  Every sampler in the package has this same shape:
 
 ```python
-# flat
-from affine_invariant_samplers import sampler_peaches
-# namespaced
-from affine_invariant_samplers.peaches import sampler_peaches
-# module
-from affine_invariant_samplers import peaches; peaches.sampler_peaches(...)
-```
-
-### Calling convention
-
-```
 samples, info = sampler_xxx(
-    log_prob_fn,               # see table below — batched or single-point
-    initial_state,             # (n_chains, D)
+    log_prob_fn,                  # see table below — batched or single-point
+    initial_state,                # (n_chains, D)
     num_samples,
-    warmup         = 1000,
-    step_size      = <default>,
-    seed           = 0,
-    verbose        = True,
+    warmup          = 1000,
+    step_size       = <default>,
+    seed            = 0,
+    verbose         = True,
     # sampler-specific kwargs (target_accept, L, gamma, a, chees_metric, ...)
     find_init_step_size = True,   # heuristic initial step-size search
     adapt_step_size     = True,   # dual averaging during warmup
     # adapt_L / adapt_gamma / adapt_a where applicable
 )
 ```
-The samplers may select a bad initial step size. For such cases, please set find_init_step_size = False, and set your own initial stepsize. Then the algorithm will automatically adapt the stepsize using dual averaging to reach target acceptance probability.  
 
-**`log_prob_fn` convention** — not all samplers accept the same form:
+If the default `find_init_step_size` heuristic picks a bad starting step
+(rare, but possible when the initial ensemble is under-dispersed relative
+to the target), set `find_init_step_size=False` and supply a `step_size`
+of your own; dual averaging will refine it during warmup.
 
-| Form                            | Samplers                                                                                                             |
-|---------------------------------|----------------------------------------------------------------------------------------------------------------------|
-| batched  `(n_chains, D) -> (n_chains,)` | `sampler_walk`, `sampler_stretch`, `sampler_side`, `sampler_ensemble_dr_{stretch,side}`, `sampler_langevin_walk`, `sampler_kalman_move`, `sampler_kalman_dr`, `sampler_nuts`, `sampler_peaches`, `sampler_peams`, `sampler_peanuts`, `sampler_pickles`, `sampler_chess`, `sampler_aldi`, `sampler_pickles_unadjusted` |
-| single-point  `(D,) -> scalar`  | `sampler_malt`, `sampler_mams`, `sampler_gndr`                                                                       |
+### Import styles
 
-See each sampler's docstring for the full signature and its specific toggles.
+Every sampler is re-exported at the package top level, so:
+
+```python
+from affine_invariant_samplers import sampler_peaches           # flat
+from affine_invariant_samplers.peaches import sampler_peaches   # namespaced
+from affine_invariant_samplers import peaches                   # module
+peaches.sampler_peaches(...)
+```
+
+### `log_prob_fn` convention
+
+Not all samplers accept the same form:
+
+| Form                                     | Samplers |
+|------------------------------------------|----------|
+| batched  `(n_chains, D) → (n_chains,)`   | `sampler_walk`, `sampler_stretch`, `sampler_side`, `sampler_ensemble_dr_{stretch,side}`, `sampler_langevin_walk`, `sampler_kalman_move`, `sampler_kalman_dr`, `sampler_nuts`, `sampler_peaches`, `sampler_peams`, `sampler_peanuts`, `sampler_pickles`, `sampler_chess`, `sampler_aldi`, `sampler_pickles_unadjusted` |
+| single-point  `(D,) → scalar`            | `sampler_malt`, `sampler_mams`, `sampler_gndr`  |
+
+See each sampler's docstring for its full signature and specific toggles.
 
 ## Samplers
 
-All samplers support toggles for (a) heuristic initial step-size search and
-(b) dual averaging during warmup.  Where applicable they also expose a
-length-adaptation toggle (ChEES-based, NUTS tree-depth, etc.).
+All samplers expose toggles for (a) a heuristic initial step-size search
+and (b) dual-averaging adaptation during warmup.  Where applicable they
+also expose length- or scale-adaptation toggles (ChEES, NUTS tree depth,
+etc.).
 
 ### Ensemble affine-invariant (gradient-free)
 
-| Function                               | Idea                                          |
-|----------------------------------------|-----------------------------------------------|
-| `sampler_walk`                         | Goodman–Weare walk move (k-subset variant).  |
-| `sampler_stretch`                      | Goodman–Weare stretch move.                  |
-| `sampler_side`                         | Side move (differential-evolution style).    |
-| `sampler_ensemble_dr_stretch`          | Delayed-rejection stretch, 2 stages.         |
-| `sampler_ensemble_dr_side`             | Delayed-rejection side, 2 stages.            |
+| Function                               | Idea                                         |
+|----------------------------------------|----------------------------------------------|
+| `sampler_walk`                         | Goodman–Weare walk move (k-subset variant). |
+| `sampler_stretch`                      | Goodman–Weare stretch move.                 |
+| `sampler_side`                         | Side move (differential-evolution style).   |
+| `sampler_ensemble_dr_stretch`          | 2-stage delayed-rejection stretch.          |
+| `sampler_ensemble_dr_side`             | 2-stage delayed-rejection side.             |
 
 ### Ensemble gradient-based
 
-| Function                 | Idea                                                        |
-|--------------------------|-------------------------------------------------------------|
-| `sampler_langevin_walk`  | Affine-invariant Langevin (MALA in the complement subspace).|
-| `sampler_kalman_move`    | Ensemble Kalman move (derivative-free drift from forward G).|
-| `sampler_kalman_dr`      | Multi-stage delayed-rejection Kalman move.                  |
-| `sampler_gndr`           | Gauss–Newton proposal Langevin with multi-stage DR.         |
+| Function                 | Idea                                                         |
+|--------------------------|--------------------------------------------------------------|
+| `sampler_langevin_walk`  | Affine-invariant Langevin walk (MALA in the complement span).|
+| `sampler_kalman_move`    | Ensemble Kalman move (derivative-free drift from forward G). |
+| `sampler_kalman_dr`      | Multi-stage delayed-rejection Kalman move.                   |
+| `sampler_gndr`           | Gauss–Newton proposal Langevin with multi-stage DR.          |
 
 ### HMC family (single chain, batched)
 
-| Function        | Idea                                                             |
-|-----------------|------------------------------------------------------------------|
-| `sampler_malt`  | Metropolis Adjusted Langevin Trajectories (BABO+O, HMC/MALA).    |
-| `sampler_mams`  | Metropolis Adjusted Microcanonical Sampler (ChEES-L or τ tuned). |
-| `sampler_nuts`  | Classical NUTS with dual averaging.                              |
+| Function        | Idea                                                              |
+|-----------------|-------------------------------------------------------------------|
+| `sampler_malt`  | Metropolis Adjusted Langevin Trajectories (BABO+O, HMC/MALA).     |
+| `sampler_mams`  | Metropolis Adjusted Microcanonical Sampler (ChEES-L or τ-tuned).  |
+| `sampler_nuts`  | Classical NUTS with dual averaging.                               |
 
 ### Ensemble HMC / microcanonical / NUTS
 
-| Function           | Idea                                                             |
-|--------------------|------------------------------------------------------------------|
-| `sampler_peaches`  | Ensemble-preconditioned chess (Parallel ensemble affine-invariant ChEES).                   |
-| `sampler_peams`    | Ensemble-preconditioned microcanonical HMC (walk move + MAMS).   |
-| `sampler_peanuts`  | Ensemble-preconditioned NUTS (walk move + NUTS).                 |
-| `sampler_pickles`  | Parallel interacting covariance-preconditioned kinetic Langevin. |
-| `sampler_chess`    | Standard HMC with joint DA + ChEES integration-length tuning.    |
+| Function           | Idea                                                                    |
+|--------------------|-------------------------------------------------------------------------|
+| `sampler_peaches`  | **PEACHES**: ensemble-preconditioned ChEES-tuned HMC (walk + HMC).      |
+| `sampler_peams`    | **PEAMS**: ensemble-preconditioned microcanonical HMC (walk + MAMS).    |
+| `sampler_peanuts`  | **PEANUTS**: ensemble-preconditioned NUTS.                              |
+| `sampler_pickles`  | **PICKLES**: parallel interacting covariance-preconditioned kinetic Langevin. |
+| `sampler_chess`    | Standard HMC with joint dual-averaging + ChEES length tuning.           |
 
-### Unadjusted Langevin dynamics (ensemble / interacting)
+### Unadjusted Langevin (ensemble / interacting)
 
 No Metropolis correction — these target the continuous-time invariant
-distribution; discretisation introduces bias but often allows larger stepsize than the Metropolized counterpart.
+distribution.  Discretisation introduces an O(h²) bias, but often allows
+larger step sizes than the Metropolised counterparts.
 
 | Function                       | Idea                                                              |
 |--------------------------------|-------------------------------------------------------------------|
-| `sampler_aldi`                 | Affine-invariant Langevin dynamics (interacting particles).       |
-| `sampler_pickles_unadjusted`   | Unadjusted (no-MH) variant of PICKLES: kinetic Langevin with BAOAB.|
+| `sampler_aldi`                 | Affine-invariant Langevin dynamics (overdamped).                  |
+| `sampler_pickles_unadjusted`   | Unadjusted PICKLES: kinetic Langevin (BAOAB) + ensemble precond.  |
 
-## `dev/` — related methods
+### `dev/` — related methods, not in the main package
 
-Samplers that don't belong in the main affine-invariant MCMC family but are
-retained for comparison live under [`dev/`](./dev/):
+Samplers retained for comparison but outside the affine-invariant MCMC
+family live under [`dev/`](./dev/):
 
 - **PDMPs**: `bps.py`, `bps_walk.py`, `zigzag.py`, `zigzag_walk.py`
-- **Variational inference / normalizing flows**: `gvi.py`, `gmbbvi.py`, `dfgmvi.py`, `ig.py`
-
-See [`dev/README.md`](./dev/README.md).
+- **Variational inference / normalizing flows**: `gvi.py`, `gmbbvi.py`,
+  `dfgmvi.py`, `ig.py`
 
 ## Diagnostics
 
-`autocorrelation`, `integrated_autocorr_time`, and `effective_sample_size` are
-re-exported at the package level.  All three accept samples in any of
+`autocorrelation`, `integrated_autocorr_time`, and `effective_sample_size`
+are re-exported at the package level.  All three accept samples in any of
 `(N,)`, `(N, D)`, or `(N, n_chains, D)` shape — chains are averaged per
 dimension.
 
 ```python
 from affine_invariant_samplers import (
-    sampler_walk, effective_sample_size, integrated_autocorr_time,
+    effective_sample_size, integrated_autocorr_time,
 )
 
-samples, _ = sampler_walk(log_prob, init, num_samples=5000, warmup=1000)
 tau  = integrated_autocorr_time(samples)   # array, shape (D,)
-ess  = effective_sample_size(samples)      # array, shape (D,)
-print(tau, ess)
+ess  = effective_sample_size(samples)      # array, shape (D,) — clamped ≤ N
 ```
 
-The integrated autocorrelation time uses Sokal's self-consistent-window rule
-(the same estimator as emcee / arviz), with pairwise-averaging fallback when
-the chain is too short for a robust window.
+The estimator is Sokal's self-consistent-window rule (same as emcee / arviz)
+with pairwise-averaging fallback for short chains.  `effective_sample_size`
+clamps τ at 1 so that ESS never exceeds the sample count (HMC with long
+trajectories is often slightly antithetic, so raw τ can be < 1 — and you
+can still see that via `integrated_autocorr_time`).
 
 ## Plotting
 
-Requires `matplotlib` — install as `pip install "affine-invariant-samplers[plot]"`.
+Install the `plot` extra: `pip install "affine-invariant-samplers[plot]"`.
 
 ```python
 from affine_invariant_samplers.plotting import (
     corner_plot, trace_plot, autocorrelation_plot,
 )
 
-fig = corner_plot(samples, labels=["x", "y"], truths=[0.0, 0.0])
-fig.savefig("posterior.png", dpi=150)
-
-trace_plot(samples, labels=["x", "y"])
-autocorrelation_plot(samples, labels=["x", "y"], max_lag=200)
+fig = corner_plot(samples, labels=["x", "y"], truths=[0.0, 0.0],
+                   truth_1d={...}, truth_2d={...})
 ```
 
 `corner_plot` produces a lower-triangular grid with 1D histograms on the
-diagonal and 2D histograms below.  It pure-matplotlib — no `corner` package
-dependency.
+diagonal and 2D histograms below.  Optional `truth_1d` and `truth_2d`
+dicts overlay analytical marginals (red curves) and joint contours.
+Pure matplotlib — no `corner` package dependency.
 
 ## Examples
 
-Three comparison scripts in [`examples/`](./examples/) — each reports
-mean/variance accuracy, acceptance rate, minimum ESS, and wall-clock time.
+Four comparison scripts in [`examples/`](./examples/).  Each reports
+mean/variance accuracy, acceptance rate, minimum ESS, number of gradient
+evaluations (where applicable), and wall-clock time, and displays a
+contour-comparison figure plus per-method corner plots with analytical
+truth overlays.
 
-| Script                                 | Target                           | Samplers compared                                     |
-|----------------------------------------|----------------------------------|-------------------------------------------------------|
-| `example_gaussian.py`                  | 20-D anisotropic Gaussian, κ=1000 | `stretch`, `langevin_walk`, `kalman_move`, `peaches`  |
-| `example_rosenbrock.py`                | 10-D Rosenbrock, (a, b)=(1, 100)  | `peaches`, `pickles`, `peams`                         |
-| `example_rosenbrock_unadjusted.py`     | 10-D Rosenbrock, (a, b)=(1, 100)  | `aldi`, `pickles_unadjusted`                          |
-| `example_funnel.py`                    | 5-D Neal's funnel                 | `stretch`, `stretch-DR`, `gndr`                       |
-
-Each script reports mean/variance accuracy, acceptance rate, min ESS,
-number of gradient evaluations (where applicable), and wall-clock time; and
-displays a contour-comparison figure plus per-method corner plots with
-analytical truth marginals overlaid in red.
+| Script                                 | Target                              | Samplers compared                                   |
+|----------------------------------------|-------------------------------------|-----------------------------------------------------|
+| `example_gaussian.py`                  | 50-D anisotropic Gaussian, κ=1000   | `stretch`, `langevin_walk`, `kalman_move`, `peaches`|
+| `example_rosenbrock.py`                | 10-D Rosenbrock, (a, b)=(1, 100)    | `peaches`, `pickles`, `peams`                       |
+| `example_rosenbrock_unadjusted.py`     | 10-D Rosenbrock, (a, b)=(1, 100)    | `aldi`, `pickles_unadjusted`                        |
+| `example_funnel.py`                    | 5-D Neal's funnel                   | `stretch`, `stretch-DR`, `gndr`                     |
 
 ```bash
 python examples/example_gaussian.py
@@ -221,14 +251,9 @@ pip install -e ".[test]"
 pytest tests/
 ```
 
-Or run the smoke test directly:
-
-```bash
-python tests/test_smoke.py
-```
-
-The smoke test runs every main-package sampler briefly on a 2D correlated
-Gaussian and a 10D Rosenbrock and checks finite-sample mean/variance.
+The smoke test runs every main-package sampler briefly on a 2-D correlated
+Gaussian and a 10-D Rosenbrock and checks finite-sample mean / variance;
+the diagnostics test covers ACF / IAT / ESS and the corner/trace/acf plots.
 
 ## Citation
 

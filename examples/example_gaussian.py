@@ -74,7 +74,7 @@ def _report(name, samples, cov, info, elapsed):
 # ──────────────────────────────────────────────────────────────────────────────
 
 if __name__ == "__main__":
-    dim      = 20
+    dim      = 50
     kappa    = 1000.0
     n_chains = 100
     n_samp   = 5000
