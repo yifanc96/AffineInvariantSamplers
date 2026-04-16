@@ -266,8 +266,12 @@ def sampler_langevin_walk(
         _step, (g1, g2, lp1, lp2), skeys)
 
     samples = all_states[::thin_by][:num_samples]
+    # Per iteration: 2 gradient calls per walker (forward + reverse in the MH
+    # correction), × 2 groups combined into `n_chains` total evaluations.
+    n_grad_evals = int(num_samples * thin_by) * 2 * int(n_chains)
     info = dict(acceptance_rate=float(jnp.mean(all_acc)),
-                final_step_size=float(final_h))
+                final_step_size=float(final_h),
+                n_grad_evals=n_grad_evals)
     if verbose:
         print(f"Done.  accept={info['acceptance_rate']:.3f}")
     return samples, info

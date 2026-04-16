@@ -390,6 +390,9 @@ def sampler_pickles_unadjusted(
         samples = all_Q[::thin_by]
         info = dict(step_size=h, gamma=gamma, adapt=None)
 
+    # One gradient evaluation per BAOAB step per particle (cached across
+    # iterations for the second B-kick; the off-by-one is negligible).
+    info["n_grad_evals"] = int(num_samples * thin_by) * int(N)
     if verbose:
         print(f"Unadj. PICKLES done.")
     return samples, info

@@ -344,6 +344,8 @@ def sampler_aldi(
         samples = all_X[::thin_by]
         info = dict(step_size=h, adapt=None)
 
+    # Production gradient evals: one per step per particle.
+    info["n_grad_evals"] = int(num_samples * thin_by) * int(N)
     if verbose:
         print(f"ALDI done.")
     return samples, info

@@ -420,9 +420,11 @@ def sampler_peams(
         _step, (g1, g2, lp1, lp2, jnp.int32(0)), skeys)
 
     samples = all_states[::thin_by]
+    n_grad_evals = int(num_samples * thin_by) * int(nominal_L) * int(n_chains)
     info = dict(acceptance_rate=float(jnp.mean(all_acc)),
                 final_step_size=float(final_eps),
-                nominal_L=int(nominal_L))
+                nominal_L=int(nominal_L),
+                n_grad_evals=n_grad_evals)
     if verbose:
         print(f"Done.  accept={info['acceptance_rate']:.3f}")
     return samples, info

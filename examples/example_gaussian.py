@@ -55,15 +55,18 @@ def make_gaussian(dim=20, kappa=1000.0, seed=0):
 # Report helper
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _report(name, samples, cov, accept, elapsed):
+def _report(name, samples, cov, info, elapsed):
     flat = jnp.asarray(samples).reshape(-1, samples.shape[-1])
     var_est  = jnp.var(flat, axis=0)
     var_true = jnp.diag(cov)
     rel_err  = float(jnp.mean(jnp.abs(var_est - var_true) / var_true))
     ess      = effective_sample_size(samples)
+    accept   = info["acceptance_rate"]
+    grads    = info.get("n_grad_evals")
+    grads_s  = f"{grads:>10d}" if grads is not None else f"{'–':>10s}"
     print(f"  {name:<20s}  rel_err(var)={rel_err:6.3f}   "
           f"accept={accept:5.3f}   min_ESS={float(ess.min()):7.1f}   "
-          f"time={elapsed:5.1f}s")
+          f"grad_evals={grads_s}   time={elapsed:5.1f}s")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -90,26 +93,33 @@ if __name__ == "__main__":
     t0 = time.time()
     s, info = sampler_stretch(log_prob, init, n_samp, warmup=warmup, seed=seed,
                               verbose=False)
-    _report("stretch",       s, cov, info["acceptance_rate"], time.time() - t0)
+    _report("stretch",       s, cov, info, time.time() - t0)
     results["stretch"] = s
 
+    # For ensemble-preconditioned Langevin (langevin_walk, kalman_move) under
+    # an under-dispersed init (N(0, I) vs diag(cov)∈[45, 402]), the default
+    # `find_init_step_size` heuristic over-estimates h by latching onto the
+    # tiny initial ensemble covariance.  We disable it and pass a sensible
+    # starting step size; DA refines from there.
     t0 = time.time()
     s, info = sampler_langevin_walk(log_prob, init, n_samp, warmup=warmup,
-                                     step_size=0.01, seed=seed, verbose=False)
-    _report("langevin_walk", s, cov, info["acceptance_rate"], time.time() - t0)
+                                     step_size=0.3, find_init_step_size=False,
+                                     seed=seed, verbose=False)
+    _report("langevin_walk", s, cov, info, time.time() - t0)
     results["langevin_walk"] = s
 
     t0 = time.time()
     s, info = sampler_kalman_move(log_prob, lambda x: x, prec, init, n_samp,
-                                   warmup=warmup, step_size=0.01, seed=seed,
+                                   warmup=warmup, step_size=0.3,
+                                   find_init_step_size=False, seed=seed,
                                    verbose=False)
-    _report("kalman_move",   s, cov, info["acceptance_rate"], time.time() - t0)
+    _report("kalman_move",   s, cov, info, time.time() - t0)
     results["kalman_move"] = s
 
     t0 = time.time()
     s, info = sampler_peaches(log_prob, init, n_samp, warmup=warmup,
                                step_size=0.01, seed=seed, verbose=False)
-    _report("peaches",       s, cov, info["acceptance_rate"], time.time() - t0)
+    _report("peaches",       s, cov, info, time.time() - t0)
     results["peaches"] = s
 
     print("=" * 80)
@@ -149,12 +159,34 @@ if __name__ == "__main__":
                    y=0.99)
     fig_c.tight_layout()
 
-    # Per-method corner plots on the first 5 dims
+    # Per-method corner plots on the first K dims, with analytical marginals
+    # (the joint is N(0, cov[:K, :K])) overlaid.
     K = 5
     labels = [f"x{i}" for i in range(K)]
+    cov_K = cov_np[:K, :K]
+    sigs  = np.sqrt(np.diag(cov_K))
+
+    truth_1d = {}
+    for i in range(K):
+        xg = np.linspace(-3.5 * sigs[i], 3.5 * sigs[i], 200)
+        truth_1d[i] = (xg, np.exp(-0.5 * xg ** 2 / cov_K[i, i]) /
+                           np.sqrt(2 * np.pi * cov_K[i, i]))
+
+    truth_2d = {}
+    for i in range(K):
+        for j in range(i):
+            C  = cov_K[np.ix_([i, j], [i, j])]
+            Ci = np.linalg.inv(C)
+            xg = np.linspace(-3.5 * sigs[j], 3.5 * sigs[j], 150)
+            yg = np.linspace(-3.5 * sigs[i], 3.5 * sigs[i], 150)
+            Xg, Yg = np.meshgrid(xg, yg)
+            q = Ci[0, 0] * Xg ** 2 + 2 * Ci[0, 1] * Xg * Yg + Ci[1, 1] * Yg ** 2
+            truth_2d[(i, j)] = (xg, yg, np.exp(-0.5 * q))
+
     for name, s in results.items():
         s_sub = np.asarray(s).reshape(-1, dim)[:, :K]
         fig = corner_plot(s_sub, labels=labels, truths=[0.0] * K,
+                          truth_1d=truth_1d, truth_2d=truth_2d,
                           title=f"{name} — first {K} dims")
 
     plt.show()

@@ -75,7 +75,7 @@ def make_funnel(dim=5):
 # Report helper
 # ──────────────────────────────────────────────────────────────────────────────
 
-def _report(name, samples, accept, elapsed):
+def _report(name, samples, info, elapsed):
     flat = np.asarray(samples.reshape(-1, samples.shape[-1]))
     v    = flat[:, 0]
     xs   = flat[:, 1:]
@@ -84,9 +84,13 @@ def _report(name, samples, accept, elapsed):
     vxs  = float(np.mean(np.var(xs, axis=0)))
     ess  = effective_sample_size(samples)
     ess_v = float(ess[0])
+    accept = info["acceptance_rate"]
+    grads  = info.get("n_grad_evals")
+    grads_s = f"{grads:>9d}" if grads is not None else f"{'–':>9s}"
     print(f"  {name:<22s}  v: mean={mv:6.3f} var={vv:6.3f}   "
           f"x_i var={vxs:7.2f}   accept={accept:5.3f}   "
-          f"ESS(v)={ess_v:6.1f}   time={elapsed:5.1f}s")
+          f"ESS(v)={ess_v:6.1f}   grad_evals={grads_s}   "
+          f"time={elapsed:5.1f}s")
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -112,20 +116,20 @@ if __name__ == "__main__":
     t0 = time.time()
     s, info = sampler_stretch(log_prob, init_ens, n_samp, warmup=warmup,
                                seed=seed, verbose=False)
-    _report("stretch",         s, info["acceptance_rate"], time.time() - t0)
+    _report("stretch",         s, info, time.time() - t0)
     results["stretch"] = s
 
     t0 = time.time()
     s, info = sampler_ensemble_dr_stretch(log_prob, init_ens, n_samp, warmup=warmup,
                                            seed=seed, shrink=0.3, verbose=False)
-    _report("stretch-DR",      s, info["acceptance_rate"], time.time() - t0)
+    _report("stretch-DR",      s, info, time.time() - t0)
     results["stretch-DR"] = s
 
     t0 = time.time()
     s, info = sampler_gndr(log_prob_single, init_hmc, n_samp, warmup=warmup,
                             step_size=0.5, n_try=3, residual_fn=residual,
                             seed=seed, shrink = 0.3, verbose=False)
-    _report("gndr",            s, info["acceptance_rate"], time.time() - t0)
+    _report("gndr",            s, info, time.time() - t0)
     results["gndr"] = s
 
     print("=" * 100)
@@ -145,6 +149,27 @@ if __name__ == "__main__":
                     * np.exp(-0.5 * X ** 2 * np.exp(-V)))
     true_density /= true_density.max()
 
+    # --- 1D marginal of v (should be N(0, 9)) ---
+    v_lin = np.linspace(-12, 8, 400)
+    v_true_pdf = np.exp(-0.5 * v_lin ** 2 / 9.0) / np.sqrt(2 * np.pi * 9.0)
+    fig_v, axes_v = plt.subplots(1, len(results),
+                                  figsize=(4.3 * len(results), 3.2),
+                                  sharey=True)
+    for ax, (name, s) in zip(axes_v, results.items()):
+        v = np.asarray(s).reshape(-1, dim)[:, 0]
+        ax.hist(v, bins=80, range=(v_lin[0], v_lin[-1]), density=True,
+                color="C0", alpha=0.55, edgecolor="C0", histtype="stepfilled",
+                label="samples")
+        ax.plot(v_lin, v_true_pdf, "k-", linewidth=1.3, label="N(0, 9)")
+        ax.set_title(name, fontsize=11)
+        ax.set_xlabel("v")
+        ax.set_xlim(v_lin[0], v_lin[-1])
+    axes_v[0].set_ylabel("density")
+    axes_v[-1].legend(fontsize=8, loc="upper right", frameon=False)
+    fig_v.suptitle("Marginal of v  (true: N(0, 9))", y=0.99)
+    fig_v.tight_layout()
+
+    # --- 2D marginal of (v, x_0) ---
     fig_c, axes_c = plt.subplots(1, len(results), figsize=(4.3 * len(results), 4.2),
                                   sharex=True, sharey=True)
     for ax, (name, s) in zip(axes_c, results.items()):
@@ -165,12 +190,40 @@ if __name__ == "__main__":
                    y=0.99)
     fig_c.tight_layout()
 
-    # Per-method corner plots over all D = 5 dims
+    # Per-method corner plots over all D = 5 dims, with analytical marginals.
     labels = ["v"] + [f"x{i}" for i in range(dim - 1)]
     truths = [0.0] * dim
+
+    # 1D marginals:
+    #   v ~ N(0, 9)
+    #   x_i is marginal ∫ N(x_i; 0, e^v) · N(v; 0, 9) dv — evaluate numerically.
+    v_grid_1d = np.linspace(-12, 8, 400)
+    truth_1d_f = {0: (v_grid_1d, np.exp(-0.5 * v_grid_1d ** 2 / 9.0)
+                                  / np.sqrt(2 * np.pi * 9.0))}
+    vv = np.linspace(-9, 6, 300)
+    pv = np.exp(-0.5 * vv ** 2 / 9.0) / np.sqrt(2 * np.pi * 9.0)
+    x_grid_1d = np.linspace(-15, 15, 400)
+    # p(x_i) = ∫ N(x_i; 0, e^v) p(v) dv  — trapezoidal quadrature
+    pdf_x = np.zeros_like(x_grid_1d)
+    for vk, pk in zip(vv, pv):
+        sig2 = np.exp(vk)
+        pdf_x += pk * np.exp(-0.5 * x_grid_1d ** 2 / sig2) / np.sqrt(2 * np.pi * sig2)
+    pdf_x *= (vv[1] - vv[0])
+    for i in range(1, dim):
+        truth_1d_f[i] = (x_grid_1d, pdf_x)
+
+    # 2D marginals for (x_i, v) pairs (i = 1..d).  p(v, x_i) = p(v) · N(x_i; 0, e^v).
+    V, X = np.meshgrid(v_grid_1d, x_grid_1d)
+    pvx = (np.exp(-0.5 * V ** 2 / 9.0) / np.sqrt(2 * np.pi * 9.0)) * \
+          (np.exp(-0.5 * X ** 2 * np.exp(-V)) / np.sqrt(2 * np.pi * np.exp(V)))
+    truth_2d_f = {}
+    for i in range(1, dim):
+        truth_2d_f[(i, 0)] = (v_grid_1d, x_grid_1d, pvx)
+
     for name, s in results.items():
         fig = corner_plot(np.asarray(s).reshape(-1, dim),
                           labels=labels, truths=truths,
+                          truth_1d=truth_1d_f, truth_2d=truth_2d_f,
                           title=f"{name} — funnel")
 
     plt.show()

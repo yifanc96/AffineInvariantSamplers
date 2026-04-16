@@ -7,7 +7,7 @@ Paper: [New affine invariant ensemble samplers and their dimensional scaling](ht
 
 The original numpy implementation that accompanied the paper lives on the
 [`initial-samplers`](https://github.com/yifanc96/AffineInvariantSamplers/tree/initial-samplers)
-branch.  This `main` branch contains a redesigned, JAX-based package.
+branch.  This `main` branch contains a redesigned, JAX-based package with much more samplers that can handle high dimensional distributions, curved geometry, and heterogeneous/multiscale geometry, with or without gradient evaluations of the target distributions. More papers are coming associated with the analysis and methodological development of these samplers.
 
 ## Install
 
@@ -19,31 +19,42 @@ pip install -e .
 
 Requires Python ≥ 3.10, `jax`, `jaxlib`, `numpy`.
 
+## Recommendation of samplers
+- For sampling curved geometry such as Rosenbrock, we recommend peaches (affine-invariant ChEES), peanuts (affine-invariant NUTs), pickles (affine-invariant kinetic Langevin), peams (affine-invariant microcanonical HMC) which are ensemble affine-invariant version of well tuned HMC sampler. Try peaches first.
+- For sampling multiscale distributions such as Funnel, we recommend ensemble sampler with delayed rejection such as sampler_stretch_dr (gradient-free) and sampler_gndr (gauss-Newton-delayed-rejection; gradient based). 
+- For sampling high dimensional distribuions, we recommend gradient based approaches such as affine invariant Hamiltonian sampler: peaches, peanuts, pickles, peams, or use gradient-free ensemble kalman move which achieves gradient Langevin-like scaling if the target is Gaussian-like.
+
 ## Quick start
+
 
 ```python
 import jax, jax.numpy as jnp
-from affine_invariant_samplers import sampler_walk
+from affine_invariant_samplers import sampler_peaches
 
-# Batched log density: (n_chains, D) -> (n_chains,)
+# 10-D Rosenbrock  (a = 1, b = 100).  Batched log density (n_chains, D) -> (n_chains,).
+a, b = 1.0, 100.0
 def log_prob(x):
-    return -0.5 * jnp.sum(x * x, axis=-1)
+    xe, xo = x[:, ::2], x[:, 1::2]
+    return -(b * jnp.sum((xo - xe ** 2) ** 2, axis=1)
+             + jnp.sum((xe - a) ** 2, axis=1))
 
-init = jax.random.normal(jax.random.key(0), (20, 2))        # 20 walkers, D=2
-samples, info = sampler_walk(log_prob, init, num_samples=2000, warmup=500)
-print(samples.shape)   # (2000, 20, 2)
-print(info)            # {'acceptance_rate': ..., 'final_step_size': ...}
+init = jax.random.normal(jax.random.key(0), (100, 10))      # 100 walkers, D=10
+samples, info = sampler_peaches(log_prob, init,
+                                 num_samples=5000, warmup=1000, step_size=0.01)
+print(samples.shape)   # (5000, 100, 10)
+print(info)            # {'acceptance_rate': ..., 'final_step_size': ...,
+                       #  'nominal_L': ..., 'n_grad_evals': ...}
 ```
 
 Every sampler is re-exported at top level, so you can import it either way:
 
 ```python
 # flat
-from affine_invariant_samplers import sampler_walk
+from affine_invariant_samplers import sampler_peaches
 # namespaced
-from affine_invariant_samplers.walk import sampler_walk
+from affine_invariant_samplers.peaches import sampler_peaches
 # module
-from affine_invariant_samplers import walk; walk.sampler_walk(...)
+from affine_invariant_samplers import peaches; peaches.sampler_peaches(...)
 ```
 
 ### Calling convention
@@ -63,6 +74,7 @@ samples, info = sampler_xxx(
     # adapt_L / adapt_gamma / adapt_a where applicable
 )
 ```
+The samplers may select a bad initial step size. For such cases, please set find_init_step_size = False, and set your own initial stepsize. Then the algorithm will automatically adapt the stepsize using dual averaging to reach target acceptance probability.  
 
 **`log_prob_fn` convention** — not all samplers accept the same form:
 
@@ -110,7 +122,7 @@ length-adaptation toggle (ChEES-based, NUTS tree-depth, etc.).
 
 | Function           | Idea                                                             |
 |--------------------|------------------------------------------------------------------|
-| `sampler_peaches`  | Ensemble-preconditioned HMC (walk move + HMC).                   |
+| `sampler_peaches`  | Ensemble-preconditioned chess (Parallel ensemble affine-invariant ChEES).                   |
 | `sampler_peams`    | Ensemble-preconditioned microcanonical HMC (walk move + MAMS).   |
 | `sampler_peanuts`  | Ensemble-preconditioned NUTS (walk move + NUTS).                 |
 | `sampler_pickles`  | Parallel interacting covariance-preconditioned kinetic Langevin. |
@@ -119,7 +131,7 @@ length-adaptation toggle (ChEES-based, NUTS tree-depth, etc.).
 ### Unadjusted Langevin dynamics (ensemble / interacting)
 
 No Metropolis correction — these target the continuous-time invariant
-distribution; discretisation introduces an O(h²) bias.
+distribution; discretisation introduces bias but often allows larger stepsize than the Metropolized counterpart.
 
 | Function                       | Idea                                                              |
 |--------------------------------|-------------------------------------------------------------------|
@@ -183,15 +195,22 @@ dependency.
 Three comparison scripts in [`examples/`](./examples/) — each reports
 mean/variance accuracy, acceptance rate, minimum ESS, and wall-clock time.
 
-| Script                    | Target                           | Samplers compared                                     |
-|---------------------------|----------------------------------|-------------------------------------------------------|
-| `example_gaussian.py`     | 20-D anisotropic Gaussian, κ=1000 | `stretch`, `langevin_walk`, `kalman_move`, `peaches`  |
-| `example_rosenbrock.py`   | 10-D Rosenbrock, (a, b)=(1, 100)  | `peaches`, `pickles`, `peams`                         |
-| `example_funnel.py`       | 5-D Neal's funnel                 | `stretch`, `stretch-DR`, `gndr`                       |
+| Script                                 | Target                           | Samplers compared                                     |
+|----------------------------------------|----------------------------------|-------------------------------------------------------|
+| `example_gaussian.py`                  | 20-D anisotropic Gaussian, κ=1000 | `stretch`, `langevin_walk`, `kalman_move`, `peaches`  |
+| `example_rosenbrock.py`                | 10-D Rosenbrock, (a, b)=(1, 100)  | `peaches`, `pickles`, `peams`                         |
+| `example_rosenbrock_unadjusted.py`     | 10-D Rosenbrock, (a, b)=(1, 100)  | `aldi`, `pickles_unadjusted`                          |
+| `example_funnel.py`                    | 5-D Neal's funnel                 | `stretch`, `stretch-DR`, `gndr`                       |
+
+Each script reports mean/variance accuracy, acceptance rate, min ESS,
+number of gradient evaluations (where applicable), and wall-clock time; and
+displays a contour-comparison figure plus per-method corner plots with
+analytical truth marginals overlaid in red.
 
 ```bash
 python examples/example_gaussian.py
 python examples/example_rosenbrock.py
+python examples/example_rosenbrock_unadjusted.py
 python examples/example_funnel.py
 ```
 

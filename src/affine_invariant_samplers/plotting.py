@@ -63,6 +63,8 @@ def corner_plot(
     title=None,
     quantiles=(0.16, 0.5, 0.84),
     show_titles=True,
+    truth_1d=None,
+    truth_2d=None,
     fig=None,
 ):
     """Lower-triangular corner plot for posterior samples.
@@ -70,11 +72,11 @@ def corner_plot(
     Args:
         samples       : (N, D) or (N, n_chains, D).  Chains are flattened.
         labels        : Optional list of D strings for the parameter names.
-        truths        : Optional D-vector of "true" values to overlay.
+        truths        : Optional D-vector of "true" values to overlay as lines.
         bins          : Bin count for both 1D and 2D histograms.
         figsize       : Figure size.  Defaults to (2.2 · D, 2.2 · D).
         color         : Colour for histograms.
-        truth_color   : Colour for truth lines.
+        truth_color   : Colour for truth overlays.
         hist_kwargs   : Extra kwargs for diagonal 1D histograms.
         hist2d_kwargs : Extra kwargs for off-diagonal 2D histograms.
         title         : Overall figure title.
@@ -82,6 +84,11 @@ def corner_plot(
                         If `show_titles` is True, the central quantile (median)
                         and its 68% interval are printed as each axis title.
         show_titles   : Show per-parameter median ± CI above each diagonal axis.
+        truth_1d      : Optional dict `{i: (x_grid, pdf)}` — overlays the
+                        analytical marginal density on the i-th diagonal axis.
+        truth_2d      : Optional dict `{(i, j): (xgrid, ygrid, pdf)}` — overlays
+                        analytical 2D-marginal contours on the lower-triangular
+                        axis at row i, column j (with i > j).
         fig           : Optional pre-existing matplotlib Figure to draw on.
 
     Returns:
@@ -134,6 +141,11 @@ def corner_plot(
                                    linewidth=0.9)
                 if truths is not None:
                     ax.axvline(truths[i], color=truth_color, linewidth=1.2)
+                # analytical 1D marginal overlay
+                if truth_1d is not None and i in truth_1d:
+                    xg, pdf = truth_1d[i]
+                    ax.plot(xg, pdf, color=truth_color, linewidth=1.2,
+                            alpha=0.9, zorder=5)
                 if show_titles and len(qs) >= 3:
                     qvals = np.quantile(data[:, i], qs)
                     lo  = qvals[1] - qvals[0]
@@ -152,6 +164,11 @@ def corner_plot(
                     ax.axhline(truths[i], color=truth_color, linewidth=1.0, alpha=0.8)
                     ax.plot(truths[j], truths[i], "s", color=truth_color,
                             markersize=4)
+                # analytical 2D marginal contour overlay
+                if truth_2d is not None and (i, j) in truth_2d:
+                    xg, yg, pdf = truth_2d[(i, j)]
+                    ax.contour(xg, yg, pdf, levels=5, colors=truth_color,
+                               linewidths=0.8, alpha=0.9)
                 ax.set_xlim(*lims[j])
                 ax.set_ylim(*lims[i])
 

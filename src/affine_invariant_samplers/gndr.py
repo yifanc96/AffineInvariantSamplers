@@ -505,9 +505,13 @@ def sampler_gndr(
 
     samples = all_states[::thin_by][:num_samples]
 
+    # Per DR iteration: n_try proposals, each needing grad + Hessian at the
+    # proposal position.  Count grad calls only (Hessian cost is separate).
+    n_grad_evals = int(num_samples * thin_by) * int(n_try) * int(n_chains)
     info = dict(acceptance_rate=float(jnp.mean(all_acc)),
                 stage1_rate=float(jnp.mean(all_s1)),
-                final_step_size=float(final_h))
+                final_step_size=float(final_h),
+                n_grad_evals=n_grad_evals)
     if verbose:
         print(f"Done.  accept={info['acceptance_rate']:.3f}"
               f"  stage1={info['stage1_rate']:.3f}")
