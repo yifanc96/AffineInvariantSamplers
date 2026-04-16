@@ -8,11 +8,9 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
-from affine_invariant_samplers import peaches as peaches
-from affine_invariant_samplers import chess as chess
-from affine_invariant_samplers import nuts as nuts
-
-
+from affine_invariant_samplers import peaches
+from affine_invariant_samplers import chess
+from affine_invariant_samplers import nuts
 # ══════════════════════════════════════════════════════════════════════════════
 # Funnel
 # ══════════════════════════════════════════════════════════════════════════════

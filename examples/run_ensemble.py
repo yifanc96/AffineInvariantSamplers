@@ -20,15 +20,13 @@ import jax
 import jax.numpy as jnp
 
 # Import samplers
-from affine_invariant_samplers import stretch as stretch
-from affine_invariant_samplers import side as side
-from affine_invariant_samplers import walk as walk
-from affine_invariant_samplers import langevin_walk as langevin_walk
-from affine_invariant_samplers import kalman_move as kalman_move
-from affine_invariant_samplers import ensemble_dr as ensemble_dr
-from affine_invariant_samplers import gndr as gndr
-
-
+from affine_invariant_samplers import stretch
+from affine_invariant_samplers import side
+from affine_invariant_samplers import walk
+from affine_invariant_samplers import langevin_walk
+from affine_invariant_samplers import kalman_move
+from affine_invariant_samplers import ensemble_dr
+from affine_invariant_samplers import gndr
 # ══════════════════════════════════════════════════════════════════════════════
 # Test distributions
 # ══════════════════════════════════════════════════════════════════════════════

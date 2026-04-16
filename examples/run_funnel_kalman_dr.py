@@ -17,7 +17,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
-from affine_invariant_samplers import kalman_dr as kalman_dr
+from affine_invariant_samplers import kalman_dr
 from affine_invariant_samplers import kalman_move as kalman
 
 

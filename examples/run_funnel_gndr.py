@@ -13,9 +13,7 @@ import jax
 import jax.numpy as jnp
 import numpy as np
 import matplotlib.pyplot as plt
-from affine_invariant_samplers import gndr as gndr
-
-
+from affine_invariant_samplers import gndr
 # ══════════════════════════════════════════════════════════════════════════════
 # Funnel
 # ══════════════════════════════════════════════════════════════════════════════

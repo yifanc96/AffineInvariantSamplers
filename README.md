@@ -25,7 +25,7 @@ Requires Python ≥ 3.10, `jax`, `jaxlib`, `numpy`.
 import jax, jax.numpy as jnp
 from affine_invariant_samplers import sampler_walk
 
-# Batched log density: (batch, D) -> (batch,)
+# Batched log density: (n_chains, D) -> (n_chains,)
 def log_prob(x):
     return -0.5 * jnp.sum(x * x, axis=-1)
 
@@ -35,23 +35,41 @@ print(samples.shape)   # (2000, 20, 2)
 print(info)            # {'acceptance_rate': ..., 'final_step_size': ...}
 ```
 
-Every sampler has the same entry-point shape:
+Every sampler is re-exported at top level, so you can import it either way:
+
+```python
+# flat
+from affine_invariant_samplers import sampler_walk
+# namespaced
+from affine_invariant_samplers.walk import sampler_walk
+# module
+from affine_invariant_samplers import walk; walk.sampler_walk(...)
+```
+
+### Calling convention
 
 ```
 samples, info = sampler_xxx(
-    log_prob_fn,               # (batch, D) -> (batch,)  or  (D,) -> scalar
+    log_prob_fn,               # see table below — batched or single-point
     initial_state,             # (n_chains, D)
     num_samples,
     warmup         = 1000,
     step_size      = <default>,
     seed           = 0,
     verbose        = True,
-    # sampler-specific kwargs …
+    # sampler-specific kwargs (target_accept, L, gamma, a, chees_metric, ...)
     find_init_step_size = True,   # heuristic initial step-size search
     adapt_step_size     = True,   # dual averaging during warmup
     # adapt_L / adapt_gamma / adapt_a where applicable
 )
 ```
+
+**`log_prob_fn` convention** — not all samplers accept the same form:
+
+| Form                            | Samplers                                                                                                             |
+|---------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| batched  `(n_chains, D) -> (n_chains,)` | `sampler_walk`, `sampler_stretch`, `sampler_side`, `sampler_ensemble_dr_{stretch,side}`, `sampler_langevin_walk`, `sampler_kalman_move`, `sampler_kalman_dr`, `sampler_nuts`, `sampler_peaches`, `sampler_peams`, `sampler_peanuts`, `sampler_pickles`, `sampler_chess`, `sampler_aldi` |
+| single-point  `(D,) -> scalar`  | `sampler_malt`, `sampler_mams`, `sampler_gndr`                                                                       |
 
 See each sampler's docstring for the full signature and its specific toggles.
 
