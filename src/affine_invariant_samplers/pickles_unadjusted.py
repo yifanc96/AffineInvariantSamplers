@@ -21,14 +21,29 @@ at the end of step n is reused (re-projected onto the new centered matrix)
 for the first B-kick of step n+1.  Thus k steps cost k+1 gradient evaluations.
 
 Step-size adaptation options:
-  "pgn"      — per-step projected-gradient norm scaling (default).
+  "maxdrift" — per-step max projected-gradient-norm scaling (default,
+               most robust).
+               h = h_base / max(1, sqrt(max_pgn / target)).
+               Normalizes by the worst-case projected gradient across
+               particles; clamps h whenever any chain hits a stiff region.
+               Reliable across ill-conditioned and curved targets.
+  "pgn"      — per-step RMS projected-gradient norm scaling.
                h = h_base / max(1, sqrt(rms_pgn / target)).
+               Uses the ensemble-average; slightly less conservative than
+               maxdrift but can blow up on Rosenbrock at large h_base
+               (observed variance explosion at h_base=0.5).
   "samadams" — SamAdams (Leimkuhler et al. 2025): EMA of gradient norm,
                h_eff = h_base / max(1, sqrt(zeta + eps)).
-  "maxdrift" — per-step max projected-gradient-norm scaling:
-               h = h_base / max(1, sqrt(max_pgn / target)).
-  None/False — no adaptation
+               NOT RECOMMENDED in general: the EMA (rho=0.999) takes
+               hundreds of steps to react; if the first step already
+               diverges on a stiff problem, zeta becomes contaminated and
+               h_eff can collapse to 0.  Observed to NaN on Rosenbrock
+               at h_base=0.5.  Only safe on well-conditioned targets.
+  None/False — no adaptation.  Safe only if h_base is tuned by hand —
+               diverges on Rosenbrock at h ≥ 0.1.
 
+Reference: Leimkuhler, Matthews & Weare, Stat. Comput. 2018  (BAOAB)
+           Leimkuhler, Sherlock & Singh, 2025  (SamAdams)
 """
 
 import jax
@@ -201,7 +216,7 @@ def sampler_pickles_unadjusted(
     gamma            = 2.0,
     warmup           = 1000,
     thin_by          = 1,
-    adapt            = "pgn",
+    adapt            = "maxdrift",
     target_gnorm     = 1.0,
     rho              = 0.999,
     grad_log_prob_fn = None,
@@ -223,9 +238,11 @@ def sampler_pickles_unadjusted(
         gamma            : Friction coefficient (> 0).
         warmup           : Warmup iterations.
         thin_by          : Keep every thin_by-th sample.
-        adapt            : "pgn" (default), "samadams", "maxdrift", or
-                           None / False.
-        target_gnorm     : Target projected-gradient norm for pgn/maxdrift.
+        adapt            : "maxdrift" (default, most robust), "pgn",
+                           "samadams" (not recommended — can NaN on stiff
+                           problems), or None / False.
+                           See module docstring for trade-offs.
+        target_gnorm     : Target projected-gradient norm for maxdrift/pgn.
         rho              : EMA decay for SamAdams (default 0.999).
         grad_log_prob_fn : Vectorised gradient (batch,D)->(batch,D).
         seed             : Integer random seed.
@@ -236,7 +253,7 @@ def sampler_pickles_unadjusted(
         info    : dict(step_size, gamma, adapt, ...)
     """
     if adapt is True:
-        adapt = "pgn"
+        adapt = "maxdrift"
     if adapt is False:
         adapt = None
 
@@ -361,17 +378,22 @@ def sampler_pickles_unadjusted(
 
     # ── no adaptation ───────────────────────────────────────────────────────
     else:
-        h = float(step_size)
+        h = jnp.float32(step_size)
+
+        # warmup via scan (was a Python loop; now fully jit'd).
+        def _warm(carry, key):
+            Q, P, gp = carry
+            Q_new, P_new, gp_new = _baoab_step_plain(
+                Q, P, h, gamma, grad_lp, corr, gp, key)
+            return (Q_new, P_new, gp_new), None
 
         key, k = jax.random.split(key)
         wkeys = jax.random.split(k, warmup)
-        for i in range(warmup):
-            Q, P, gp = _baoab_step_plain(Q, P, h, gamma, grad_lp, corr,
-                                         gp, wkeys[i])
+        (Q, P, gp), _ = jax.lax.scan(_warm, (Q, P, gp), wkeys)
 
         if verbose:
             lp = log_prob_fn(Q)
-            print(f"Unadj. PICKLES [no adapt]  N={N} d={d} h={h:.4f} "
+            print(f"Unadj. PICKLES [no adapt]  N={N} d={d} h={float(h):.4f} "
                   f"gamma={gamma} mean_lp={float(jnp.mean(lp)):.2f}")
 
         @jax.jit
@@ -385,7 +407,7 @@ def sampler_pickles_unadjusted(
         skeys = jax.random.split(k, num_samples * thin_by)
         _, all_Q = jax.lax.scan(_prod, (Q, P, gp), skeys)
         samples = all_Q[::thin_by]
-        info = dict(step_size=h, gamma=gamma, adapt=None)
+        info = dict(step_size=float(h), gamma=gamma, adapt=None)
 
     # One gradient evaluation per BAOAB step per particle (cached across
     # iterations for the second B-kick; the off-by-one is negligible).

@@ -15,21 +15,29 @@ stationary distribution pi(x) propto exp(-Phi(x)).
 No Metropolis correction — the discretisation has O(h) bias.
 
 Step-size adaptation options:
-  "pgn"      — per-step projected-gradient norm scaling (default).
+  "maxdrift" — per-step max-drift normalization (default, most robust).
+               h = h_base / max(1, max_drift / target).
+               Normalizes by the worst-case drift across all particles,
+               so any stiff chain clamps h.  Works reliably even at
+               aggressive h_base on ill-conditioned / curved targets.
+  "pgn"      — per-step RMS projected-gradient scaling.
                h = h_base / max(1, rms_pgn / target).
+               Uses the ensemble-average projected gradient.  Faster to
+               relax when the ensemble has mixed scales, but can blow up
+               if a single chain hits a stiff region the RMS doesn't see.
                Single gradient evaluation per step.
   "samadams" — SamAdams (Leimkuhler et al. 2025): EMA of gradient norm,
                h_eff = h_base / max(1, sqrt(zeta + eps)).
-               Note: designed for kinetic (underdamped) methods; less
-               effective for Euler-Maruyama because EM can diverge in a
-               single step before the EMA reacts.
-  "maxdrift" — max-drift normalization:
-               h = h_base / max(1, max_drift / target).
-               Uses the maximum drift norm across particles as the
-               stability indicator.
-  None/False — no adaptation
+               NOT RECOMMENDED for ALDI: designed for kinetic (underdamped)
+               integrators; Euler-Maruyama can diverge in a single step
+               before the EMA reacts, after which zeta is contaminated and
+               h_eff can collapse to 0 or stay too large.  Observed to NaN
+               on Rosenbrock at h_base=0.5 and ill-cond. Gaussian at h_base>=0.5.
+  None/False — no adaptation.  Fast per step, but safe only if h_base is
+               tuned by hand — diverges on stiff problems.
 
 Reference: Garbuno-Inigo, Nusken & Reich, SIADS 2020  (ALDI)
+           Leimkuhler, Sherlock & Singh, 2025  (SamAdams)
 """
 
 import jax
@@ -164,7 +172,7 @@ def sampler_aldi(
     step_size        = 0.5,
     warmup           = 1000,
     thin_by          = 1,
-    adapt            = "pgn",
+    adapt            = "maxdrift",
     target_gnorm     = 1.0,
     rho              = 0.999,
     grad_log_prob_fn = None,
@@ -182,10 +190,12 @@ def sampler_aldi(
         step_size        : Base step size (adapted if adapt is set).
         warmup           : Warmup iterations.
         thin_by          : Keep every thin_by-th sample.
-        adapt            : "pgn" (default), "samadams", "maxdrift", or
-                           None / False.
-        target_gnorm     : Target RMS projected-gradient norm (pgn) or
-                           max drift norm (maxdrift).
+        adapt            : "maxdrift" (default, most robust), "pgn",
+                           "samadams" (not recommended — can NaN on stiff
+                           problems), or None / False.
+                           See module docstring for trade-offs.
+        target_gnorm     : Target max drift norm (maxdrift) or RMS
+                           projected-gradient norm (pgn).
         rho              : EMA decay for SamAdams (default 0.999).
         grad_log_prob_fn : Vectorised gradient (batch,D)->(batch,D).
         seed             : Integer random seed.
@@ -196,7 +206,7 @@ def sampler_aldi(
         info    : dict(step_size, adapt, ...)
     """
     if adapt is True:
-        adapt = "pgn"
+        adapt = "maxdrift"
     if adapt is False:
         adapt = None
 
@@ -319,16 +329,20 @@ def sampler_aldi(
 
     # ── no adaptation ───────────────────────────────────────────────────────
     else:
-        h = float(step_size)
+        h = jnp.float32(step_size)
+
+        # warmup via scan (was a Python loop; now fully jit'd).
+        def _warm(X, key):
+            X_new = _aldi_step_plain(X, h, grad_lp, corr_coeff, key)
+            return X_new, None
 
         key, k = jax.random.split(key)
         wkeys = jax.random.split(k, warmup)
-        for i in range(warmup):
-            X = _aldi_step_plain(X, h, grad_lp, corr_coeff, wkeys[i])
+        X, _ = jax.lax.scan(_warm, X, wkeys)
 
         if verbose:
             lp = log_prob_fn(X)
-            print(f"ALDI [no adapt]  N={N}  d={d}  h={h:.4f}  "
+            print(f"ALDI [no adapt]  N={N}  d={d}  h={float(h):.4f}  "
                   f"mean_lp={float(jnp.mean(lp)):.2f}")
 
         @jax.jit
@@ -340,7 +354,7 @@ def sampler_aldi(
         skeys = jax.random.split(k, num_samples * thin_by)
         _, all_X = jax.lax.scan(_prod, X, skeys)
         samples = all_X[::thin_by]
-        info = dict(step_size=h, adapt=None)
+        info = dict(step_size=float(h), adapt=None)
 
     # Production gradient evals: one per step per particle.
     info["n_grad_evals"] = int(num_samples * thin_by) * int(N)
