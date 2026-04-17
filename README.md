@@ -333,8 +333,7 @@ larger step sizes than the Metropolised counterparts.
 
 ### `dev/` — related methods, not in the main package
 
-Samplers retained for comparison but outside the affine-invariant MCMC
-family live under [`dev/`](./dev/):
+Samplers retained for comparison and active develipment live under [`dev/`](./dev/):
 
 - **PDMPs**: `bps.py`, `bps_walk.py`, `zigzag.py`, `zigzag_walk.py`
 - **Variational inference / normalizing flows**: `gvi.py`, `gmbbvi.py`,
