@@ -323,7 +323,7 @@ etc.).
 ### Unadjusted Langevin (ensemble / interacting)
 
 No Metropolis correction — these target the continuous-time invariant
-distribution.  Discretisation introduces an O(h²) bias, but often allows
+distribution.  Discretisation introduces an O(h) bias, but often allows
 larger step sizes than the Metropolised counterparts.
 
 | Function                       | Idea                                                              |
