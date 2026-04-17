@@ -19,11 +19,12 @@ methodological development are forthcoming.
 ```bash
 git clone https://github.com/yifanc96/AffineInvariantSamplers.git
 cd AffineInvariantSamplers
-pip install -e .
+pip install -e .                 # core samplers + diagnostics
+pip install -e ".[plot]"         # also installs matplotlib, for corner/trace plots
+pip install -e ".[test]"         # also installs pytest (and matplotlib)
 ```
 
-Requires Python ≥ 3.10, `jax`, `jaxlib`, `numpy`.  For plotting utilities,
-add `[plot]`; for tests, add `[test]`.
+Requires Python ≥ 3.10, `jax`, `jaxlib`, `numpy`.
 
 ## Which sampler should I use?
 
