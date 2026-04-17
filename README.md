@@ -63,20 +63,12 @@ for the last line):
 samples.shape  = (5000, 100, 10)                            # 500 000 total samples
 info           = {'acceptance_rate': 0.993,
                   'final_step_size': 0.0118,
-                  'nominal_L': 20, 'mean_L': 20.0,          # ChEES wants L > max_L=20, so capped
+                  'nominal_L': 20, 'mean_L': 20.0,
                   'n_grad_evals':    10_500_000}
 x_even moments : mean = 0.99  var = 0.50   (target: 1.00, 0.500)
 x_odd  moments : mean = 1.48  var = 2.44   (target: 1.50, 2.505)
 min ESS        : 1031                                       # worst-mixing of the 10 coordinates
 ```
-
-(The per-iteration trajectory length *is* randomised — `cur_L` is drawn
-uniformly from roughly `[0.4·T/eps, T/eps]` and then clipped at `max_L`.
-On Rosenbrock the sampler wants a long `T` such that **even the low end
-of that range exceeds `max_L=20`**, so every random draw gets clipped to
-20 and `mean_L = nominal_L = max_L`.  On easier targets the cap doesn't
-bite and `mean_L < nominal_L`.  Raise `max_L` to let longer trajectories
-through.)
 
 `min_ESS` is the smallest entry of `effective_sample_size(samples)`, i.e.
 the **worst-mixing dimension**.  ESS = N<sub>total</sub> / τ where τ is the
