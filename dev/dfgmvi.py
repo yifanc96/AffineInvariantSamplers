@@ -34,6 +34,7 @@ Reference: Che, Chen, Huan, Huang & Wang,
             Black-Box Variational Inference"  arXiv:2601.14855
 """
 
+from functools import partial
 import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
@@ -229,6 +230,7 @@ def _compute_log_gm_expectations(log_w, means, sqrt_covs, inv_sqrt_covs,
 # One DF-GMVI update step (with temperature)
 # ──────────────────────────────────────────────────────────────────────────────
 
+@partial(jax.jit, static_argnames=('forward_fn', 'n_f'))
 def _dfgmvi_step(log_w, means, sqrt_covs, inv_sqrt_covs,
                  forward_fn, n_f, alpha_bip, dt, inv_T):
     """Single DF-GMVI update step.  Potential terms scaled by inv_T = 1/T."""

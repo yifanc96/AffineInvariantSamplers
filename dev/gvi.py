@@ -37,6 +37,7 @@ Reference: arXiv:2310.03597
            PKU-CMEGroup/InverseProblems.jl  (NGD.jl)
 """
 
+from functools import partial
 import jax
 jax.config.update("jax_enable_x64", True)
 import jax.numpy as jnp
@@ -46,6 +47,7 @@ import jax.numpy as jnp
 # Sigma-point quadrature (unscented transform)
 # ──────────────────────────────────────────────────────────────────────────────
 
+@jax.jit
 def _ut_sigma_points(mean, sqrt_cov, alpha):
     """Generate 2D+1 sigma points and mean/cov weights."""
     D = mean.shape[0]
@@ -74,6 +76,7 @@ def _ut_sigma_points(mean, sqrt_cov, alpha):
 # Compute E[Phi], E[nabla Phi], E[nabla^2 Phi] via auto-diff + quadrature
 # ──────────────────────────────────────────────────────────────────────────────
 
+@partial(jax.jit, static_argnames=('phi_fn',))
 def _compute_expectations(phi_fn, pts, w_m):
     """Compute expected value, gradient, and Hessian of Phi under sigma-point
     quadrature.
@@ -106,6 +109,7 @@ def _compute_expectations(phi_fn, pts, w_m):
 # Update steps for the three gradient flows
 # ──────────────────────────────────────────────────────────────────────────────
 
+@jax.jit
 def _step_fisher_rao(mean, cov, sqrt_cov, E_grad, E_hess, dt):
     """Fisher-Rao (natural gradient) — implicit precision update.
 
@@ -130,6 +134,7 @@ def _step_fisher_rao(mean, cov, sqrt_cov, E_grad, E_hess, dt):
     return mean_new, cov_new, sqrt_cov_new
 
 
+@jax.jit
 def _step_wasserstein(mean, cov, sqrt_cov, E_grad, E_hess, dt):
     """Wasserstein (W2) gradient — matrix-exponential Cholesky update.
 
@@ -159,6 +164,7 @@ def _step_wasserstein(mean, cov, sqrt_cov, E_grad, E_hess, dt):
     return mean_new, cov_new, sqrt_cov_new
 
 
+@jax.jit
 def _step_gradient_descent(mean, cov, sqrt_cov, E_grad, E_hess, dt):
     """Euclidean (parameter-space) GD — Cholesky exponential integrator.
 
@@ -191,6 +197,7 @@ def _step_gradient_descent(mean, cov, sqrt_cov, E_grad, E_hess, dt):
     return mean_new, cov_new, sqrt_cov_new
 
 
+@jax.jit
 def _bw_entropy_proximal(cov_half, dt):
     """BW proximal of the negative entropy (Diao et al. 2023, arXiv:2304.05398).
 
@@ -217,6 +224,7 @@ def _bw_entropy_proximal(cov_half, dt):
     return cov_new, sqrt_cov_new
 
 
+@jax.jit
 def _step_wasserstein_fb(mean, cov, sqrt_cov, E_grad, E_hess, dt):
     """Wasserstein with forward-backward splitting (Diao et al. 2023).
 
@@ -243,6 +251,7 @@ def _step_wasserstein_fb(mean, cov, sqrt_cov, E_grad, E_hess, dt):
     return mean_new, cov_new, sqrt_cov_new
 
 
+@jax.jit
 def _step_wfr(mean, cov, sqrt_cov, E_grad, E_hess, dt,
               alpha=1.0, beta=1.0):
     """Wasserstein-Fisher-Rao (Hellinger-Kantorovich) flow.
@@ -313,6 +322,7 @@ _FLOW_DISPATCH = {
 # Adaptive dt based on spectral norm
 # ──────────────────────────────────────────────────────────────────────────────
 
+@partial(jax.jit, static_argnames=('flow',))
 def _adaptive_dt(cov, sqrt_cov, E_hess, dt_max, flow):
     """Bound dt to keep the covariance update stable."""
     D = cov.shape[0]
