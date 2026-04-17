@@ -83,7 +83,7 @@ statistics.
 Rosenbrock banana):
 
 <p align="center">
-  <img src="assets/quickstart_peaches_rosenbrock_scatter.png" width="520">
+  <img src="docs/quickstart_peaches_rosenbrock_scatter.png" width="520">
 </p>
 
 The blue 2-D histogram traces the posterior samples; the red contours are
@@ -92,7 +92,7 @@ the exact Rosenbrock density `∝ exp(−b(x₁ − x₀²)² − (x₀ − a)²
 **Corner plot** — first 4 dimensions (two (even, odd) Rosenbrock pairs):
 
 <p align="center">
-  <img src="assets/quickstart_peaches_rosenbrock.png" width="620">
+  <img src="docs/quickstart_peaches_rosenbrock.png" width="620">
 </p>
 
 Diagonals are 1-D histograms of each coordinate; lower-triangular panels
@@ -162,7 +162,7 @@ chain is not enough for the deep tails).
 neck):
 
 <p align="center">
-  <img src="assets/quickstart_gndr_funnel_scatter.png" width="520">
+  <img src="docs/quickstart_gndr_funnel_scatter.png" width="520">
 </p>
 
 Blue dots are posterior samples (subsampled to 20 k for clarity); red
@@ -173,7 +173,7 @@ neck collapses — the hardest part of the target.
 **Corner plot** — all 5 dimensions:
 
 <p align="center">
-  <img src="assets/quickstart_gndr_funnel.png" width="620">
+  <img src="docs/quickstart_gndr_funnel.png" width="620">
 </p>
 
 Diagonals are 1-D histograms overlaid with the exact marginals
