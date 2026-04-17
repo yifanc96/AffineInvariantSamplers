@@ -6,13 +6,11 @@ Hamiltonian Monte Carlo variants.
 Paper: [**New affine invariant ensemble samplers and their dimensional
 scaling**](https://arxiv.org/abs/2505.02987)
 
-The original numpy implementation that accompanied the paper lives on the
+The numpy implementation that accompanied the paper lives on the
 [`initial-samplers`](https://github.com/yifanc96/AffineInvariantSamplers/tree/initial-samplers)
-branch.  This `main` branch is a redesigned JAX-based package with a
-much larger family of samplers that target high-dimensional distributions,
-curved geometry, and heterogeneous / multiscale geometry — with or without
-access to gradients of the target.  More papers on analysis and
-methodological development are forthcoming.
+branch.  This `main` branch is a redesigned JAX package targeting
+high-dimensional, curved, and multiscale distributions, with or without
+gradients of the target.
 
 ## Install
 
@@ -20,24 +18,11 @@ methodological development are forthcoming.
 git clone https://github.com/yifanc96/AffineInvariantSamplers.git
 cd AffineInvariantSamplers
 pip install -e .                 # core samplers + diagnostics
-pip install -e ".[plot]"         # also installs matplotlib, for corner/trace plots
-pip install -e ".[test]"         # also installs pytest (and matplotlib)
+pip install -e ".[plot]"         # + matplotlib (corner / trace plots)
+pip install -e ".[test]"         # + pytest         (run: pytest tests/)
 ```
 
 Requires Python ≥ 3.10, `jax`, `jaxlib`, `numpy`.
-
-## Which sampler should I use?
-
-- **Curved geometry** (e.g. Rosenbrock) — start with `sampler_peaches` (affine invariant ChEES-HMC).
-  Other strong choices in the same family: `sampler_peanuts` (affine invariant NUTS),
-  `sampler_pickles` (affine invariant metropolized kinetic Langevin), `sampler_peams` (affine invariant metropolized microcanonical
-  HMC).  All are ensemble affine-invariant versions of affine-invariant-tuned HMC.
-- **Multiscale geometry** (e.g. Neal's funnel) — use a delayed-rejection
-  sampler: `sampler_ensemble_dr_stretch` (gradient-free) or
-  `sampler_gndr` (gradient + Gauss–Newton preconditioned Langevin).
-- **High dimension** — prefer gradient-based ensemble HMC (peaches,
-  peanuts, pickles, peams).  If you have no gradient, `sampler_kalman_move`
-  achieves Langevin-like scaling on approximately Gaussian targets.
 
 ## Quick start
 
@@ -71,13 +56,9 @@ x_odd  moments : mean = 1.48  var = 2.44   (target: 1.50, 2.505)
 min ESS        : 1031                                       # worst-mixing of the 10 coordinates
 ```
 
-`min_ESS` is the smallest entry of `effective_sample_size(samples)`, i.e.
-the **worst-mixing dimension**.  ESS = N<sub>total</sub> / τ where τ is the
-integrated autocorrelation time; it tells you how many *independent* draws
-would give the same Monte-Carlo variance.  Here ≈ 1 000 of the 500 000
-samples' worth of information is realised in the hardest direction (the
-long Rosenbrock axis) — that dimension sets the bottleneck for joint
-statistics.
+`min_ESS` is the effective sample size of the worst-mixing dimension —
+the bottleneck for joint estimates.  Here ~1 000 of the 500 000 samples'
+worth of information is realised in the hardest (long Rosenbrock) axis.
 
 **Samples visualisation — 2-D marginal of (x₀, x₁)** (the canonical
 Rosenbrock banana):
@@ -86,8 +67,8 @@ Rosenbrock banana):
   <img src="docs/quickstart_peaches_rosenbrock_scatter.png" width="520">
 </p>
 
-The blue 2-D histogram traces the posterior samples; the red contours are
-the exact Rosenbrock density `∝ exp(−b(x₁ − x₀²)² − (x₀ − a)²)`.
+Blue 2-D histogram = posterior samples; red contours = exact density
+`∝ exp(−b(x₁ − x₀²)² − (x₀ − a)²)`.
 
 **Corner plot** — first 4 dimensions (two (even, odd) Rosenbrock pairs):
 
@@ -95,24 +76,19 @@ the exact Rosenbrock density `∝ exp(−b(x₁ − x₀²)² − (x₀ − a)²
   <img src="docs/quickstart_peaches_rosenbrock.png" width="620">
 </p>
 
-Diagonals are 1-D histograms of each coordinate; lower-triangular panels
-are 2-D histograms of each pair.  Red curves / contours show the exact
-analytical marginals — `N(a, 1/2)` for `x_even`, the x_odd marginal via
-numerical quadrature, banana density for adjacent (x_e, x_o) pairs,
-axis-aligned products for independent pairs.
+Diagonals = 1-D histograms; lower-triangular = 2-D histograms.  Red
+curves / contours overlay the exact analytical marginals (`N(a, 1/2)`
+for x_even, numerical quadrature for x_odd, banana for adjacent pairs,
+axis-aligned products for independent pairs).
 
-### A multiscale target: Neal's funnel with `sampler_gndr`
+## Another example: Neal's funnel with `sampler_gndr`
 
-Neal's funnel mixes a Gaussian latent `v ~ N(0, 9)` with a Gaussian
-conditional `x_i | v ~ N(0, exp(v))`: the target variance of each `x_i`
-is `E[exp(v)] = e^{9/2} ≈ 90`, and the neck collapses to width ~`e^{v/2}`
-which becomes very small at `v ≪ 0`.  Plain MCMC fails here because no
-single step size works for both the neck and the mouth.  `sampler_gndr`
-handles it via a Gauss–Newton proposal (step size rescaled by a
-state-dependent Hessian approximation) plus `n_try`-stage delayed
-rejection, where each stage shrinks the step size by a factor `shrink`
-(so the successive trial step sizes are `h, shrink·h, shrink²·h, …`).
-Here we use `n_try=3` and `shrink=0.3`:
+Multiscale target — a Gaussian latent `v ~ N(0, 9)` and Gaussian
+conditionals `x_i | v ~ N(0, exp(v))`.  The neck collapses to width
+`~eᵛ/²` at `v ≪ 0`, so no single step size works everywhere.
+`sampler_gndr` uses a Gauss–Newton-preconditioned proposal plus
+`n_try`-stage delayed rejection (successive trial steps
+`h, shrink·h, shrink²·h, …`):
 
 ```python
 import jax, jax.numpy as jnp
@@ -143,32 +119,22 @@ samples.shape  = (20000, 50, 5)                            # 1 000 000 total sam
 info           = {'acceptance_rate': 0.712,                # any of the 3 DR stages
                   'stage1_rate':     0.248,                # accepted at h directly
                   'final_step_size': 0.056,
-                  'n_grad_evals':    4_000_000}            # 1 + n_try grads per iter per walker
+                  'n_grad_evals':    4_000_000}
 v              : mean = -0.02  var = 9.08   (target: 0, 9)
 x_i (averaged) : mean = -0.01  var = 59.2   (target: 0, ≈ 90.0)
 min ESS        : 2654
 ```
 
-The 25% stage-1 rate plus the fall-back to smaller step sizes in stages
-2 and 3 is what gives the overall ~71% acceptance.  Without DR, the
-stage-1 proposal at the full step gets rejected 75% of the time and the
-chain stalls in the neck.
+The 25 % stage-1 accept rate plus the fall-backs in stages 2 and 3 give
+the overall 71 %.  `v` is recovered cleanly; `x_i` variance still
+undershoots the deep-tail target — a longer run (or an ensemble method)
+would close the gap.
 
-`v` is essentially spot-on and the tail is well explored; the `x_i`
-variance undershoots and will improve with more iterations (20 k per
-chain is not enough for the deep tails).
-
-**Samples visualisation — 2-D marginal of (v, x₀)** (the iconic funnel
-neck):
+**Samples visualisation — 2-D marginal of (v, x₀)**:
 
 <p align="center">
   <img src="docs/quickstart_gndr_funnel_scatter.png" width="520">
 </p>
-
-Blue dots are posterior samples (subsampled to 20 k for clarity); red
-contours are the exact marginal `p(v, x₀) ∝ e^{−v²/18} · e^{−v/2} ·
-N(x₀; 0, eᵛ)`.  Note how the chain reaches deep into `v ≪ 0` where the
-neck collapses — the hardest part of the target.
 
 **Corner plot** — all 5 dimensions:
 
@@ -176,42 +142,70 @@ neck collapses — the hardest part of the target.
   <img src="docs/quickstart_gndr_funnel.png" width="620">
 </p>
 
-Diagonals are 1-D histograms overlaid with the exact marginals
-(`N(0, 9)` for v; a quadrature-computed mixture for each x_i);
-lower-triangular panels are 2-D histograms of each pair with the
-analytical joint density in red (closed-form for (v, x_i), quadrature
-for (x_i, x_j)).
+## When to use which sampler
 
+- **Curved geometry** (Rosenbrock-like) — `sampler_peaches` first; cousins
+  are `sampler_peanuts` (NUTS), `sampler_pickles` (kinetic Langevin),
+  `sampler_peams` (microcanonical HMC).
+- **Multiscale geometry** (funnel-like) — delayed rejection:
+  `sampler_ensemble_dr_stretch` (gradient-free) or `sampler_gndr`
+  (gradient + Gauss–Newton Hessian).
+- **High dimension** — gradient-based ensemble HMC (same four above);
+  use `sampler_kalman_move` if you have no gradient and the target is
+  approximately Gaussian.
 
+## Usage essentials
 
-Every sampler in the package has this same shape:
+### `log_prob_fn` convention
+
+Most samplers take a **batched** log density.  A few single-chain HMC
+variants take single-point form:
+
+| Form                                     | Samplers |
+|------------------------------------------|----------|
+| batched  `(n_chains, D) → (n_chains,)`   | `sampler_walk`, `sampler_stretch`, `sampler_side`, `sampler_ensemble_dr_{stretch,side}`, `sampler_langevin_walk`, `sampler_kalman_move`, `sampler_kalman_dr`, `sampler_nuts`, `sampler_peaches`, `sampler_peams`, `sampler_peanuts`, `sampler_pickles`, `sampler_chess`, `sampler_aldi`, `sampler_pickles_unadjusted` |
+| single-point  `(D,) → scalar`            | `sampler_malt`, `sampler_mams`, `sampler_gndr`  |
+
+### Gradients
+
+Gradient-based samplers auto-differentiate `log_prob_fn` with `jax.grad`.
+Pass your own via `grad_log_prob_fn=` (or `grad_fn=` for `sampler_gndr`)
+if you want — shape must match `log_prob_fn`'s convention:
 
 ```python
-samples, info = sampler_xxx(
-    log_prob_fn,                  # see table below — batched or single-point
-    initial_state,                # (n_chains, D)
-    num_samples,
-    warmup          = 1000,
-    step_size       = <default>,
-    seed            = 0,
-    verbose         = True,
-    # sampler-specific kwargs (target_accept, L, gamma, a, chees_metric, ...)
-    find_init_step_size = True,   # heuristic initial step-size search
-    adapt_step_size     = True,   # dual averaging during warmup
-    # adapt_L / adapt_gamma / adapt_a where applicable
-)
+# auto-diff (default):
+samples, info = sampler_peaches(log_prob, init, num_samples=5000, warmup=1000)
+
+# hand-written gradient:
+grad_log_prob = jax.vmap(jax.grad(log_prob_single))        # batched shape
+samples, info = sampler_peaches(log_prob, init, num_samples=5000, warmup=1000,
+                                 grad_log_prob_fn=grad_log_prob)
 ```
 
-If the default `find_init_step_size` heuristic picks a bad starting step
-(rare, but possible when the initial ensemble is under-dispersed relative
-to the target), set `find_init_step_size=False` and supply a `step_size`
-of your own; dual averaging will refine it during warmup.
+Gradient-free samplers (`walk`, `stretch`, `side`, `ensemble_dr_*`,
+`kalman_move`, `kalman_dr`) don't evaluate gradients — the Kalman moves
+instead take a forward model `forward_fn` + data-space precision `M`.
+
+### Reading the `info` dict
+
+Most fields are self-explanatory (`acceptance_rate`, `final_step_size`, …).
+Two deserve a short note:
+
+- **`nominal_L`** / **`mean_L`** — the **target** leapfrog trajectory
+  length and the **empirical mean** after per-iteration randomisation.
+  Each trajectory uses a uniformly-drawn `cur_L ∈` roughly
+  `[0.4·nominal_L, nominal_L]`, clipped at `max_L`.  Use `mean_L` as the
+  realised cost per trajectory.  When the sampler wants such a long
+  trajectory that the *low end* of the random range already exceeds
+  `max_L`, every draw clips to the cap and `mean_L = nominal_L = max_L`;
+  otherwise `mean_L < nominal_L`.
+- **`n_grad_evals`** — exact gradient-evaluation count in the production
+  phase (warmup not counted).
 
 ### Import styles
 
-Every sampler is re-exported at the package top level, so the following
-three forms are **equivalent** — pick whichever reads best in your script,
-they all resolve to the same function object:
+Every sampler is re-exported at the top level, so the following three
+forms are **equivalent** — pick whichever reads best:
 
 ```python
 # 1. flat — function imported directly
@@ -225,64 +219,30 @@ from affine_invariant_samplers import peaches
 peaches.sampler_peaches(...)
 ```
 
-### `log_prob_fn` convention
+### Generic call signature
 
-Not all samplers accept the same form:
-
-| Form                                     | Samplers |
-|------------------------------------------|----------|
-| batched  `(n_chains, D) → (n_chains,)`   | `sampler_walk`, `sampler_stretch`, `sampler_side`, `sampler_ensemble_dr_{stretch,side}`, `sampler_langevin_walk`, `sampler_kalman_move`, `sampler_kalman_dr`, `sampler_nuts`, `sampler_peaches`, `sampler_peams`, `sampler_peanuts`, `sampler_pickles`, `sampler_chess`, `sampler_aldi`, `sampler_pickles_unadjusted` |
-| single-point  `(D,) → scalar`            | `sampler_malt`, `sampler_mams`, `sampler_gndr`  |
-
-### Gradient handling
-
-Every gradient-based sampler differentiates `log_prob_fn` **automatically**
-through `jax.grad` — by default you do not need to provide a gradient.
-If you have a hand-written gradient (for speed or numerical stability), pass
-it as `grad_log_prob_fn=` (or `grad_fn=` for `sampler_gndr`); it must match
-the `log_prob_fn` convention above, i.e. batched `(n_chains, D) → (n_chains, D)`
-or single-point `(D,) → (D,)`.
-
-```python
-# 1. Auto-diff (default) — no extra work:
-samples, info = sampler_peaches(log_prob, init, num_samples=5000, warmup=1000)
-
-# 2. Hand-written gradient:
-grad_log_prob = jax.vmap(jax.grad(log_prob_single))        # match batched shape
-samples, info = sampler_peaches(log_prob, init, num_samples=5000, warmup=1000,
-                                 grad_log_prob_fn=grad_log_prob)
+```
+samples, info = sampler_xxx(
+    log_prob_fn,                  # see convention table above
+    initial_state,                # (n_chains, D)
+    num_samples,
+    warmup          = 1000,
+    step_size       = <default>,
+    seed            = 0,
+    verbose         = True,
+    # sampler-specific kwargs (target_accept, L, gamma, a, chees_metric, ...)
+    find_init_step_size = True,   # heuristic initial step-size search
+    adapt_step_size     = True,   # dual averaging during warmup
+    # adapt_L / adapt_gamma / adapt_a where applicable
+)
 ```
 
-Gradient-free samplers (`sampler_walk`, `sampler_stretch`, `sampler_side`,
-`sampler_ensemble_dr_{stretch,side}`, `sampler_kalman_move`,
-`sampler_kalman_dr`) do not evaluate gradients at all — the Kalman moves
-instead take a forward model `forward_fn` and a data-space precision `M`
-from which the drift is derived.
+If `find_init_step_size` picks a bad starting step (rare, but possible
+when the initial ensemble is under-dispersed relative to the target),
+set `find_init_step_size=False` and supply a `step_size` of your own;
+dual averaging will refine it during warmup.
 
-### Reading the `info` dict
-
-Most fields are self-explanatory (`acceptance_rate`, `final_step_size`, …).
-Two deserve a short note:
-
-- **`nominal_L`** / **`mean_L`** — the **target** leapfrog trajectory
-  length and the **empirical mean** after per-iteration randomisation.
-  Each trajectory uses a uniformly-drawn `cur_L` ∈ roughly
-  `[0.4 · nominal_L, nominal_L]`, clipped at `max_L`.  Use `mean_L` as
-  the realised cost per trajectory.  When the sampler wants such a long
-  trajectory that the *low end* of the random range already exceeds
-  `max_L`, every draw clips to the cap and `mean_L = nominal_L = max_L`;
-  otherwise `mean_L < nominal_L`.
-- **`n_grad_evals`** — exact gradient-evaluation count in the production
-  phase (warmup not counted).
-
-See each sampler's docstring for the full calling signature.
-
-## Samplers
-
-All samplers expose toggles for (a) a heuristic initial step-size search
-and (b) dual-averaging adaptation during warmup.  Where applicable they
-also expose length- or scale-adaptation toggles (ChEES, NUTS tree depth,
-etc.).
+## Samplers reference
 
 ### Ensemble affine-invariant (gradient-free)
 
@@ -307,7 +267,7 @@ etc.).
 
 | Function        | Idea                                                              |
 |-----------------|-------------------------------------------------------------------|
-| `sampler_malt`  | Metropolis Adjusted Langevin Trajectories (BABO+O, HMC/MALA).     |
+| `sampler_malt`  | Metropolis Adjusted Langevin Trajectories (BABO+O).               |
 | `sampler_mams`  | Metropolis Adjusted Microcanonical Sampler (ChEES-L or τ-tuned).  |
 | `sampler_nuts`  | Classical NUTS with dual averaging.                               |
 
@@ -315,17 +275,17 @@ etc.).
 
 | Function           | Idea                                                                    |
 |--------------------|-------------------------------------------------------------------------|
-| `sampler_peaches`  | **PEACHES**: Parallel Ensemble Affine-invariant ChEES.      |
-| `sampler_peams`    | **PEAMS**: Parallel Ensemble Affine-invariant Microcanonical Sampling.    |
-| `sampler_peanuts`  | **PEANUTS**: Parallel Ensemble Affine-invariant NUTS.                              |
-| `sampler_pickles`  | **PICKLES**: Parallel Interacting Covariance-preconditioned Kinetic Langevin Sampler. |
+| `sampler_peaches`  | **PEACHES** — ensemble-preconditioned ChEES-tuned HMC.                  |
+| `sampler_peams`    | **PEAMS**   — ensemble-preconditioned microcanonical HMC.               |
+| `sampler_peanuts`  | **PEANUTS** — ensemble-preconditioned NUTS.                             |
+| `sampler_pickles`  | **PICKLES** — parallel interacting covariance-preconditioned kinetic Langevin. |
 | `sampler_chess`    | Standard HMC with joint dual-averaging + ChEES length tuning.           |
 
 ### Unadjusted Langevin (ensemble / interacting)
 
-No Metropolis correction — these target the continuous-time invariant
-distribution.  Discretisation introduces an O(h) bias, but often allows
-larger step sizes than the Metropolised counterparts.
+No Metropolis correction — target the continuous-time invariant
+distribution; discretisation introduces an O(h²) bias, but often allows
+larger steps than the Metropolised counterparts.
 
 | Function                       | Idea                                                              |
 |--------------------------------|-------------------------------------------------------------------|
@@ -334,13 +294,16 @@ larger step sizes than the Metropolised counterparts.
 
 ### `dev/` — related methods, not in the main package
 
-Samplers retained for comparison and active development live under [`dev/`](./dev/):
+Retained for comparison but outside the affine-invariant MCMC family
+(see [`dev/`](./dev/)):
 
 - **PDMPs**: `bps.py`, `bps_walk.py`, `zigzag.py`, `zigzag_walk.py`
 - **Variational inference / normalizing flows**: `gvi.py`, `gmbbvi.py`,
   `dfgmvi.py`, `ig.py`
 
-## Diagnostics
+## Diagnostics and plotting
+
+### ESS and autocorrelation
 
 ```python
 from affine_invariant_samplers import (
@@ -351,17 +314,15 @@ tau  = integrated_autocorr_time(samples)   # shape (D,)  — per-dimension τ
 ess  = effective_sample_size(samples)      # shape (D,)  — per-dimension ESS
 ```
 
-**ESS** (effective sample size) = how many *independent* draws would give
-the same Monte-Carlo variance as your correlated chain.  Reported
-per-dimension because coordinates mix at different rates; `min_ESS` —
-the smallest across dimensions — is the bottleneck for joint estimates.
+**ESS** (effective sample size) = how many *independent* draws would
+give the same Monte-Carlo variance as your correlated chain.  Reported
+per-dimension; `min_ESS` is the bottleneck for joint estimates.
+Accepts samples of shape `(N,)`, `(N, D)`, or `(N, n_chains, D)` (chains
+averaged).
 
-All diagnostics accept samples of shape `(N,)`, `(N, D)`, or
-`(N, n_chains, D)` (chains are averaged).
+### Plotting utilities
 
-## Plotting
-
-Install the `plot` extra: `pip install "affine-invariant-samplers[plot]"`.
+Requires the `[plot]` extra (matplotlib).
 
 ```python
 from affine_invariant_samplers.plotting import (
@@ -372,18 +333,12 @@ fig = corner_plot(samples, labels=["x", "y"], truths=[0.0, 0.0],
                    truth_1d={...}, truth_2d={...})
 ```
 
-`corner_plot` produces a lower-triangular grid with 1D histograms on the
-diagonal and 2D histograms below.  Optional `truth_1d` and `truth_2d`
-dicts overlay analytical marginals (red curves) and joint contours.
-Pure matplotlib — no `corner` package dependency.
+`corner_plot` produces a lower-triangular grid of 1-D histograms
+(diagonal) and 2-D histograms (below).  Optional `truth_1d` and
+`truth_2d` dicts overlay analytical marginals (red curves / contours).
+Pure matplotlib — no `corner` dependency.
 
-## Examples
-
-Four comparison scripts in [`examples/`](./examples/).  Each reports
-mean/variance accuracy, acceptance rate, minimum ESS, number of gradient
-evaluations (where applicable), and wall-clock time, and displays a
-contour-comparison figure plus per-method corner plots with analytical
-truth overlays.
+## Examples in `examples/`
 
 | Script                                 | Target                              | Samplers compared                                   |
 |----------------------------------------|-------------------------------------|-----------------------------------------------------|
@@ -399,16 +354,10 @@ python examples/example_rosenbrock_unadjusted.py
 python examples/example_funnel.py
 ```
 
-## Tests
-
-```bash
-pip install -e ".[test]"
-pytest tests/
-```
-
-The smoke test runs every main-package sampler briefly on a 2-D correlated
-Gaussian and a 10-D Rosenbrock and checks finite-sample mean / variance;
-the diagnostics test covers ACF / IAT / ESS and the corner/trace/acf plots.
+Each script reports mean/variance accuracy, acceptance rate, minimum
+ESS, number of gradient evaluations, and wall-clock time; and displays a
+contour-comparison figure plus per-method corner plots with analytical
+truth overlays.
 
 ## Citation
 
@@ -420,4 +369,3 @@ the diagnostics test covers ACF / IAT / ESS and the corner/trace/acf plots.
   year={2025}
 }
 ```
-Many forthcoming!
