@@ -284,7 +284,7 @@ dual averaging will refine it during warmup.
 ### Unadjusted Langevin (ensemble / interacting)
 
 No Metropolis correction — target the continuous-time invariant
-distribution; discretisation introduces an O(h²) bias, but often allows
+distribution; discretisation introduces bias, but often allows
 larger steps than the Metropolised counterparts.
 
 | Function                       | Idea                                                              |
@@ -294,7 +294,7 @@ larger steps than the Metropolised counterparts.
 
 ### `dev/` — related methods, not in the main package
 
-Retained for comparison but outside the affine-invariant MCMC family
+Retained for comparison and active development
 (see [`dev/`](./dev/)):
 
 - **PDMPs**: `bps.py`, `bps_walk.py`, `zigzag.py`, `zigzag_walk.py`
