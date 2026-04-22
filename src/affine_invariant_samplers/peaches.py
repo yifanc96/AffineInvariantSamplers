@@ -252,7 +252,7 @@ def sampler_peaches(
     target_accept    = 0.651,
     chees_metric     = "affine-invariant",    # "affine-invariant" (auto per move) or "euclidean"
     grad_log_prob_fn = None,        # (batch,D)->(batch,D), or None for JAX autodiff
-    find_init_step_size   = False,
+    find_init_step_size   = True,
     adapt_step_size  = True,
     adapt_L          = True,
     seed             = 0,
@@ -277,7 +277,7 @@ def sampler_peaches(
                            "euclidean" — plain dot products for both.
         grad_log_prob_fn : Vectorised gradient (batch,D)->(batch,D).
                            If None, uses jax.vmap(jax.grad(log_prob_fn)).
-        find_init_step_size : If True, run a short heuristic search at
+        find_init_step_size : If True (default), run a short heuristic search at
                               the initial positions to scale `step_size` to
                               ~80% acceptance before warmup.
                               If False, use `step_size` as-is.
@@ -316,8 +316,15 @@ def sampler_peaches(
     key = jax.random.key(seed)
 
     if find_init_step_size:
+        _user_h = float(step_size)
         key, k = jax.random.split(key)
         step_size = _find_init_eps(k, g1, g2, log_prob_fn, _grad_U, step_size, move_fn)
+        if verbose:
+            print(f"[peaches] find_init_step_size: step_size {_user_h:.4g} → "
+                  f"{float(step_size):.4g}\n"
+                  f"   (if the chain later stalls, set find_init_step_size=False "
+                  f"and pass your own step_size — the heuristic can overshoot "
+                  f"when the initial ensemble is under-dispersed vs the target.)")
     step_size = jnp.asarray(step_size)
     if verbose:
         print(f"move={move}  metric={_metric}  init_eps={float(step_size):.4f}"

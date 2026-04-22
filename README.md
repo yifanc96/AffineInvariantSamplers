@@ -231,7 +231,7 @@ samples, info = sampler_xxx(
     seed            = 0,
     verbose         = True,
     # sampler-specific kwargs (target_accept, L, gamma, a, chees_metric, ...)
-    find_init_step_size = False,  # heuristic initial step-size search (OFF by default)
+    find_init_step_size = True,   # heuristic doubling/halving at initial positions
     adapt_step_size     = True,   # dual averaging during warmup
     # adapt_L / adapt_gamma / adapt_a where applicable
 )
@@ -240,27 +240,36 @@ samples, info = sampler_xxx(
 ### Picking `step_size` — the one knob that matters
 
 **A good initial `step_size` is the single most important thing to get
-right.**  Dual averaging (`adapt_step_size=True`, default) then refines
-it during warmup, but it can only recover from a reasonable starting
-point — if you're off by ≥10× it may not catch up, and the chain will
-be biased or diverge.
+right.**  Dual averaging (`adapt_step_size=True`) then refines it during
+warmup, but it can only recover from a reasonable starting point — if
+you're off by ≥10× it may not catch up, and the chain will be biased or
+diverge.
 
-Our recommendation:
+By default `find_init_step_size=True` runs a short doubling/halving
+search at the initial walker positions and prints what it landed on, e.g.:
 
-1. **Start by passing your own `step_size`.**  Try a few values on a
-   short run (`warmup=200, num_samples=500`) and pick one that gives
-   acceptance in the 0.4–0.9 range.
-2. If you don't have intuition for the scale, **set
-   `find_init_step_size=True`**: a short doubling/halving search at the
-   initial walker positions picks a step.  It's disabled by default
-   because the heuristic can be fooled by an under-dispersed ensemble
-   (initial walkers much tighter than the target) — it then latches
-   onto the initial covariance and overshoots.
-3. If `find_init_step_size=True` lands somewhere bad, fall back to (1)
-   and supply a step yourself.
+```
+[peaches] find_init_step_size: step_size 0.01 → 0.0123
+   (if the chain later stalls, set find_init_step_size=False and pass
+    your own step_size — the heuristic can overshoot when the initial
+    ensemble is under-dispersed vs the target.)
+```
 
-In short: **`step_size` is a user choice, not a black-box auto-pick.**
-The samplers will do their best around whatever you give them.
+Read that line whenever you run a sampler.  If the tuned value looks
+reasonable and the chain's reported `acceptance_rate` is in the
+0.3–0.9 range, you're fine.  If the tuned value blows up (10× your
+input) or the chain stalls at low acceptance, the heuristic has latched
+onto a tiny initial ensemble covariance — disable it and pass a
+`step_size` you pick yourself:
+
+```python
+sampler_peaches(log_prob, init, ...,
+                find_init_step_size=False, step_size=<your choice>)
+```
+
+**Rule of thumb:** `step_size` is a user choice.  The heuristic is
+a convenience, not a black-box auto-pick — always glance at the printed
+`find_init_step_size:` line.
 
 ## Samplers reference
 

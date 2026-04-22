@@ -385,7 +385,7 @@ def sampler_nuts(
     target_accept    = 0.80,
     max_delta_energy = 1000.,
     grad_log_prob_fn    = None,
-    find_init_step_size = False,
+    find_init_step_size = True,
     adapt_step_size     = True,
     seed                = 0,
     verbose             = True,
@@ -408,7 +408,7 @@ def sampler_nuts(
         max_delta_energy : Energy threshold for divergence detection.
         grad_log_prob_fn : Vectorised gradient (batch,D)->(batch,D).
                            If None, uses jax.vmap(jax.grad(log_prob_fn)).
-        find_init_step_size : If True, run a short heuristic search at
+        find_init_step_size : If True (default), run a short heuristic search at
                               the initial positions to scale `step_size` to
                               ~80% acceptance before warmup.
                               If False, use `step_size` as-is.
@@ -440,8 +440,15 @@ def sampler_nuts(
 
     # --- initial step size ---
     if find_init_step_size:
+        _user_h = float(step_size)
         key, k = jax.random.split(key)
         step_size = _find_init_eps(k, state, log_prob_fn, _grad_U, step_size)
+        if verbose:
+            print(f"[nuts] find_init_step_size: step_size {_user_h:.4g} → "
+                  f"{float(step_size):.4g}\n"
+                  f"   (if the chain later stalls, set find_init_step_size=False "
+                  f"and pass your own step_size — the heuristic can overshoot "
+                  f"when the initial positions are under-dispersed vs the target.)")
     step_size = jnp.asarray(step_size)
     if verbose:
         print(f"sampling={sampling}  max_depth={max_tree_depth}"

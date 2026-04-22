@@ -105,7 +105,7 @@ def sampler_side(
     thin_by       = 1,
     seed          = 0,
     verbose       = True,
-    find_init_gamma = False,
+    find_init_gamma = True,
     adapt_gamma     = True,
 ):
     """
@@ -121,7 +121,7 @@ def sampler_side(
         thin_by       : Thinning factor.
         seed          : Random seed.
         verbose       : Print progress.
-        find_init_gamma : If True, run a short heuristic search at the
+        find_init_gamma : If True (default), run a short heuristic search at the
                           initial positions to scale `gamma` so that mean
                           acceptance ≈ `target_accept`.
                           If False, use `gamma` as-is.
@@ -144,11 +144,17 @@ def sampler_side(
     # DA tunes log(gamma_scale) where gamma_scale = gamma / sqrt(D)
     gamma_scale0 = jnp.asarray(gamma / jnp.sqrt(dim), jnp.float32)
     if find_init_gamma:
+        _user_gamma = float(gamma)
         key, k_ = jax.random.split(key)
         gamma_scale0 = _find_init_gs(k_, g1, g2, lp1, lp2, gamma_scale0,
                                       log_prob_fn, W, target_accept)
         if verbose:
-            print(f"Side move:  init_gamma={float(gamma_scale0 * jnp.sqrt(dim)):.4f}")
+            _tuned_gamma = float(gamma_scale0 * jnp.sqrt(dim))
+            print(f"[side] find_init_gamma: gamma {_user_gamma:.4g} → "
+                  f"{_tuned_gamma:.4g}\n"
+                  f"   (if the chain later stalls, set find_init_gamma=False "
+                  f"and pass your own gamma — the heuristic can overshoot "
+                  f"when the initial ensemble is under-dispersed vs the target.)")
     log_gs0 = jnp.log(gamma_scale0)
     da = _da_init(log_gs0)
 

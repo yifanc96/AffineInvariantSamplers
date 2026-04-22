@@ -108,7 +108,7 @@ def sampler_walk(
     thin_by         = 1,
     seed            = 0,
     verbose         = True,
-    find_init_step_size = False,
+    find_init_step_size = True,
     adapt_step_size     = True,
 ):
     """
@@ -125,7 +125,7 @@ def sampler_walk(
         thin_by       : Thinning factor.
         seed          : Random seed.
         verbose       : Print progress.
-        find_init_step_size : If True, run a short heuristic search at
+        find_init_step_size : If True (default), run a short heuristic search at
                               the initial positions to scale `step_size` so that
                               mean acceptance ≈ `target_accept`.
                               If False, use `step_size` as-is.
@@ -150,11 +150,16 @@ def sampler_walk(
 
     step_size = jnp.asarray(step_size, jnp.float32)
     if find_init_step_size:
+        _user_h = float(step_size)
         key, k_ = jax.random.split(key)
         step_size = _find_init_eps(k_, g1, g2, lp1, lp2, step_size,
                                     log_prob_fn, W, k, target_accept)
         if verbose:
-            print(f"Walk move:  init_stepsize={float(step_size):.4f}")
+            print(f"[walk] find_init_step_size: step_size {_user_h:.4g} → "
+                  f"{float(step_size):.4g}\n"
+                  f"   (if the chain later stalls, set find_init_step_size=False "
+                  f"and pass your own step_size — the heuristic can overshoot "
+                  f"when the initial ensemble is under-dispersed vs the target.)")
     log_h0 = jnp.log(step_size)
     da = _da_init(log_h0)
 

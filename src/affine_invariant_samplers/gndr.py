@@ -203,7 +203,7 @@ def sampler_gndr(
     grad_fn       = None,
     seed          = 0,
     verbose       = True,
-    find_init_step_size = False,
+    find_init_step_size = True,
     adapt_step_size     = True,
 ):
     """
@@ -232,7 +232,7 @@ def sampler_gndr(
         grad_fn       : (D,) -> (D,).   If None, auto-derived via jax.grad.
         seed          : Random seed.
         verbose       : Print progress.
-        find_init_step_size : If True, run a short heuristic search at
+        find_init_step_size : If True (default), run a short heuristic search at
                               the initial positions to scale `step_size` so that
                               stage-1 acceptance ≈ `target_accept`.
                               If False, use `step_size` as-is.
@@ -279,13 +279,18 @@ def sampler_gndr(
     lp = v_lp(x)
 
     if find_init_step_size:
+        _user_h = float(step_size)
         key, k_ = jax.random.split(key)
         grad_x0 = v_grad(x)
         L_x0 = _safe_cholesky(v_hess(x))
         step_size = _find_init_eps(k_, x, lp, grad_x0, L_x0, step_size, v_lp,
                                     target_accept)
         if verbose:
-            print(f"GN-DR:  init_eps={float(step_size):.4f}")
+            print(f"[gndr] find_init_step_size: step_size {_user_h:.4g} → "
+                  f"{float(step_size):.4g}\n"
+                  f"   (if the chain later stalls, set find_init_step_size=False "
+                  f"and pass your own step_size — the heuristic can overshoot "
+                  f"on targets the Gauss–Newton approximation misjudges.)")
 
     log_h0 = jnp.log(step_size)
     da = _da_init(log_h0)
