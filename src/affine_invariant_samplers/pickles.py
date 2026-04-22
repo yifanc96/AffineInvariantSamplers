@@ -293,7 +293,7 @@ def sampler_pickles(
     verbose             = True,
     adapt_step_size     = True,
     adapt_L             = True,
-    find_init_step_size = True,
+    find_init_step_size = False,
 ):
     """
     Parallel Interacting Covariance-preconditioned Kinetic Langevin Ensemble
@@ -325,7 +325,7 @@ def sampler_pickles(
                            warmup.  If False, use `step_size` as given.
         adapt_L          : If True, tune integration length by ChEES during
                            warmup.  If False, use `L` as given.
-        find_init_step_size : If True (default), run a short heuristic search at
+        find_init_step_size : If True, run a short heuristic search at
                               the initial positions to scale `step_size` to
                               ~80% acceptance before warmup.
                               If False, use `step_size` as-is.

@@ -326,7 +326,7 @@ def sampler_mams(
     grad_log_prob_fn = None,
     seed             = 0,
     verbose          = True,
-    find_init_step_size = True,
+    find_init_step_size = False,
     adapt_step_size     = True,
 ):
     """
@@ -357,7 +357,7 @@ def sampler_mams(
                            If None, uses jax.grad(log_prob_fn).
         seed             : Integer random seed.
         verbose          : Print progress.
-        find_init_step_size : If True (default), run a short heuristic search at
+        find_init_step_size : If True, run a short heuristic search at
                               the initial positions to scale `step_size` to
                               ~80% acceptance before warmup.
                               If False, use `step_size` as-is.

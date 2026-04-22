@@ -348,7 +348,7 @@ def sampler_kalman_dr(
     thin_by       = 1,
     seed          = 0,
     verbose       = True,
-    find_init_step_size = True,
+    find_init_step_size = False,
     adapt_step_size     = True,
 ):
     """
@@ -372,7 +372,7 @@ def sampler_kalman_dr(
         thin_by       : Thinning factor.
         seed          : Random seed.
         verbose       : Print progress.
-        find_init_step_size : If True (default), run a short heuristic search at
+        find_init_step_size : If True, run a short heuristic search at
                               the initial positions to scale `step_size` so that
                               stage-1 acceptance ≈ `target_accept`.
                               If False, use `step_size` as-is.

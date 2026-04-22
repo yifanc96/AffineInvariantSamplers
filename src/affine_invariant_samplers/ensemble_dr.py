@@ -218,7 +218,7 @@ def sampler_ensemble_dr_side(
     thin_by       = 1,
     seed          = 0,
     verbose       = True,
-    find_init_gamma = True,
+    find_init_gamma = False,
     adapt_gamma     = True,
 ):
     """
@@ -235,7 +235,7 @@ def sampler_ensemble_dr_side(
         thin_by       : Thinning factor.
         seed          : Random seed.
         verbose       : Print progress.
-        find_init_gamma : If True (default), run a short heuristic search at the
+        find_init_gamma : If True, run a short heuristic search at the
                           initial positions to scale `gamma` so that stage-1
                           acceptance ≈ `target_accept`.
                           If False, use `gamma` as-is.

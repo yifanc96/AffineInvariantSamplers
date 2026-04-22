@@ -227,20 +227,40 @@ samples, info = sampler_xxx(
     initial_state,                # (n_chains, D)
     num_samples,
     warmup          = 1000,
-    step_size       = <default>,
+    step_size       = <default>,  # ← the main knob; see note below
     seed            = 0,
     verbose         = True,
     # sampler-specific kwargs (target_accept, L, gamma, a, chees_metric, ...)
-    find_init_step_size = True,   # heuristic initial step-size search
+    find_init_step_size = False,  # heuristic initial step-size search (OFF by default)
     adapt_step_size     = True,   # dual averaging during warmup
     # adapt_L / adapt_gamma / adapt_a where applicable
 )
 ```
 
-If `find_init_step_size` picks a bad starting step (rare, but possible
-when the initial ensemble is under-dispersed relative to the target),
-set `find_init_step_size=False` and supply a `step_size` of your own;
-dual averaging will refine it during warmup.
+### Picking `step_size` — the one knob that matters
+
+**A good initial `step_size` is the single most important thing to get
+right.**  Dual averaging (`adapt_step_size=True`, default) then refines
+it during warmup, but it can only recover from a reasonable starting
+point — if you're off by ≥10× it may not catch up, and the chain will
+be biased or diverge.
+
+Our recommendation:
+
+1. **Start by passing your own `step_size`.**  Try a few values on a
+   short run (`warmup=200, num_samples=500`) and pick one that gives
+   acceptance in the 0.4–0.9 range.
+2. If you don't have intuition for the scale, **set
+   `find_init_step_size=True`**: a short doubling/halving search at the
+   initial walker positions picks a step.  It's disabled by default
+   because the heuristic can be fooled by an under-dispersed ensemble
+   (initial walkers much tighter than the target) — it then latches
+   onto the initial covariance and overshoots.
+3. If `find_init_step_size=True` lands somewhere bad, fall back to (1)
+   and supply a step yourself.
+
+In short: **`step_size` is a user choice, not a black-box auto-pick.**
+The samplers will do their best around whatever you give them.
 
 ## Samplers reference
 

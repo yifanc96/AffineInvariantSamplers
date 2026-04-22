@@ -252,7 +252,7 @@ def sampler_peaches(
     target_accept    = 0.651,
     chees_metric     = "affine-invariant",    # "affine-invariant" (auto per move) or "euclidean"
     grad_log_prob_fn = None,        # (batch,D)->(batch,D), or None for JAX autodiff
-    find_init_step_size   = True,
+    find_init_step_size   = False,
     adapt_step_size  = True,
     adapt_L          = True,
     seed             = 0,
@@ -277,7 +277,7 @@ def sampler_peaches(
                            "euclidean" — plain dot products for both.
         grad_log_prob_fn : Vectorised gradient (batch,D)->(batch,D).
                            If None, uses jax.vmap(jax.grad(log_prob_fn)).
-        find_init_step_size : If True (default), run a short heuristic search at
+        find_init_step_size : If True, run a short heuristic search at
                               the initial positions to scale `step_size` to
                               ~80% acceptance before warmup.
                               If False, use `step_size` as-is.

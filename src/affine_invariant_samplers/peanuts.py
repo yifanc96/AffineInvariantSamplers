@@ -583,7 +583,7 @@ def sampler_peanuts(
     target_accept    = 0.80,
     max_delta_energy = 1000.,
     grad_log_prob_fn = None,
-    find_init_step_size   = True,
+    find_init_step_size   = False,
     adapt_step_size  = True,
     seed             = 0,
     verbose          = True,
@@ -609,7 +609,7 @@ def sampler_peanuts(
         max_delta_energy : Energy threshold for divergence detection.
         grad_log_prob_fn : Vectorised gradient (batch,D)->(batch,D).
                            If None, uses jax.vmap(jax.grad(log_prob_fn)).
-        find_init_step_size : If True (default), run a short heuristic search at
+        find_init_step_size : If True, run a short heuristic search at
                               the initial positions to scale `step_size` to
                               ~80% acceptance before warmup.
                               If False, use `step_size` as-is.
