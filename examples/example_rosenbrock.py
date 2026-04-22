@@ -92,19 +92,19 @@ if __name__ == "__main__":
 
     t0 = time.time()
     s, info = sampler_peaches(log_prob, init, n_samp, warmup=warmup,
-                               step_size=0.01, seed=seed, verbose=False, find_init_step_size=True)
+                               step_size=0.01, seed=seed, verbose=True, find_init_step_size=True)
     _report("peaches", s, a, info, time.time() - t0)
     results["peaches"] = s
 
     t0 = time.time()
     s, info = sampler_pickles(log_prob, init, n_samp, warmup=warmup,
-                               step_size=0.01, gamma=2.0, seed=seed, verbose=False, find_init_step_size=True)
+                               step_size=0.01, gamma=2.0, seed=seed, verbose=True, find_init_step_size=True)
     _report("pickles", s, a, info, time.time() - t0)
     results["pickles"] = s
 
     t0 = time.time()
     s, info = sampler_peams(log_prob, init, n_samp, warmup=warmup,
-                             step_size=0.01, seed=seed, verbose=False, find_init_step_size=True)
+                             step_size=0.01, seed=seed, verbose=True, find_init_step_size=True)
     _report("peams",   s, a, info, time.time() - t0)
     results["peams"] = s
 
