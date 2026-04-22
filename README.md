@@ -318,10 +318,9 @@ by-side comparison.
 * **Multimodal targets.**  MAP seeding concentrates chains in one
   mode — use many restarts and inspect the spread, or fall back to a
   dispersed random init.
-* **Non-smooth / unbounded potentials.**  BFGS needs
-  twice-differentiability; targets with cusps or sharp walls will mis-
-  step.  Targets with genuinely unbounded potentials (no MAP at all)
-  will send the optimizer to infinity — fall back to random init.
+* **Non-smooth potentials.**  BFGS needs
+  differentiability; targets with cusps or sharp walls will mis-
+  step. 
 
 ## Samplers reference
 
