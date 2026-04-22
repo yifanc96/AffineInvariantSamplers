@@ -29,12 +29,18 @@ This module provides three tiers of helpers:
 
 Caveats
 -------
-* Targets without a finite MAP (e.g. Neal's funnel, where the potential is
-  unbounded below at ``v → -∞``) will cause the optimizer to run off to
-  infinity.  Use isotropic random init for those.
-* MAP is a point estimate — for genuinely multimodal targets it seeds all
-  chains in one mode.  Use ``find_map_restarts`` with many restarts, or fall
-  back to a dispersed random init.
+* **Tier 3 can be catastrophically wrong even when the MAP exists.**
+  Neal's funnel has MAP at ``(v*, x*) = (-9d/2, 0)`` and BFGS finds it in
+  a handful of steps — but at that point the Hessian for ``x`` is
+  ``exp(-v*)·I`` (~e¹⁸ in 5-D), so Laplace predicts ``std(x_i) ≈ 10⁻³``
+  against a true marginal std ``≈ 9.5``.  Use Tiers 1 or 2 on funnel-like
+  targets and seed your own dispersed ensemble around the MAP point.
+* **Multimodal targets.**  MAP is a point estimate — it seeds all chains
+  in one mode.  Use ``find_map_restarts`` with many restarts and inspect
+  the spread, or fall back to a dispersed random init.
+* **Non-smooth / unbounded potentials.**  BFGS needs twice-differentiability.
+  Targets with genuinely unbounded potentials (no MAP at all) will send
+  the optimizer to infinity.
 * The Hessian at an early-stopped optimum may be indefinite; we regularize
   by clipping eigenvalues to a positive floor.
 """

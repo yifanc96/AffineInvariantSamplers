@@ -305,11 +305,23 @@ O(D³) decomposition) but gives an ensemble automatically matched to the
 local curvature.  See `examples/example_init_rosenbrock.py` for a side-
 by-side comparison.
 
-**Caveats.**  Targets without a finite MAP (e.g. Neal's funnel, where
-the potential is unbounded below) will make the optimizer run off to
-infinity — use an isotropic random init there.  For genuinely
-multimodal targets, MAP seeding concentrates chains in one mode; use
-many restarts or a dispersed random init.
+**Caveats.**
+
+* **Tier 3 can be catastrophically wrong even when the MAP exists.**
+  Neal's funnel has MAP at `(v*, x*) = (-9d/2, 0)` and BFGS finds it in
+  a handful of steps — but at that point the Hessian for `x` is
+  `exp(-v*)·I` (~e¹⁸ in 5-D), so Laplace predicts `std(x_i) ≈ 10⁻³`
+  whereas the true marginal std is `≈ 9.5`.  Starting chains in that
+  bubble strands them ~10³σ from typical mass.  Use Tiers 1 or 2 on
+  funnel-like targets and hand the MAP to an isotropic or
+  dispersed init yourself.
+* **Multimodal targets.**  MAP seeding concentrates chains in one
+  mode — use many restarts and inspect the spread, or fall back to a
+  dispersed random init.
+* **Non-smooth / unbounded potentials.**  BFGS needs
+  twice-differentiability; targets with cusps or sharp walls will mis-
+  step.  Targets with genuinely unbounded potentials (no MAP at all)
+  will send the optimizer to infinity — fall back to random init.
 
 ## Samplers reference
 
