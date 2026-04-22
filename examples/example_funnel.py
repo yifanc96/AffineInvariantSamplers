@@ -115,20 +115,20 @@ if __name__ == "__main__":
 
     t0 = time.time()
     s, info = sampler_stretch(log_prob, init_ens, n_samp, warmup=warmup,
-                               seed=seed, verbose=False)
+                               seed=seed, verbose=True)
     _report("stretch",         s, info, time.time() - t0)
     results["stretch"] = s
 
     t0 = time.time()
     s, info = sampler_ensemble_dr_stretch(log_prob, init_ens, n_samp, warmup=warmup,
-                                           seed=seed, shrink=0.3, verbose=False)
+                                           seed=seed, shrink=0.3, verbose=True)
     _report("stretch-DR",      s, info, time.time() - t0)
     results["stretch-DR"] = s
 
     t0 = time.time()
     s, info = sampler_gndr(log_prob_single, init_hmc, n_samp, warmup=warmup,
                             step_size=0.5, n_try=3, residual_fn=residual,
-                            seed=seed, shrink = 0.3, verbose=False)
+                            seed=seed, shrink = 0.3, verbose=True)
     _report("gndr",            s, info, time.time() - t0)
     results["gndr"] = s
 

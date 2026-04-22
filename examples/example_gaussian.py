@@ -92,7 +92,7 @@ if __name__ == "__main__":
 
     t0 = time.time()
     s, info = sampler_stretch(log_prob, init, n_samp, warmup=warmup, seed=seed,
-                              verbose=False)
+                              verbose=True)
     _report("stretch",       s, cov, info, time.time() - t0)
     results["stretch"] = s
 
@@ -104,7 +104,7 @@ if __name__ == "__main__":
     t0 = time.time()
     s, info = sampler_langevin_walk(log_prob, init, n_samp, warmup=warmup,
                                      step_size=0.3, find_init_step_size=False,
-                                     seed=seed, verbose=False)
+                                     seed=seed, verbose=True)
     _report("langevin_walk", s, cov, info, time.time() - t0)
     results["langevin_walk"] = s
 
@@ -112,13 +112,13 @@ if __name__ == "__main__":
     s, info = sampler_kalman_move(log_prob, lambda x: x, prec, init, n_samp,
                                    warmup=warmup, step_size=0.3,
                                    find_init_step_size=False, seed=seed,
-                                   verbose=False)
+                                   verbose=True)
     _report("kalman_move",   s, cov, info, time.time() - t0)
     results["kalman_move"] = s
 
     t0 = time.time()
     s, info = sampler_peaches(log_prob, init, n_samp, warmup=warmup,
-                               step_size=0.01, seed=seed, verbose=False)
+                               step_size=0.01, seed=seed, verbose=True)
     _report("peaches",       s, cov, info, time.time() - t0)
     results["peaches"] = s
 

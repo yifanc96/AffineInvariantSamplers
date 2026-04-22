@@ -105,7 +105,7 @@ if __name__ == "__main__":
     # Even so, aldi is expected to show visible bias on Rosenbrock.
     t0 = time.time()
     s, info = sampler_aldi(log_prob, init, n_samp, warmup=warmup,
-                            step_size=0.1, seed=seed, verbose=False)
+                            step_size=0.1, seed=seed, verbose=True)
     _report("aldi",               s, a, info, time.time() - t0)
     results["aldi"] = s
 
@@ -115,7 +115,7 @@ if __name__ == "__main__":
     t0 = time.time()
     s, info = sampler_pickles_unadjusted(
         log_prob, init, n_samp, warmup=warmup,
-        step_size=0.2, gamma=2.0, seed=seed, verbose=False)
+        step_size=0.2, gamma=2.0, seed=seed, verbose=True)
     _report("pickles_unadjusted", s, a, info, time.time() - t0)
     results["pickles_unadjusted"] = s
 
