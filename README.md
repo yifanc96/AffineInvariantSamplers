@@ -271,6 +271,46 @@ sampler_peaches(log_prob, init, ...,
 a convenience, not a black-box auto-pick — always glance at the printed
 `find_init_step_size:` line.
 
+### Picking `init` — a good starting ensemble
+
+Every sampler here takes an ensemble `init` of shape `(n_chains, D)`.  A
+good starting ensemble is concentrated on the bulk of the target and
+dispersed on roughly the right scale — if it is under-dispersed
+(e.g. `N(0, I)` on a target with variance ~100), `find_init_step_size`
+latches onto the tiny ensemble covariance and picks a step size that is
+too large.
+
+The `affine_invariant_samplers.init` module provides three tiers of
+helpers for targets where a MAP exists:
+
+```python
+from affine_invariant_samplers import (
+    find_map,                 # Tier 1: single-start BFGS
+    find_map_restarts,        # Tier 2: multi-start BFGS (vmap)
+    init_ensemble_from_map,   # Tier 3: MAP + Laplace → ensemble
+)
+
+# Tier 3 is usually what you want:
+init, map_res = init_ensemble_from_map(
+    log_prob_single, x0=jnp.zeros(D),
+    n_chains=100, seed=0, n_restarts=8, verbose=True,
+)
+samples, info = sampler_peaches(log_prob, init, n_samp, warmup=warmup)
+```
+
+Tiers 1 and 2 return just the MAP point — cheap.  Tier 3 additionally
+computes the Hessian at the MAP and draws an ensemble from the Laplace
+Gaussian `N(x_MAP, H^{-1})`; this costs one Hessian (O(D²) memory,
+O(D³) decomposition) but gives an ensemble automatically matched to the
+local curvature.  See `examples/example_init_rosenbrock.py` for a side-
+by-side comparison.
+
+**Caveats.**  Targets without a finite MAP (e.g. Neal's funnel, where
+the potential is unbounded below) will make the optimizer run off to
+infinity — use an isotropic random init there.  For genuinely
+multimodal targets, MAP seeding concentrates chains in one mode; use
+many restarts or a dispersed random init.
+
 ## Samplers reference
 
 ### Ensemble affine-invariant (gradient-free)
@@ -375,12 +415,14 @@ Pure matplotlib — no `corner` dependency.
 | `example_rosenbrock.py`                | 10-D Rosenbrock, (a, b)=(1, 100)    | `peaches`, `pickles`, `peams`                       |
 | `example_rosenbrock_unadjusted.py`     | 10-D Rosenbrock, (a, b)=(1, 100)    | `aldi`, `pickles_unadjusted`                        |
 | `example_funnel.py`                    | 5-D Neal's funnel                   | `stretch`, `stretch-DR`, `gndr`                     |
+| `example_init_rosenbrock.py`           | 10-D Rosenbrock, (a, b)=(1, 100)    | `find_map`, `find_map_restarts`, `init_ensemble_from_map` + `peaches` |
 
 ```bash
 python examples/example_gaussian.py
 python examples/example_rosenbrock.py
 python examples/example_rosenbrock_unadjusted.py
 python examples/example_funnel.py
+python examples/example_init_rosenbrock.py
 ```
 
 Each script reports mean/variance accuracy, acceptance rate, minimum

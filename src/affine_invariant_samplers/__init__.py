@@ -55,6 +55,13 @@ from .diagnostics import (
     effective_sample_size,
 )
 
+# ─── Initialization helpers (MAP, Laplace-seeded ensemble) ───────────────────
+from .init import (
+    find_map,
+    find_map_restarts,
+    init_ensemble_from_map,
+)
+
 __all__ = [
     # ensemble affine-invariant
     "sampler_walk",
@@ -84,6 +91,10 @@ __all__ = [
     "autocorrelation",
     "integrated_autocorr_time",
     "effective_sample_size",
+    # initialization
+    "find_map",
+    "find_map_restarts",
+    "init_ensemble_from_map",
 ]
 
 __version__ = "0.1.0"
