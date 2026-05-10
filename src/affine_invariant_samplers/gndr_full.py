@@ -125,88 +125,45 @@ def _safe_log1m_exp(la):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Mira recursive DR acceptance — arbitrary depth, unrolled at trace time
+# Recursive DR acceptance — arbitrary depth, "proposal-binding" convention
 # ──────────────────────────────────────────────────────────────────────────────
 #
 # For the path P = (P_0, P_1, ..., P_k) with all proposals generated from
-# P_0 = x using steps h_0, h_1, ..., h_{k-1}, the DR acceptance at stage j is:
+# P_0 = x using steps h_0, h_1, ..., h_{k-1} (h_j = h * shrink^j), each q
+# evaluation involving P_j (regardless of source) uses the step h_{j-1}
+# that originally proposed P_j in the forward DR ladder.  This is the
+# "proposal-binding" pairing of forward and reverse DR ladders — the same
+# convention used by the hand-coded sampler_gndr (n_try ≤ 3) and by the
+# original notebook in the initial-samplers branch.
 #
-#   α(0, j) = min(1,  N(0, j) / D(0, j) )
+# The recursion is parameterised by (current_idx, proposal_idx, prev_tuple)
+# where prev_tuple is the forward-index-ordered subset of intermediate
+# rejected proposals.  At each call:
 #
-#   N(0, j) = π(P_j) · Π_{i=1..j} q(P_j → P_{j-i}; h_{i-1})
-#                    · Π_{i=1..j-1} (1 - α_reverse_subpath_i_at_j)
-#   D(0, j) = π(P_0) · Π_{i=1..j} q(P_0 → P_i; h_{i-1})
-#                    · Π_{i=1..j-1} (1 - α(0, i))
+#   α(current, proposal | prev) = min(1, N / D),
 #
-# where ``α_reverse_subpath_i_at_j`` is the DR acceptance of a hypothetical
-# path starting at P_j and proposing P_{j-1}, P_{j-2}, ..., P_{j-i}.  This
-# inner α has the same form (recursively).
+#   N = π(P_proposal) · q(P_proposal → P_current; h_{|prev|})
+#                     · Π_{j ∈ prev} q(P_proposal → P_j; h_{j-1})
+#                     · Π_{i,j enumerated from prev}
+#                         (1 − α(P_proposal, P_j | prev[:i]))
 #
-# Implementation: Python recursion with memoization.  The set of (start, end)
-# index pairs that get visited is at most O(k²); each costs O(k) arithmetic.
-# Total trace-time work is O(k³) — fine for k up to ~20.
-
-
-def _build_dr_alphas(path_lp, path_q, n_try):
-    """Build the dict ``alpha[(s, e)] = log α`` for every (s, e) pair needed.
-
-    Args:
-        path_lp : list of (n_try+1) arrays of shape (N,) — log π at each P_i
-        path_q  : dict (s, e) -> array (N,) of log q(P_s → P_e; h_{|s-e|-1}).
-                  Caller pre-computes this for all distinct (s, e) pairs that
-                  the recursion may need.
-        n_try   : int — top-level depth k
-
-    Returns:
-        cache : dict (s, e) -> log α (s, e)
-    """
-    cache = {}
-
-    def alpha(s, e):
-        if (s, e) in cache:
-            return cache[(s, e)]
-        if s == e:
-            return jnp.zeros_like(path_lp[0])
-        m = abs(e - s)
-        sign = 1 if e > s else -1
-        log_num = path_lp[e]
-        log_den = path_lp[s]
-        # Forward kernels (from s, in direction of e) and reverse (from e back).
-        for i in range(1, m + 1):
-            log_den = log_den + path_q[(s, s + sign * i)]
-            log_num = log_num + path_q[(e, e - sign * i)]
-        # Inner (1 - α) corrections.
-        for i in range(1, m):
-            af = alpha(s, s + sign * i)        # forward sub-path of length i
-            ar = alpha(e, e - sign * i)        # reverse sub-path of length i
-            log_num = log_num + _safe_log1m_exp(ar)
-            log_den = log_den + _safe_log1m_exp(af)
-        result = jnp.minimum(0., log_num - log_den)
-        cache[(s, e)] = result
-        return result
-
-    # Drive the recursion: we need α(0, j) for j = 1..n_try.
-    for j in range(1, n_try + 1):
-        alpha(0, j)
-    return cache
-
-
-def _enumerate_path_q_pairs(n_try):
-    """Indices (s, e) of all q-evaluations the recursion can request.
-
-    For top-level α(0, k), the recursion descends into α(s, e) for every
-    (s, e) with 0 ≤ s, e ≤ k.  For each such (s, e) and each i = 1..|e-s|
-    it needs q(P_s → P_{s + sign·i}; h_{i-1}) and q(P_e → P_{e - sign·i}; h_{i-1}).
-
-    Concretely the union over all sub-paths is: every (a, b) with
-    0 ≤ a, b ≤ n_try and a ≠ b.  We just pre-enumerate that.
-    """
-    pairs = []
-    for a in range(n_try + 1):
-        for b in range(n_try + 1):
-            if a != b:
-                pairs.append((a, b))
-    return pairs
+#   D = π(P_current)  · q(P_current → P_proposal; h_{|prev|})
+#                     · Π_{j ∈ prev} q(P_current → P_j; h_{j-1})
+#                     · Π_{i,j enumerated from prev}
+#                         (1 − α(P_current, P_j | prev[:i]))
+#
+# The "main" kernel uses h_{|prev|} (its position in the DR ladder); each
+# prev-term kernel uses h_{j-1} (the step that originally proposed P_j).
+# At the top level current=0, proposal=k, prev=(1, 2, ..., k-1).
+#
+# Compared to Mira's positional convention (which the previous version of
+# this file implemented), this scheme has α → 1 monotonically as depth
+# grows for proposals that converge to x — so it gives the "eventual
+# acceptance" guarantee needed for geometric ergodicity on light-tailed
+# targets.
+#
+# Implementation: Python recursion + Python-level memoization, fully
+# unrolled at JIT trace time since n_try is static.
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -246,11 +203,13 @@ def _find_init_eps(key, x, lp, grad_x, L_x, eps0, v_lp, target_accept):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _make_dr_step(n_try, v_lp, v_grad, v_hess, n_chains, dim):
-    """Returns a function (x, lp, hs, rng) -> (new_x, new_lp, stage_acc_flags, rng)
-    that performs one full multi-stage DR transition with the supplied
-    per-stage step sizes hs of shape (n_try,)."""
+    """Returns step(x, lp, hs, rng) -> (new_x, new_lp, accepted_any, alpha1, rng).
 
-    pairs = _enumerate_path_q_pairs(n_try)
+    Performs one full multi-stage DR transition under the proposal-binding
+    convention.  The per-stage step sizes hs[0], hs[1], ..., hs[n_try-1]
+    correspond to the steps used at DR ladder positions 1, 2, ..., n_try
+    (i.e. hs[j-1] is the step that originally proposed P_j from x).
+    """
 
     def step(x, lp, hs, rng):
         N, D = x.shape
@@ -259,7 +218,7 @@ def _make_dr_step(n_try, v_lp, v_grad, v_hess, n_chains, dim):
         grad_x = v_grad(x)
         L_x    = _safe_cholesky(v_hess(x))
 
-        # Generate all k proposals and noise.
+        # Generate all k proposals from x with shrunk steps.
         rng, *zkeys = jax.random.split(rng, n_try + 1)
         path_pts  = [x]
         path_lp   = [lp]
@@ -273,33 +232,58 @@ def _make_dr_step(n_try, v_lp, v_grad, v_hess, n_chains, dim):
             path_grad.append(v_grad(y))
             path_L.append(_safe_cholesky(v_hess(y)))
 
-        # Compute q(P_s → P_e; h_{|s-e|-1}) for every needed pair.
-        path_q = {}
-        for (s, e) in pairs:
-            d = abs(e - s)
-            path_q[(s, e)] = _transition_logp(
-                path_pts[s], path_pts[e], path_grad[s], path_L[s], hs[d - 1])
+        # Memoize log q(P_src → P_dest; hs[step_idx]) by (src, dest, step_idx).
+        q_cache = {}
+        def get_q(src, dest, step_idx):
+            key = (src, dest, step_idx)
+            if key not in q_cache:
+                q_cache[key] = _transition_logp(
+                    path_pts[src], path_pts[dest],
+                    path_grad[src], path_L[src], hs[step_idx])
+            return q_cache[key]
 
-        # Recursive Mira α.
-        alphas = _build_dr_alphas(path_lp, path_q, n_try)
+        # Memoized α with proposal-binding pairing.
+        alpha_cache = {}
+        def alpha(current, proposal, prev_tuple):
+            key = (current, proposal, prev_tuple)
+            if key in alpha_cache:
+                return alpha_cache[key]
+            num_rej = len(prev_tuple)
+            cur_idx = num_rej             # main step uses h_{num_rej}
+            qf = get_q(current, proposal, cur_idx)
+            qb = get_q(proposal, current, cur_idx)
+            log_num = path_lp[proposal] + qb
+            log_den = path_lp[current]  + qf
+            for j in prev_tuple:
+                step_idx = j - 1          # prev term uses h_{j-1}
+                log_num = log_num + get_q(proposal, j, step_idx)
+                log_den = log_den + get_q(current,  j, step_idx)
+            for i, j in enumerate(prev_tuple):
+                af = alpha(current,  j, prev_tuple[:i])
+                ar = alpha(proposal, j, prev_tuple[:i])
+                log_num = log_num + _safe_log1m_exp(ar)
+                log_den = log_den + _safe_log1m_exp(af)
+            res = jnp.minimum(0., log_num - log_den)
+            alpha_cache[key] = res
+            return res
 
-        # Stage-by-stage acceptance.
+        # Stage-by-stage acceptance (sequential).
         accepted_any = jnp.zeros(N, dtype=bool)
-        stage_acc = []
         new_x  = x
         new_lp = lp
+        alpha1_log = None
         for j in range(1, n_try + 1):
-            la = alphas[(0, j)]
+            prev = tuple(range(1, j))
+            la = alpha(0, j, prev)
+            if j == 1:
+                alpha1_log = la
             rng, uk = jax.random.split(rng)
             u = jnp.log(jax.random.uniform(uk, (N,), minval=1e-10))
             this_acc = (~accepted_any) & (u < la)
             new_x  = jnp.where(this_acc[:, None], path_pts[j], new_x)
             new_lp = jnp.where(this_acc, path_lp[j], new_lp)
-            stage_acc.append(this_acc)
             accepted_any = accepted_any | this_acc
 
-        # alpha_1 is the standard MH stage-1 acceptance; we expose it for DA.
-        alpha1_log = alphas[(0, 1)]
         return new_x, new_lp, accepted_any, alpha1_log, rng
 
     return step
