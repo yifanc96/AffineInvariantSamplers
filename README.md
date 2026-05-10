@@ -341,7 +341,8 @@ by-side comparison.
 | `sampler_langevin_walk`  | Affine-invariant Langevin walk (MALA in the complement span).|
 | `sampler_kalman_move`    | Ensemble Kalman move (derivative-free drift from forward G). |
 | `sampler_kalman_dr`      | Multi-stage delayed-rejection Kalman move.                   |
-| `sampler_gndr`           | Gauss–Newton proposal Langevin with multi-stage DR.          |
+| `sampler_gndr`           | Gauss–Newton proposal Langevin with multi-stage DR (≤3).     |
+| `sampler_gndr_full`      | Same proposal, **arbitrary-depth** DR via Mira's recursion.  |
 
 ### HMC family (single chain, batched)
 
@@ -427,6 +428,7 @@ Pure matplotlib — no `corner` dependency.
 | `example_rosenbrock_unadjusted.py`     | 10-D Rosenbrock, (a, b)=(1, 100)    | `aldi`, `pickles_unadjusted`                        |
 | `example_funnel.py`                    | 5-D Neal's funnel                   | `stretch`, `stretch-DR`, `gndr`                     |
 | `example_init_rosenbrock.py`           | 10-D Rosenbrock, (a, b)=(1, 100)    | `find_map`, `find_map_restarts`, `init_ensemble_from_map` + `peaches` |
+| `example_light_tail_gndr.py`           | 5-D quartic, log π = -‖x‖⁴/4        | `sampler_gndr_full` swept over n_try ∈ {1, 2, 3, 5, 8, 12} |
 
 ```bash
 python examples/example_gaussian.py
@@ -434,6 +436,7 @@ python examples/example_rosenbrock.py
 python examples/example_rosenbrock_unadjusted.py
 python examples/example_funnel.py
 python examples/example_init_rosenbrock.py
+python examples/example_light_tail_gndr.py
 ```
 
 Each script reports mean/variance accuracy, acceptance rate, minimum

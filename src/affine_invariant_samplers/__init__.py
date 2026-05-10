@@ -31,6 +31,7 @@ from .langevin_walk import sampler_langevin_walk
 from .kalman_move   import sampler_kalman_move
 from .kalman_dr     import sampler_kalman_dr
 from .gndr          import sampler_gndr
+from .gndr_full     import sampler_gndr_full
 
 # ─── HMC-family (single chain, batched) ─────────────────────────────────────
 from .malt import sampler_malt
@@ -74,6 +75,7 @@ __all__ = [
     "sampler_kalman_move",
     "sampler_kalman_dr",
     "sampler_gndr",
+    "sampler_gndr_full",
     # HMC-family
     "sampler_malt",
     "sampler_mams",
