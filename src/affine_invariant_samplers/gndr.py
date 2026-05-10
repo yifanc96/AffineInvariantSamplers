@@ -123,11 +123,15 @@ def _dr_accept_stage2(lp_x, lp_y2, q_xy2, q_y2x, q_xy1, q_y2y1, q_y1x, q_y1y2,
     log_num  = lp_y2 + q_y2x + q_y2y1
     log_den  = lp_x  + q_xy2 + q_xy1
 
-    # (1 - alpha1) terms
-    safe_a1_x  = jnp.where(alpha1_x_y1 > -1e-12, -jnp.inf,
-                            jnp.log1p(-jnp.exp(alpha1_x_y1)))
-    safe_a1_y2 = jnp.where(alpha1_y2_y1 > -1e-12, -jnp.inf,
-                            jnp.log1p(-jnp.exp(alpha1_y2_y1)))
+    # (1 - alpha1) terms.  When alpha is near 1 (la ≈ 0), naive log1p(-exp)
+    # gives -inf in BOTH the num and den paths, and -inf - (-inf) = NaN
+    # silently kills outer acceptance.  Floor to a large finite value so
+    # matching saturated terms cancel; only unbalanced saturations bite.
+    _LOG1M_FLOOR = -1e8
+    safe_a1_x  = jnp.where(alpha1_x_y1 > -1e-30, _LOG1M_FLOOR,
+                            jnp.log1p(-jnp.exp(jnp.minimum(alpha1_x_y1, -1e-30))))
+    safe_a1_y2 = jnp.where(alpha1_y2_y1 > -1e-30, _LOG1M_FLOOR,
+                            jnp.log1p(-jnp.exp(jnp.minimum(alpha1_y2_y1, -1e-30))))
 
     la = log_num - log_den + safe_a1_y2 - safe_a1_x
     return jnp.where(jnp.isfinite(la), jnp.minimum(0., la), -jnp.inf)
@@ -141,8 +145,12 @@ def _dr_accept_stage3(lp_x, lp_y3,
     log_num  = lp_y3 + q_y3x + q_y3y1 + q_y3y2
     log_den  = lp_x  + q_xy3 + q_xy1  + q_xy2
 
+    _LOG1M_FLOOR = -1e8
     def safe_log1m(a):
-        return jnp.where(a > -1e-12, -jnp.inf, jnp.log1p(-jnp.exp(a)))
+        # See note in _dr_accept_stage2.  Floor to a large finite value so
+        # matching saturated (a≈0) terms cancel in num/den.
+        return jnp.where(a > -1e-30, _LOG1M_FLOOR,
+                          jnp.log1p(-jnp.exp(jnp.minimum(a, -1e-30))))
 
     la = (log_num - log_den
           + safe_log1m(alpha1_y3_y1) - safe_log1m(alpha1_x_y1)

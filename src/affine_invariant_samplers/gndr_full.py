@@ -101,8 +101,27 @@ def _propose(x, grad_x, L_x, h, z):
 
 
 def _safe_log1m_exp(la):
-    """Numerically safe log(1 - exp(la)) for la <= 0."""
-    return jnp.where(la > -1e-12, -jnp.inf, jnp.log1p(-jnp.exp(la)))
+    """Numerically safe log(1 - exp(la)) for la <= 0.
+
+    The naive ``log1p(-exp(0)) = -inf`` is mathematically right (α = 1
+    means rejection has zero probability), but in Mira's DR formula it
+    appears in BOTH the numerator (via reverse inner α) and the
+    denominator (via forward inner α).  When both saturate, ``-inf -
+    (-inf) = NaN`` silently kills the outer acceptance.
+
+    Concrete failure mode on light-tailed targets: when the deep-stage
+    proposal ``y_k ≈ y_{k-1}``, the inner sub-path α(y_k, y_{k-1}) hits
+    1 exactly, every outer α becomes NaN, and stages ≥ 4 *never accept*
+    even though the underlying recursion is algebraically correct.
+
+    We replace ``-inf`` with a large but finite floor so that matching
+    saturated terms cancel in the num/den difference; only genuinely
+    *unbalanced* saturations contribute (correctly) ~ -∞ to log α.
+    """
+    LOG1M_FLOOR = -1e8   # exp(-1e8) is well below any realistic α-bias
+    return jnp.where(la > -1e-30,
+                      LOG1M_FLOOR,
+                      jnp.log1p(-jnp.exp(jnp.minimum(la, -1e-30))))
 
 
 # ──────────────────────────────────────────────────────────────────────────────
