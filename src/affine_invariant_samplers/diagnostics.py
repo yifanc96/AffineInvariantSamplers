@@ -187,29 +187,25 @@ def integrated_autocorr_time(samples, M=5, c=10):
     return tau
 
 
-def effective_sample_size(samples, M=5, c=10):
-    """Effective sample size per dimension, capped at the sample count.
+def effective_sample_size(samples, M=5, c=10, clamp=True):
+    """Effective sample size per dimension.
 
     Args:
         samples : (N,) or (N, D) or (N, n_chains, D).
         M, c    : Passed to the self-consistent-window estimator.
+        clamp   : If True (default), τ is clamped at 1 so ESS ≤ N · n_chains
+                  (emcee/arviz convention).  If False, ESS = N · n_chains / τ
+                  with no cap — well-tuned HMC can produce antithetic samples
+                  (τ < 1), giving ESS > N.  Use `clamp=False` when comparing
+                  HMC variants whose clamped ESS both saturate.
 
     Returns:
-        ess : 1D array of length D, giving `(N · n_chains) / max(τ_d, 1)`.
-              Scalar if input was 1D.
-
-    Notes:
-        Well-tuned HMC can produce antithetic samples (ρ(1) < 0), for which
-        Sokal's window estimator returns τ < 1 and a naive ESS = N / τ would
-        exceed N.  Following emcee / arviz, we clamp τ at 1 inside this
-        function so ESS is bounded above by the actual sample count.
-        `integrated_autocorr_time` does *not* clamp — its τ < 1 is useful
-        diagnostic information.
+        ess : 1D array of length D.  Scalar if input was 1D.
     """
     s = _to_3d(samples)
     N, C, D = s.shape
     tau = np.asarray(integrated_autocorr_time(samples, M=M, c=c))
-    tau_eff = np.maximum(tau, 1.0)
+    tau_eff = np.maximum(tau, 1.0) if clamp else np.maximum(tau, 1e-12)
     n_total = N * C
     ess = n_total / tau_eff
     if np.asarray(samples).ndim == 1:

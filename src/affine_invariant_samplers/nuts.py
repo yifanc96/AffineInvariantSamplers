@@ -513,9 +513,12 @@ def sampler_nuts(
         _step, (state, lp), skeys)
 
     samples = all_states[::thin_by]
+    n_chains = state.shape[0]
+    n_grad_evals = int(jnp.sum(all_ns)) * int(n_chains)   # per-step leapfrog × chains
     info = dict(acceptance_rate=float(jnp.mean(all_acc)),  # mean tree energy acceptance
                 final_step_size=float(final_eps),
-                mean_tree_depth=float(jnp.mean(jnp.log2(all_ns + 1))))
+                mean_tree_depth=float(jnp.mean(jnp.log2(all_ns + 1))),
+                n_grad_evals=n_grad_evals)
     if verbose:
         print(f"Done.  accept={info['acceptance_rate']:.3f}"
               f"  mean_steps={float(jnp.mean(all_ns)):.1f}")
