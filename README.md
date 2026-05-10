@@ -342,7 +342,7 @@ by-side comparison.
 | `sampler_kalman_move`    | Ensemble Kalman move (derivative-free drift from forward G). |
 | `sampler_kalman_dr`      | Multi-stage delayed-rejection Kalman move.                   |
 | `sampler_gndr`           | Gauss–Newton proposal Langevin with multi-stage DR (≤3).     |
-| `sampler_gndr_full`      | Same proposal, **arbitrary-depth** DR via Mira's recursion.  |
+| `sampler_gndr_full`      | Same proposal, **arbitrary-depth** DR.                       |
 
 ### HMC family (single chain, batched)
 
