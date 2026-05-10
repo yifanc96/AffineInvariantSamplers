@@ -259,18 +259,27 @@ def sampler_gndr(
     if grad_fn is None:
         grad_fn = jax.grad(log_prob_fn)
 
-    # build Hessian function (Gauss-Newton preferred)
+    # build the proposal-metric function H(x).  Must be PSD at every x the
+    # chain visits — the Langevin proposal uses H^{-1} to scale drift and
+    # noise, and a non-PSD H corrupts the Cholesky decomposition silently.
     if hessian_fn is None:
         if residual_fn is not None:
-            # Gauss-Newton: H_GN(x) = J_r(x)^T @ J_r(x)
+            # Gauss-Newton: H_GN(x) = J_r(x)^T @ J_r(x), PSD by construction.
             def hessian_fn(x):
                 J = jax.jacobian(residual_fn)(x)    # (N_res, D)
                 return J.T @ J                       # (D, D)
         else:
-            # fallback: full Hessian (negated to get precision)
-            _full_hess = jax.hessian(log_prob_fn)
-            def hessian_fn(x):
-                return -_full_hess(x)
+            raise ValueError(
+                "sampler_gndr requires a state-dependent PSD metric H(x).  "
+                "Pass one of:\n"
+                "  residual_fn=r   with -log π(x) = ½ ‖r(x)‖²  (preferred — "
+                "gives the Gauss-Newton metric J_r^T J_r, PSD by construction).\n"
+                "  hessian_fn=H    with H(x) PSD by construction (e.g. via "
+                "eigenvalue clipping of -∇²log π).\n"
+                "There is no auto-fallback: -∇²log π is not PSD when log π "
+                "is locally non-log-concave (singular peaks, inflection "
+                "points, multimodal targets), and using it silently corrupts "
+                "the proposal.")
 
     # vectorise: (n_chains, D) -> (n_chains,) / (n_chains, D) / (n_chains, D, D)
     v_lp   = jax.vmap(log_prob_fn)

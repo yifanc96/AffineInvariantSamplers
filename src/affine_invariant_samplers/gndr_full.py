@@ -343,13 +343,22 @@ def sampler_gndr_full(
 
     if hessian_fn is None:
         if residual_fn is not None:
+            # Gauss-Newton: H_GN(x) = J_r(x)^T @ J_r(x), PSD by construction.
             def hessian_fn(x):
                 J = jax.jacobian(residual_fn)(x)
                 return J.T @ J
         else:
-            _full_hess = jax.hessian(log_prob_fn)
-            def hessian_fn(x):
-                return -_full_hess(x)
+            raise ValueError(
+                "sampler_gndr_full requires a state-dependent PSD metric H(x).  "
+                "Pass one of:\n"
+                "  residual_fn=r   with -log π(x) = ½ ‖r(x)‖²  (preferred — "
+                "gives the Gauss-Newton metric J_r^T J_r, PSD by construction).\n"
+                "  hessian_fn=H    with H(x) PSD by construction (e.g. via "
+                "eigenvalue clipping of -∇²log π).\n"
+                "There is no auto-fallback: -∇²log π is not PSD when log π "
+                "is locally non-log-concave (singular peaks, inflection "
+                "points, multimodal targets), and using it silently corrupts "
+                "the proposal.")
 
     v_lp   = jax.vmap(log_prob_fn)
     v_grad = jax.vmap(grad_fn)

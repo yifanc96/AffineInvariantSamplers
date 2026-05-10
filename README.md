@@ -156,7 +156,11 @@ would close the gap.
   raises acceptance toward 1 with depth.
 - **High dimension** — gradient-based ensemble HMC (same four above);
   use `sampler_kalman_move` if you have no gradient and the target is
-  approximately Gaussian.
+  approximately Gaussian.  For very high dimension where the
+  Metropolis-correction cost dominates, the unadjusted variant
+  `sampler_pickles_unadjusted` scales much better — see
+  [Chen, *CPA* 2025](https://onlinelibrary.wiley.com/doi/10.1002/cpa.70032)
+  for the dimensional-scaling analysis.
 
 ## Usage essentials
 
