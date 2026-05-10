@@ -150,6 +150,10 @@ would close the gap.
 - **Multiscale geometry** (funnel-like) — delayed rejection:
   `sampler_ensemble_dr_stretch` (gradient-free) or `sampler_gndr`
   (gradient + Gauss–Newton Hessian).
+- **Light-tailed targets** (e.g. `exp(−|x|^p)` with p > 2, where vanilla
+  MALA can lose geometric ergodicity) — `sampler_gndr` /
+  `sampler_gndr_full`; the GN preconditioner caps tail drift and DR
+  raises acceptance toward 1 with depth.
 - **High dimension** — gradient-based ensemble HMC (same four above);
   use `sampler_kalman_move` if you have no gradient and the target is
   approximately Gaussian.
