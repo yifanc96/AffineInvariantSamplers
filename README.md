@@ -159,7 +159,8 @@ would close the gap.
   approximately Gaussian.  For very high dimension where the
   Metropolis-correction cost dominates, the unadjusted variant
   `sampler_pickles_unadjusted` scales much better — see
-  [Chen, *CPA* 2025](https://onlinelibrary.wiley.com/doi/10.1002/cpa.70032)
+  [Convergence of Unadjusted Langevin in High Dimensions: Delocalization
+  of Bias (CPAM, 2026)](https://onlinelibrary.wiley.com/doi/10.1002/cpa.70032)
   for the dimensional-scaling analysis.
 
 ## Usage essentials
