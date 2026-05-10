@@ -1,5 +1,5 @@
 """
-sampler_chess — standard ChEES HMC (no ensemble preconditioning), single file, JAX only.
+sampler_chees — standard ChEES HMC (no ensemble preconditioning), single file, JAX only.
 
 Standard HMC with identity mass matrix.
 Adaptation (warmup only, each independently toggleable):
@@ -170,10 +170,10 @@ def _find_init_eps(key, positions, log_prob, grad_U, eps0):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# sampler_chess
+# sampler_chees
 # ──────────────────────────────────────────────────────────────────────────────
 
-def sampler_chess(
+def sampler_chees(
     log_prob_fn,
     initial_state,
     num_samples,
@@ -239,7 +239,7 @@ def sampler_chess(
         key, k = jax.random.split(key)
         step_size = _find_init_eps(k, state, log_prob_fn, _grad_U, step_size)
         if verbose:
-            print(f"[chess] find_init_step_size: step_size {_user_h:.4g} → "
+            print(f"[chees] find_init_step_size: step_size {_user_h:.4g} → "
                   f"{float(step_size):.4g}\n"
                   f"   (if the chain later stalls, set find_init_step_size=False "
                   f"and pass your own step_size — the heuristic can overshoot "
@@ -349,7 +349,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print("ChEES HMC")
     print("=" * 60)
-    samples, info = sampler_chess(log_prob, init, num_samples=2000, warmup=500, seed=123)
+    samples, info = sampler_chees(log_prob, init, num_samples=2000, warmup=500, seed=123)
     print(f"mean : {jnp.mean(samples, axis=(0,1))}")
     print(f"cov  :\n{jnp.cov(samples.reshape(-1, dim), rowvar=False)}")
     print(f"info : {info}")

@@ -41,7 +41,7 @@ from affine_invariant_samplers import (
     sampler_peams,
     sampler_peanuts,
     sampler_pickles,
-    sampler_chess,
+    sampler_chees,
     # unadjusted Langevin
     sampler_aldi,
     sampler_pickles_unadjusted,
@@ -175,7 +175,7 @@ def test_gaussian_2d_all():
 
     # ensemble HMC variants (batched log_prob)
     for fn in (sampler_peaches, sampler_peams, sampler_peanuts,
-               sampler_pickles, sampler_chess):
+               sampler_pickles, sampler_chees):
         s, info = fn(lp, init_ens, NUM_SAMPLES, warmup=WARMUP, seed=SEED, verbose=False)
         _assert_basic(s, (20, dim))
         _assert_gaussian_2d(s, cov)
@@ -229,7 +229,7 @@ def test_rosenbrock_10d_all():
 
     # ensemble HMC / NUTS / ChEES
     for fn in (sampler_peaches, sampler_peams, sampler_peanuts,
-               sampler_pickles, sampler_chess):
+               sampler_pickles, sampler_chees):
         s, info = fn(lp, init_ens, NUM_SAMPLES_R, warmup=WARMUP_R,
                      seed=SEED, verbose=False)
         _assert_basic(s, (40, dim))

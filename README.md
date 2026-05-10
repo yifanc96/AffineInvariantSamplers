@@ -172,7 +172,7 @@ variants take single-point form:
 
 | Form                                     | Samplers |
 |------------------------------------------|----------|
-| batched  `(n_chains, D) → (n_chains,)`   | `sampler_walk`, `sampler_stretch`, `sampler_side`, `sampler_ensemble_dr_{stretch,side}`, `sampler_langevin_walk`, `sampler_kalman_move`, `sampler_kalman_dr`, `sampler_nuts`, `sampler_peaches`, `sampler_peams`, `sampler_peanuts`, `sampler_pickles`, `sampler_chess`, `sampler_aldi`, `sampler_pickles_unadjusted` |
+| batched  `(n_chains, D) → (n_chains,)`   | `sampler_walk`, `sampler_stretch`, `sampler_side`, `sampler_ensemble_dr_{stretch,side}`, `sampler_langevin_walk`, `sampler_kalman_move`, `sampler_kalman_dr`, `sampler_nuts`, `sampler_peaches`, `sampler_peams`, `sampler_peanuts`, `sampler_pickles`, `sampler_chees`, `sampler_aldi`, `sampler_pickles_unadjusted` |
 | single-point  `(D,) → scalar`            | `sampler_malt`, `sampler_mams`, `sampler_gndr`  |
 
 ### Gradients
@@ -353,13 +353,18 @@ by-side comparison.
 | `sampler_gndr`           | Gauss–Newton proposal Langevin with multi-stage DR (≤3).     |
 | `sampler_gndr_full`      | Same proposal, **arbitrary-depth** DR.                       |
 
-### HMC family (single chain, batched)
+### Non-affine-invariant samplers (in `samplers/`)
 
-| Function        | Idea                                                              |
-|-----------------|-------------------------------------------------------------------|
-| `sampler_malt`  | Metropolis Adjusted Langevin Trajectories (BABO+O).               |
-| `sampler_mams`  | Metropolis Adjusted Microcanonical Sampler (ChEES-L or τ-tuned).  |
-| `sampler_nuts`  | Classical NUTS with dual averaging.                               |
+Standard HMC-family samplers without ensemble preconditioning.  Live in
+the separate `samplers` package; re-exported from
+`affine_invariant_samplers` for convenience.
+
+| Function         | Idea                                                              |
+|------------------|-------------------------------------------------------------------|
+| `sampler_malt`   | Metropolis Adjusted Langevin Trajectories (BABO+O).               |
+| `sampler_mams`   | Metropolis Adjusted Microcanonical Sampler (ChEES-L or τ-tuned).  |
+| `sampler_nuts`   | Classical NUTS with dual averaging.                               |
+| `sampler_chees`  | Standard HMC with joint dual-averaging + ChEES length tuning.     |
 
 ### Ensemble HMC / microcanonical / NUTS
 
@@ -369,7 +374,6 @@ by-side comparison.
 | `sampler_peams`    | **PEAMS**   — ensemble-preconditioned microcanonical HMC.               |
 | `sampler_peanuts`  | **PEANUTS** — ensemble-preconditioned NUTS.                             |
 | `sampler_pickles`  | **PICKLES** — parallel interacting covariance-preconditioned kinetic Langevin. |
-| `sampler_chess`    | Standard HMC with joint dual-averaging + ChEES length tuning.           |
 
 ### Unadjusted Langevin (ensemble / interacting)
 

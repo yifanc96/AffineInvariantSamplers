@@ -33,17 +33,15 @@ from .kalman_dr     import sampler_kalman_dr
 from .gndr          import sampler_gndr
 from .gndr_full     import sampler_gndr_full
 
-# ─── HMC-family (single chain, batched) ─────────────────────────────────────
-from .malt import sampler_malt
-from .mams import sampler_mams
-from .nuts import sampler_nuts
+# ─── HMC-family (single chain, batched) — moved to top-level `samplers` pkg
+from samplers import sampler_malt, sampler_mams, sampler_nuts
 
 # ─── Ensemble HMC / microcanonical / NUTS ───────────────────────────────────
 from .peaches import sampler_peaches
 from .peams   import sampler_peams
 from .peanuts import sampler_peanuts
 from .pickles import sampler_pickles
-from .chess   import sampler_chess
+from samplers import sampler_chees
 
 # ─── Unadjusted Langevin dynamics (ensemble / interacting) ──────────────────
 from .aldi               import sampler_aldi
@@ -85,7 +83,7 @@ __all__ = [
     "sampler_peams",
     "sampler_peanuts",
     "sampler_pickles",
-    "sampler_chess",
+    "sampler_chees",
     # unadjusted Langevin
     "sampler_aldi",
     "sampler_pickles_unadjusted",
