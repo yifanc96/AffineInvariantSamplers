@@ -280,6 +280,23 @@ sampler_peaches(log_prob, init, ...,
 a convenience, not a black-box auto-pick — always glance at the printed
 `find_init_step_size:` line.
 
+**Note on DR samplers and step-size "pollution":** for `sampler_gndr`
+/ `sampler_gndr_full`, a too-large `h_0` doesn't just hurt the first
+proposal — it pollutes the entire DR ladder.  Each early retry at
+`h_0 · shrink^k` is still too large to be accepted, wasting compute
+and slightly biasing the DR `(1 − α_inner)` corrections.  DR only
+rescues the chain once the ladder reaches a step small enough for the
+current geometry.  Two mitigations:
+
+1. **Pick `h_0` directly** rather than relying on `find_init_step_size`
+   (which only targets stage-1 acceptance and can land on values too
+   large for the chain's actual scale).
+2. **Use aggressive `shrink`** (e.g. `0.2` instead of the default `0.5`).
+   The ladder cuts faster, so a useful step is reached at a smaller
+   `n_try`.  See `examples/example_light_tail_gndr_identity_precond.py`
+   for a worked example where `shrink=0.2` rescues a 3× oversized `h_0`
+   at `n_try=10`; `shrink=0.5` would need many more stages.
+
 ### Picking `init` — a good starting ensemble
 
 Every sampler here takes an ensemble `init` of shape `(n_chains, D)`.  A
@@ -441,7 +458,8 @@ Pure matplotlib — no `corner` dependency.
 | `example_rosenbrock_unadjusted.py`     | 10-D Rosenbrock, (a, b)=(1, 100)    | `aldi`, `pickles_unadjusted`                        |
 | `example_funnel.py`                    | 5-D Neal's funnel                   | `stretch`, `stretch-DR`, `gndr`                     |
 | `example_init_rosenbrock.py`           | 10-D Rosenbrock, (a, b)=(1, 100)    | `find_map`, `find_map_restarts`, `init_ensemble_from_map` + `peaches` |
-| `example_light_tail_gndr.py`           | 5-D quartic, log π = -‖x‖⁴/4        | `sampler_gndr_full` swept over n_try ∈ {1, 2, 3, 5, 8, 12} |
+| `example_light_tail_gndr.py`           | 5-D quartic, log π = -‖x‖⁴/4        | `sampler_gndr_full` (GN metric) swept over n_try    |
+| `example_light_tail_gndr_identity_precond.py` | 3-D quartic, log π = -‖x‖⁴/4 | `sampler_gndr_full` with H = I (= DR-for-MALA): n_try=1 fails, n_try≥2 rescues |
 
 ```bash
 python examples/example_gaussian.py
@@ -450,6 +468,7 @@ python examples/example_rosenbrock_unadjusted.py
 python examples/example_funnel.py
 python examples/example_init_rosenbrock.py
 python examples/example_light_tail_gndr.py
+python examples/example_light_tail_gndr_identity_precond.py
 ```
 
 Each script reports mean/variance accuracy, acceptance rate, minimum

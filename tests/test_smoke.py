@@ -32,6 +32,7 @@ from affine_invariant_samplers import (
     sampler_kalman_move,
     sampler_kalman_dr,
     sampler_gndr,
+    sampler_gndr_full,
     # HMC-family
     sampler_malt,
     sampler_mams,
@@ -240,11 +241,68 @@ def test_rosenbrock_10d_all():
 # Run directly
 # ──────────────────────────────────────────────────────────────────────────────
 
+# ──────────────────────────────────────────────────────────────────────────────
+# DR-for-MALA on light-tailed |x|^4 — gndr_full with identity preconditioner.
+# Vanilla MALA loses geometric ergodicity on exp(-|x|^4 / 4); multi-stage DR
+# is expected to restore it.  Setting hessian_fn = I removes the GN structure
+# from gndr_full so the proposal is just MALA, and only DR varies.
+# ──────────────────────────────────────────────────────────────────────────────
+
+# True var per dim of exp(-x^4 / 4):  4^{1/2} · Γ(3/4) / Γ(1/4)  ≈  0.6760
+_VAR_QUARTIC_TRUE = 0.6760
+
+
+def make_quartic(dim=3):
+    """log π(x) = -||x||^4 / 4  (i.i.d. light-tailed components, p = 4)."""
+    def lp_b(x):
+        return -0.25 * jnp.sum(x ** 4, axis=-1)
+    def lp_s(x):
+        return -0.25 * jnp.sum(x ** 4)
+    return dim, lp_b, lp_s
+
+
+def _assert_quartic(samples, dim, tol=0.20):
+    flat = jnp.asarray(samples).reshape(-1, dim)
+    m = float(jnp.max(jnp.abs(jnp.mean(flat, axis=0))))
+    v = float(jnp.mean(jnp.var(flat, axis=0)))
+    assert m < 0.3, f"per-dim mean drift {m:.3f}, target 0"
+    rel = abs(v - _VAR_QUARTIC_TRUE) / _VAR_QUARTIC_TRUE
+    assert rel < tol, f"per-dim var {v:.4f} off from {_VAR_QUARTIC_TRUE} by {rel*100:.1f}%"
+
+
+def test_quartic_dr_mala():
+    """gndr_full with H = I on |x|^4 / 4, init in the tail.
+
+    Identity preconditioner means the proposal is pure MALA — the only
+    moving part is the DR ladder.  At n_try=1 this is vanilla MALA, which
+    is known to lose geometric ergodicity on |x|^p with p > 2.  At n_try=5
+    the DR retries with shrunk step sizes rescue the chain.
+
+    Test:  with n_try=5 and init far in the tail (≈ 3.5σ out), the chain
+    reaches the bulk and recovers the variance to within 20%.
+    """
+    dim, lp_b, lp_s = make_quartic(dim=3)
+    n_chains = 32
+    init = 3.0 + 0.3 * jax.random.normal(jax.random.key(SEED), (n_chains, dim))
+
+    H_identity = lambda x: jnp.eye(dim)
+    s, info = sampler_gndr_full(
+        lp_s, init, num_samples=1500, warmup=500,
+        step_size=0.1, n_try=5, hessian_fn=H_identity,
+        seed=SEED, verbose=False, find_init_step_size=False,
+    )
+    _assert_basic(s, (n_chains, dim))
+    _assert_quartic(s, dim, tol=0.20)
+
+
 if __name__ == "__main__":
     print("2D Gaussian smoke tests …", flush=True)
     test_gaussian_2d_all()
     print("  OK")
     print("10D Rosenbrock smoke tests …", flush=True)
     test_rosenbrock_10d_all()
+    print("  OK")
+    print("DR-for-MALA on |x|^4 …", flush=True)
+    test_quartic_dr_mala()
     print("  OK")
     print("\nAll smoke tests passed.")
