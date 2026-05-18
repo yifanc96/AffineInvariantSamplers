@@ -8,9 +8,10 @@ Same proposal as ``sampler_gndr``:
   noise   = sqrt(2h) * L(x)^{-T} @ z,   L L^T = H_GN(x)
 
 Difference: the existing ``sampler_gndr`` hard-codes the DR acceptance up to
-3 stages.  This version implements Mira's recursive DR acceptance for
-**any** ``n_try`` (subject to JIT compilation cost — the recursion is
-unrolled at trace time, so each extra stage adds work).
+3 stages.  This version implements the same standard multi-stage DR
+acceptance (Mira 1998 Sec. 5.2; see also Modi/Barnett/Carpenter,
+arXiv:2110.00610) for **any** ``n_try``, via a recursive evaluation that
+is unrolled at JIT trace time (so each extra stage adds work).
 
 Why bother
 ----------
@@ -25,8 +26,8 @@ not enough; this sampler lets you use as many as you need.
 
 Reference
 ---------
-Mira, A. "Ordering and improving the performance of Monte Carlo Markov
-chains."  Statistical Science 16.4 (2001): 340-350.
+Standard multi-stage DR acceptance formula (Mira 1998, Sec. 5.2;
+see also Modi/Barnett/Carpenter, arXiv:2110.00610).
 """
 
 import jax
@@ -125,16 +126,18 @@ def _safe_log1m_exp(la):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Recursive DR acceptance — arbitrary depth, "proposal-binding" convention
+# Recursive DR acceptance — arbitrary depth, Mira (1998) convention
 # ──────────────────────────────────────────────────────────────────────────────
 #
-# For the path P = (P_0, P_1, ..., P_k) with all proposals generated from
-# P_0 = x using steps h_0, h_1, ..., h_{k-1} (h_j = h * shrink^j), each q
-# evaluation involving P_j (regardless of source) uses the step h_{j-1}
-# that originally proposed P_j in the forward DR ladder.  This is the
-# "proposal-binding" pairing of forward and reverse DR ladders — the same
-# convention used by the hand-coded sampler_gndr (n_try ≤ 3) and by the
-# original notebook in the initial-samplers branch.
+# Path P = (P_0, P_1, ..., P_k) with all proposals generated from P_0 = x
+# at steps h_0, h_1, ..., h_{k-1}.  Every q-evaluation involving P_j uses
+# step h_{j-1} (the one that originally proposed P_j), regardless of source.
+# As deep-stage proposals converge to x, α → 1 monotonically — the
+# "eventual acceptance" property useful for geometric ergodicity on
+# light-tailed targets.
+#
+# The same convention is used by the hand-coded sampler_gndr (n_try ≤ 3)
+# and by the original notebook in the initial-samplers branch.
 #
 # The recursion is parameterised by (current_idx, proposal_idx, prev_tuple)
 # where prev_tuple is the forward-index-ordered subset of intermediate
@@ -155,12 +158,6 @@ def _safe_log1m_exp(la):
 # The "main" kernel uses h_{|prev|} (its position in the DR ladder); each
 # prev-term kernel uses h_{j-1} (the step that originally proposed P_j).
 # At the top level current=0, proposal=k, prev=(1, 2, ..., k-1).
-#
-# Compared to Mira's positional convention (which the previous version of
-# this file implemented), this scheme has α → 1 monotonically as depth
-# grows for proposals that converge to x — so it gives the "eventual
-# acceptance" guarantee needed for geometric ergodicity on light-tailed
-# targets.
 #
 # Implementation: Python recursion + Python-level memoization, fully
 # unrolled at JIT trace time since n_try is static.
