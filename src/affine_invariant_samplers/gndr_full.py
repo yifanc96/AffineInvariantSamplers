@@ -20,9 +20,9 @@ cases for vanilla MALA: the Langevin drift ``-grad U`` grows faster than
 the noise, so a too-large step size causes systematic overshoot and the
 chain loses geometric ergodicity.  Multi-stage DR sidesteps this — when
 the first proposal is rejected at the tail, retry with a shrunk step.
-Geometric ergodicity is restored if enough retries are allowed (Roberts &
-Tweedie 1996; Fort, Moulines, Roberts 2003).  Three stages is sometimes
-not enough; this sampler lets you use as many as you need.
+Multi-stage DR is expected to help restore geometric ergodicity in
+practice if enough retries are allowed.  Three stages is sometimes not
+enough; this sampler lets you use as many as you need.
 
 Reference
 ---------
