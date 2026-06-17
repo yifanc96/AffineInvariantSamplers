@@ -1,0 +1,29 @@
+{
+  "problem": "lj13",
+  "sampler": "peaches",
+  "formula": "pita",
+  "tau": 1.0,
+  "n_chains": 256,
+  "warmup": 20000,
+  "n_samples": 200000,
+  "step_size": 0.01,
+  "L": 15,
+  "gamma": 2.0,
+  "filter_divergent": 0.0,
+  "filter_keep_frac": 1.0,
+  "acceptance_rate": 0.03505668044090271,
+  "final_step_size": 0.0012811245396733284,
+  "n_grad_evals": 1075200000,
+  "elapsed_sec": 448.89918971061707,
+  "gt": {
+    "E_mean": -42.92018127441406,
+    "E_std": 6.966993808746338
+  },
+  "sampler_stats": {
+    "E_mean": -42.906768798828125,
+    "E_std": 6.980032444000244,
+    "E_min": -66.64425659179688
+  },
+  "energy_W2_vs_gt": 0.13049562882693486,
+  "distance_W2_vs_gt": 0.006275129486005265
+}

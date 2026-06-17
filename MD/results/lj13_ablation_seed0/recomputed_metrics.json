@@ -1,0 +1,30 @@
+{
+  "_note": "Recomputed from the (gitignored) per-sampler sample arrays in results/lj13_ablation_seed0/<sampler>/. Procedure: pool all frames, subsample 20000 with numpy default_rng(0), E_W2/d_W2 vs the pita-NUTS reference (lj13_pita_test.npy, 10000-sample). Backs the LJ-13 ablation table in MD/README.md. peaches/pickles_unadjusted/baoab were lost to a 256-chain GPU OOM and are absent.",
+  "problem": "lj13",
+  "formula": "pita",
+  "n_particles": 13,
+  "gt": {
+    "E_mean": -42.878700256347656,
+    "E_std": 6.8946452140808105
+  },
+  "results": {
+    "malt": {
+      "pair": "kinetic+MH / identity (no ensemble)",
+      "E_mean": -42.91642761230469,
+      "energy_W2": 0.1343747569849134,
+      "distance_W2": 0.004896324072008574
+    },
+    "pickles": {
+      "pair": "kinetic+MH / ensemble",
+      "E_mean": -42.98923110961914,
+      "energy_W2": 0.37921192943752907,
+      "distance_W2": 0.005708910117795969
+    },
+    "chess": {
+      "pair": "HMC+ChEES+MH / identity (no ensemble)",
+      "E_mean": -42.935935974121094,
+      "energy_W2": 0.17840097788672746,
+      "distance_W2": 0.0036918262240173854
+    }
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "problem": "lj55",
+  "gt": {
+    "E_mean": -325.498291015625,
+    "E_std": 13.709373474121094
+  },
+  "results": {
+    "baoab": {
+      "sampler": "baoab",
+      "E_mean": -186.67843627929688,
+      "E_std": 265.4102478027344,
+      "energy_W2": 290.06783729590677,
+      "distance_W2": 1.2049553461705733,
+      "finite_frac": 1.0,
+      "acceptance_rate": null,
+      "final_step_size": null,
+      "elapsed_sec": 21.85957622528076
+    },
+    "pickles_unadjusted": {
+      "sampler": "pickles_unadjusted",
+      "E_mean": -310.2836608886719,
+      "E_std": 26.99474334716797,
+      "energy_W2": 21.1245005354092,
+      "distance_W2": 0.042121410508369476,
+      "finite_frac": 1.0,
+      "acceptance_rate": null,
+      "final_step_size": null,
+      "elapsed_sec": 18.048179864883423
+    },
+    "malt": {
+      "sampler": "malt",
+      "E_mean": 168890992.0,
+      "E_std": 2632047872.0,
+      "energy_W2": 2637460704.1523886,
+      "distance_W2": 0.0053465842882810515,
+      "finite_frac": 1.0,
+      "acceptance_rate": 0.96335768699646,
+      "final_step_size": 0.005325013305991888,
+      "elapsed_sec": 130.7663848400116
+    },
+    "pickles": {
+      "sampler": "pickles",
+      "E_mean": -325.5864562988281,
+      "E_std": 13.7323579788208,
+      "energy_W2": 0.27182297237544567,
+      "distance_W2": 0.0005737820421081027,
+      "finite_frac": 1.0,
+      "acceptance_rate": 0.06189132481813431,
+      "final_step_size": 0.005145647097378969,
+      "elapsed_sec": 230.870703458786
+    },
+    "chess": {
+      "sampler": "chess",
+      "error": "TypeError('cannot reshape array of shape (1, 256, 165) (size 42240) into shape (1, 55, 3) (size 165)')",
+      "elapsed_sec": 0.0016040802001953125
+    },
+    "peaches": {
+      "sampler": "peaches",
+      "E_mean": -326.0106506347656,
+      "E_std": 13.829998016357422,
+      "energy_W2": 0.6856319952554967,
+      "distance_W2": 0.0018792963520813028,
+      "finite_frac": 1.0,
+      "acceptance_rate": 0.007839608937501907,
+      "final_step_size": 0.004850184079259634,
+      "elapsed_sec": 8474.721473932266
+    }
+  }
+}

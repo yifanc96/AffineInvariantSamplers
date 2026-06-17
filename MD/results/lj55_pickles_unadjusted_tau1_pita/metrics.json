@@ -1,0 +1,29 @@
+{
+  "problem": "lj55",
+  "sampler": "pickles_unadjusted",
+  "formula": "pita",
+  "tau": 1.0,
+  "n_chains": 256,
+  "warmup": 20000,
+  "n_samples": 200000,
+  "step_size": 0.001,
+  "L": 15,
+  "gamma": 2.0,
+  "filter_divergent": 0.0,
+  "filter_keep_frac": 1.0,
+  "acceptance_rate": null,
+  "final_step_size": null,
+  "n_grad_evals": 51200000,
+  "elapsed_sec": 63.476908445358276,
+  "gt": {
+    "E_mean": -325.7771911621094,
+    "E_std": 13.893243789672852
+  },
+  "sampler_stats": {
+    "E_mean": -324.84173583984375,
+    "E_std": 13.944229125976562,
+    "E_min": -369.7722473144531
+  },
+  "energy_W2_vs_gt": 0.9621255842309446,
+  "distance_W2_vs_gt": 0.0027049107428247766
+}

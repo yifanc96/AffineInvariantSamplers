@@ -1,0 +1,13 @@
+{
+  "sampler": "openmm_langevin",
+  "n_steps": 10000000,
+  "save_every": 500,
+  "T": 300.0,
+  "seed": 0,
+  "platform": "OpenCL",
+  "md_sec": 661.5555727481842,
+  "total_sec": 662.1689720153809,
+  "n_frames": 20000,
+  "kl_ours_to_gt_bits": 1.290932378447602,
+  "kl_gt_to_ours_bits": 2.52591337547925
+}

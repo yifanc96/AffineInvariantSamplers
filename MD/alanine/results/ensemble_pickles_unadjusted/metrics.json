@@ -1,0 +1,19 @@
+{
+  "sampler": "pickles_unadjusted",
+  "n_chains": 128,
+  "warmup": 500,
+  "n_samples": 1000,
+  "step_size": 0.002,
+  "h_unadjusted": 0.0015,
+  "grad_clip": 2000.0,
+  "wall_sec": 1872.7037146091461,
+  "acceptance_rate": null,
+  "final_step_size": null,
+  "kl_ours_to_gt_bits": 2.0029819633693315,
+  "kl_gt_to_ours_bits": 4.549495996307932,
+  "shape": [
+    1000,
+    128,
+    66
+  ]
+}

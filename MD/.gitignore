@@ -1,0 +1,7 @@
+# Datasets and sample arrays are large (~1 GB total) and are NOT committed.
+# See the "Data" section of MD/README.md (and MD/alanine/README.md) for how to
+# download / regenerate every .npy under reference/ and results/.
+*.npy
+
+# Run logs (environment-specific)
+*.log

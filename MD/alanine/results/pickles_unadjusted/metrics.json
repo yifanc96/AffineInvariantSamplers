@@ -1,0 +1,17 @@
+{
+  "sampler": "pickles_unadjusted",
+  "n_chains": 16,
+  "warmup": 100,
+  "n_samples": 200,
+  "step_size": 0.002,
+  "gamma": 2.0,
+  "thin_by": 1,
+  "init": "gt",
+  "init_jitter": 0.01,
+  "n_frames_total": 3200,
+  "finite_frac": 1.0,
+  "final_step_size": 0.0020000000949949026,
+  "elapsed_sec": 4.389398097991943,
+  "kl_ours_to_gt_bits": 3.939267761981358,
+  "kl_gt_to_ours_bits": 14.87052281528721
+}

@@ -1,0 +1,27 @@
+{
+  "problem": "lj13",
+  "sampler": "gndr",
+  "tau": 1.0,
+  "n_chains": 64,
+  "warmup": 5000,
+  "n_samples": 20000,
+  "step_size": 0.05,
+  "n_try": 3,
+  "shrink": 0.3,
+  "acceptance_rate": 0.16403280198574066,
+  "stage1_rate": 0.11612030863761902,
+  "final_step_size": 0.02184121496975422,
+  "n_grad_evals": 5120000,
+  "elapsed_sec": 81.76369571685791,
+  "gt": {
+    "E_mean": -42.92018127441406,
+    "E_std": 6.966993808746338
+  },
+  "sampler_stats": {
+    "E_mean": -42.87437057495117,
+    "E_std": 7.8044257164001465,
+    "E_min": -63.60816192626953
+  },
+  "energy_W2_vs_gt": 1.0245792527982882,
+  "distance_W2_vs_gt": 0.011318395840413097
+}

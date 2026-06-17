@@ -1,0 +1,24 @@
+{
+  "sampler": "gndr",
+  "n_chains": 8,
+  "warmup": 300,
+  "n_samples": 2000,
+  "step_size": 0.1,
+  "n_try": 2,
+  "shrink": 0.3,
+  "sigma_iso": 0.05,
+  "init": "gt",
+  "init_jitter": 0.005,
+  "residual_info": {
+    "n_bonds": 9,
+    "n_angles": 36,
+    "n_iso": 66
+  },
+  "acceptance_rate": 0.373625,
+  "stage1_rate": 0.36075,
+  "final_step_size": 0.0005695456906992146,
+  "elapsed_sec": 172.00199842453003,
+  "n_frames": 16000,
+  "kl_ours_to_gt_bits": 2.8876720182124362,
+  "kl_gt_to_ours_bits": 12.880078627828508
+}
