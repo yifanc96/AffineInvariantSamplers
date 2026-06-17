@@ -1,0 +1,36 @@
+{
+  "problem": "gw_pop",
+  "sampler": "peaches",
+  "dim": 8,
+  "n_data": 70,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 500,
+  "find_mode": false,
+  "wall_s": 60.43554745800793,
+  "ess": [
+    231.51062060981937,
+    16.22485961445672,
+    14.931182758471897,
+    13.567453783254079,
+    15.531220908457101,
+    14.634376728601618,
+    18.318584853946533,
+    15.225467374594324
+  ],
+  "ess_min": 13.567453783254079,
+  "ess_mean": 42.492970828950206,
+  "ess_per_sec": 0.2244945955471169,
+  "n_target_evals": 2688000,
+  "eval_kind": "grad",
+  "ess_per_eval": 5.047415841984404e-06,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.8403359651565552,
+    "final_step_size": 2.5649151211837307e-05,
+    "nominal_L": 20.0,
+    "mean_L": 20.0,
+    "n_grad_evals": 2688000.0
+  }
+}

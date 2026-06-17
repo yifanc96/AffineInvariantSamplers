@@ -1,0 +1,34 @@
+{
+  "problem": "hogg",
+  "sampler": "pickles",
+  "dim": 5,
+  "n_data": 20,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 0,
+  "find_mode": true,
+  "wall_s": 23.324347223853692,
+  "ess": [
+    50279.519629800314,
+    50497.751468661285,
+    52315.774467808995,
+    17907.161396647545,
+    23356.66971209686
+  ],
+  "ess_min": 17907.161396647545,
+  "ess_mean": 38871.375335003,
+  "ess_per_sec": 767.7454474839057,
+  "n_target_evals": 2560000,
+  "eval_kind": "grad",
+  "ess_per_eval": 0.006994984920565448,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.9901094436645508,
+    "final_step_size": 0.12442222237586975,
+    "nominal_L": 20.0,
+    "mean_L": 20.0,
+    "gamma": 2.0,
+    "n_grad_evals": 2560000.0
+  }
+}

@@ -1,0 +1,7 @@
+problem,sampler,seed,gpu,status,wall_s,ess_min,ess_mean,ess_per_sec,ess_per_eval,eval_kind,n_target_evals,acceptance_rate,final_step_size,fake_ess_warning
+des_y1,malt,0,6,FAIL(1),291.5840517198667,,,,,,,,,
+des_y1,pickles,2,5,FAIL(1),325.49286518990993,,,,,,,,,
+des_y1,pickles,1,4,FAIL(1),380.0892875927966,,,,,,,,,
+des_y1,pickles,0,3,FAIL(1),420.2969908241648,,,,,,,,,
+des_y1,malt,1,6,FAIL(1),289.41306752501987,,,,,,,,,
+des_y1,malt,2,5,FAIL(1),275.7668308210559,,,,,,,,,

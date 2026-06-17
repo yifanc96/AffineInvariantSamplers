@@ -1,0 +1,31 @@
+{
+  "problem": "hogg",
+  "sampler": "chess",
+  "dim": 5,
+  "n_data": 20,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 0,
+  "find_mode": false,
+  "wall_s": 15.861933977110311,
+  "ess": [
+    55.85286841125627,
+    14.071654762335392,
+    5812.990674342528,
+    16.224068790675407,
+    8056.045922399542
+  ],
+  "ess_min": 14.071654762335392,
+  "ess_mean": 2791.0370377412673,
+  "ess_per_sec": 0.8871336107338238,
+  "n_target_evals": 160000,
+  "eval_kind": "logprob",
+  "ess_per_eval": 8.794784226459619e-05,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.9883281588554382,
+    "final_step_size": 0.016296030953526497,
+    "nominal_L": 20.0
+  }
+}

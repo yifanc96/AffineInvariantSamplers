@@ -1,0 +1,35 @@
+{
+  "problem": "transit",
+  "sampler": "peaches",
+  "dim": 7,
+  "n_data": 3000,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 1000,
+  "warm_start": 0,
+  "find_mode": true,
+  "wall_s": 51.42920650704764,
+  "ess": [
+    64000.0,
+    64000.0,
+    64000.0,
+    64000.0,
+    64000.0,
+    64000.0,
+    64000.0
+  ],
+  "ess_min": 64000.0,
+  "ess_mean": 64000.0,
+  "ess_per_sec": 1244.42907730318,
+  "n_target_evals": 445248,
+  "eval_kind": "grad",
+  "ess_per_eval": 0.14374011786689664,
+  "fake_ess_warning": "acceptance_rate=0 \u2014 walkers likely frozen at init; reported ESS is of the IID init distribution, NOT the posterior.",
+  "info": {
+    "acceptance_rate": 0.0,
+    "final_step_size": 0.06422426551580429,
+    "nominal_L": 6.0,
+    "mean_L": 5.957000255584717,
+    "n_grad_evals": 445248.0
+  }
+}

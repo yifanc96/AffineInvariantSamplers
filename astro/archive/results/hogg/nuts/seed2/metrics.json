@@ -1,0 +1,31 @@
+{
+  "problem": "hogg",
+  "sampler": "nuts",
+  "dim": 5,
+  "n_data": 20,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 0,
+  "find_mode": true,
+  "wall_s": 158.36557222087868,
+  "ess": [
+    65.023596814311,
+    31.51928910927906,
+    701.7124849971744,
+    17.839713317654706,
+    664.1001557331202
+  ],
+  "ess_min": 17.839713317654706,
+  "ess_mean": 296.0390479943079,
+  "ess_per_sec": 0.11264893668159742,
+  "n_target_evals": 160000,
+  "eval_kind": "logprob",
+  "ess_per_eval": 0.00011149820823534192,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.28697165846824646,
+    "final_step_size": 0.06773695349693298,
+    "mean_tree_depth": 4.331445693969727
+  }
+}

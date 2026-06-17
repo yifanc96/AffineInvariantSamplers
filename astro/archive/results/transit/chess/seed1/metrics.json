@@ -1,0 +1,33 @@
+{
+  "problem": "transit",
+  "sampler": "chess",
+  "dim": 7,
+  "n_data": 3000,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 500,
+  "find_mode": false,
+  "wall_s": 43.224548681871966,
+  "ess": [
+    128000.0,
+    128000.0,
+    199.49073067590274,
+    30.103914367506597,
+    13.521648251315368,
+    16.23448011504321,
+    20.27404212360544
+  ],
+  "ess_min": 13.521648251315368,
+  "ess_mean": 36611.374973647624,
+  "ess_per_sec": 0.31282335301713027,
+  "n_target_evals": 160000,
+  "eval_kind": "logprob",
+  "ess_per_eval": 8.451030157072105e-05,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.955023467540741,
+    "final_step_size": 4.45344703621231e-05,
+    "nominal_L": 20.0
+  }
+}

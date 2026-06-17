@@ -1,0 +1,32 @@
+{
+  "problem": "transit",
+  "sampler": "emcee",
+  "dim": 7,
+  "n_data": 3000,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 0,
+  "find_mode": false,
+  "wall_s": 81.52287725103088,
+  "ess": [
+    559.1582735883896,
+    327.9334611022463,
+    2023.338139430915,
+    1976.6749288101444,
+    1765.3441981898386,
+    543.5877472436672,
+    556.5234600492246
+  ],
+  "ess_min": 327.9334611022463,
+  "ess_mean": 1107.5086012020608,
+  "ess_per_sec": 4.02259429696588,
+  "n_target_evals": 160000,
+  "eval_kind": "logprob",
+  "ess_per_eval": 0.0020495841318890397,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.4620078125,
+    "n_lp_evals": 160000.0
+  }
+}

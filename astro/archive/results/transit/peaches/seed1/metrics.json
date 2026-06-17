@@ -1,0 +1,35 @@
+{
+  "problem": "transit",
+  "sampler": "peaches",
+  "dim": 7,
+  "n_data": 3000,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 500,
+  "find_mode": false,
+  "wall_s": 71.4204361808952,
+  "ess": [
+    492.0769513142996,
+    301.7409369435226,
+    89.19055882059389,
+    137.34424735101078,
+    116.24762266345348,
+    117.21556009352176,
+    215.38061600656366
+  ],
+  "ess_min": 89.19055882059389,
+  "ess_mean": 209.88521331328087,
+  "ess_per_sec": 1.248810054795663,
+  "n_target_evals": 2688000,
+  "eval_kind": "grad",
+  "ess_per_eval": 3.318101146599475e-05,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.9559844136238098,
+    "final_step_size": 0.00846946146339178,
+    "nominal_L": 20.0,
+    "mean_L": 20.0,
+    "n_grad_evals": 2688000.0
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "problem": "pantheon",
+  "sampler": "nuts",
+  "dim": 2,
+  "n_data": 1580,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 0,
+  "find_mode": true,
+  "wall_s": 306.6670108411927,
+  "ess": [
+    41758.15723524904,
+    60.710795049188185
+  ],
+  "ess_min": 60.710795049188185,
+  "ess_mean": 20909.434015149116,
+  "ess_per_sec": 0.19796976167295424,
+  "n_target_evals": 160000,
+  "eval_kind": "logprob",
+  "ess_per_eval": 0.00037944246905742616,
+  "fake_ess_warning": "acceptance_rate=0.0415 \u2014 walkers likely frozen at init; reported ESS is of the IID init distribution, NOT the posterior.",
+  "info": {
+    "acceptance_rate": 0.0415196493268013,
+    "final_step_size": 0.05073262006044388,
+    "mean_tree_depth": 1.0658305883407593
+  }
+}

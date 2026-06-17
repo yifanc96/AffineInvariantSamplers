@@ -1,0 +1,37 @@
+{
+  "problem": "gw_pop",
+  "sampler": "pickles",
+  "dim": 8,
+  "n_data": 70,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 500,
+  "find_mode": false,
+  "wall_s": 55.43884205794893,
+  "ess": [
+    238.14864354804098,
+    13.800335895448853,
+    15.249260065921462,
+    13.557018646385231,
+    15.860341225885543,
+    15.860388071846497,
+    16.85447070432225,
+    15.876146613022058
+  ],
+  "ess_min": 13.557018646385231,
+  "ess_mean": 43.15082559635911,
+  "ess_per_sec": 0.24454007593113858,
+  "n_target_evals": 2560000,
+  "eval_kind": "grad",
+  "ess_per_eval": 5.295710408744231e-06,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.6762656569480896,
+    "final_step_size": 5.0650083721848205e-05,
+    "nominal_L": 20.0,
+    "mean_L": 20.0,
+    "gamma": 2.0,
+    "n_grad_evals": 2560000.0
+  }
+}

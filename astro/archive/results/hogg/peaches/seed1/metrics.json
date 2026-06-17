@@ -1,0 +1,33 @@
+{
+  "problem": "hogg",
+  "sampler": "peaches",
+  "dim": 5,
+  "n_data": 20,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 0,
+  "find_mode": true,
+  "wall_s": 19.742227280978113,
+  "ess": [
+    126822.12143726887,
+    126321.89231410854,
+    128000.0,
+    32570.67616073905,
+    47233.431132336416
+  ],
+  "ess_min": 32570.67616073905,
+  "ess_mean": 92189.62420889057,
+  "ess_per_sec": 1649.7974467207816,
+  "n_target_evals": 2688000,
+  "eval_kind": "grad",
+  "ess_per_eval": 0.012117067024084468,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.993109405040741,
+    "final_step_size": 0.12380819767713547,
+    "nominal_L": 20.0,
+    "mean_L": 20.0,
+    "n_grad_evals": 2688000.0
+  }
+}

@@ -1,0 +1,125 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath,amssymb,booktabs,graphicx,hyperref}
+\title{Archived auxiliary benchmarks for the affine-invariant ensemble samplers}
+\author{}
+\date{}
+\begin{document}
+\maketitle
+
+\noindent
+This note documents the \emph{auxiliary} posterior benchmarks that were run
+alongside the headline DES~Y1 $3\times2$pt cosmology experiment but are not
+part of the main paper's DES-focused results.  The DES~Y1 experiment lives in
+\texttt{astro/} (see \texttt{des\_section\_v1\_many\_samplers.tex} and
+\texttt{des\_section\_v2\_focus\_on\_pickles.tex}); the raw outputs for the
+benchmarks below were moved to \texttt{astro/archive/results/} to keep the
+working directory focused.  Everything here is fully reproducible from the
+archived code and the package samplers.
+
+\section{Posterior suite}
+
+These seven posteriors span the geometric regimes where each sampler class is
+expected to win, lose, or reveal open problems.  Together with DES~Y1 ($D=21$)
+they form the eight-problem ``regime map.''
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{l c c l l}
+\toprule
+problem & $D$ & data & provenance & geometry \\
+\midrule
+\texttt{pantheon}              & 2     & 1590 SNe        & real (Pantheon+SH0ES)        & smooth Gaussian, $\kappa\!\approx\!4\times10^5$ decoupled \\
+\texttt{hogg}                  & 5     & 20 pts          & synthetic / pedagogical      & curved $+$ heavy-tail mixture \\
+\texttt{transit}               & 7     & 3000 flux       & synthetic (\texttt{jaxoplanet}) & banana $+$ sharp transit edges \\
+\texttt{gw\_pop}               & 8     & 70 ev.$\times$2k MC & synthetic                & multimodal (5/8 dims) \\
+\texttt{multi\_transit}        & 15    & 5000 flux       & synthetic (\texttt{jaxoplanet}) & 3 sharp transit features \\
+\texttt{multi\_transit\_reparam} & 15  & same            & synthetic                    & Kipping $+$ logit $+$ log reparam \\
+\texttt{illcond}               & 50--200 & ---           & synthetic stress test        & smooth Gaussian, $\kappa=e^6$ \\
+\bottomrule
+\end{tabular}
+\caption{Auxiliary benchmark posteriors. Only \texttt{pantheon} uses real
+astronomical observations; the rest are synthetic / pedagogical setups chosen
+to isolate specific geometric regimes. (\texttt{funnel} was also scaffolded
+but not used in the final analysis.)}
+\end{table}
+
+\paragraph{Data provenance.}
+\begin{itemize}\setlength\itemsep{2pt}
+\item \texttt{pantheon} --- real Pantheon+SH0ES distance moduli and covariance
+(Scolnic et al.\ 2022, \href{https://arxiv.org/abs/2202.04077}{arXiv:2202.04077};
+data CC-BY from the public DataRelease).  Fetched by
+\texttt{code/download\_pantheon.sh}.
+\item \texttt{hogg} --- the 20-point illustrative dataset from
+Hogg et al.\ 2010 (\href{https://arxiv.org/abs/1008.4686}{arXiv:1008.4686}),
+Table~1; the mixture-with-outliers line-fitting model is ubiquitous in
+astronomy but these specific points are constructed.
+\item \texttt{transit} / \texttt{multi\_transit} --- the real
+\texttt{jaxoplanet} limb-darkened Keplerian forward model
+(Foreman-Mackey et al.\ 2024,
+\href{https://arxiv.org/abs/2402.11375}{arXiv:2402.11375}) with
+\emph{synthetic} light curves (fiducial truth $+$ white Gaussian noise).
+\item \texttt{gw\_pop} --- a synthetic O3-style hierarchical catalog
+(Talbot--Thrane 2018 power-law-plus-peak), per-event posteriors drawn from
+the true population for reproducibility.
+\item \texttt{illcond} / \texttt{funnel} --- canonical synthetic HMC stress
+tests (ill-conditioned Gaussian, $\kappa=e^6$; Neal's funnel).
+\end{itemize}
+
+\section{Samplers}
+
+All posteriors were run through the same sampler set as DES~Y1, from the
+\texttt{affine\_invariant\_samplers} package: the affine-invariant ensemble
+HMC family (\texttt{peaches}, \texttt{peams}, \texttt{peanuts},
+\texttt{pickles}), the non-affine gradient ensemble (\texttt{chess}),
+\texttt{malt}, \texttt{aldi}, \texttt{gndr}, \texttt{langevin\_walk}, the
+gradient-free ensemble moves (\texttt{stretch}, \texttt{walk}), the
+single-chain NUTS (\texttt{nuts}), and reference \texttt{emcee}.
+
+\section{Headline finding (ill-conditioned Gaussian scaling)}
+
+The clean dimension-scaling result is on the smooth ill-conditioned Gaussian
+($\kappa=e^6\!\approx\!400$ across all $D$): per-gradient ESS is the
+dimension-invariant fair metric.  Affine-invariant ensembles maintain
+efficiency from $D=50$ to $D=200$, whereas \texttt{emcee} fails at
+$D\!\ge\!100$ because the stretch move needs walkers $\ge 2D$ and we cap at
+$128$ walkers --- a structural limitation of gradient-free affine invariance
+in high dimension.  Per-problem CSV summaries
+(\texttt{results/sweep\_illcond\{20,50,100,200\}.csv},
+\texttt{sweep\_multi\_transit*.csv}, \texttt{sweep\_summary*.csv}) hold the
+raw leaderboard rows.
+
+\section{How to reproduce}
+
+\begin{enumerate}\setlength\itemsep{2pt}
+\item Install the package: \texttt{pip install -e .} from the repo root
+(brings in JAX, jax-cosmo, numpyro; \texttt{pip install emcee} for the
+\texttt{emcee} baseline; \texttt{pip install jaxoplanet} for the transit
+problems).
+\item Restore the auxiliary code into \texttt{astro/}: the likelihood modules
+\texttt{likelihoods.py} (hogg, pantheon), \texttt{likelihoods\_extra.py}
+(funnel, illcond), \texttt{likelihoods\_gw.py}, \texttt{likelihoods\_transit.py},
+\texttt{likelihoods\_multi\_transit.py},
+\texttt{likelihoods\_multi\_transit\_reparam.py} are in
+\texttt{astro/archive/code/}.
+\item Run the all-problems driver
+\texttt{astro/archive/code/run\_benchmark\_all\_problems.py} (the untrimmed
+runner), e.g.
+\begin{verbatim}
+python -m astro.run_benchmark --problem hogg     --sampler peaches
+python -m astro.run_benchmark --problem illcond  --sampler pickles --dim 100
+python -m astro.run_benchmark --problem transit  --sampler emcee
+\end{verbatim}
+\item For \texttt{pantheon}, first fetch the data with
+\texttt{code/download\_pantheon.sh}.
+\end{enumerate}
+
+\noindent
+Raw per-run outputs (\texttt{samples.npz} $+$ \texttt{metrics.json}) for every
+problem $\times$ sampler $\times$ seed are under
+\texttt{astro/archive/results/<problem>/<sampler>/}.  The \texttt{illcond\_d200}
+run set (3.3\,GB) was deleted to save disk; it is regenerable from the driver
+above with \texttt{--dim 200}.
+
+\end{document}

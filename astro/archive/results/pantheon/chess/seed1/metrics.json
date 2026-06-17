@@ -1,0 +1,28 @@
+{
+  "problem": "pantheon",
+  "sampler": "chess",
+  "dim": 2,
+  "n_data": 1580,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 0,
+  "find_mode": false,
+  "wall_s": 70.02547493297607,
+  "ess": [
+    128000.0,
+    16.20879213184005
+  ],
+  "ess_min": 16.20879213184005,
+  "ess_mean": 64008.10439606592,
+  "ess_per_sec": 0.23146993501085247,
+  "n_target_evals": 160000,
+  "eval_kind": "logprob",
+  "ess_per_eval": 0.00010130495082400031,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.996890664100647,
+    "final_step_size": 0.008591345511376858,
+    "nominal_L": 20.0
+  }
+}

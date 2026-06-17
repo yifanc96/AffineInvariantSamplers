@@ -1,0 +1,36 @@
+{
+  "problem": "transit",
+  "sampler": "pickles",
+  "dim": 7,
+  "n_data": 3000,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 500,
+  "find_mode": false,
+  "wall_s": 58.51913454616442,
+  "ess": [
+    71.58128428492013,
+    79.39372666978174,
+    48.45591591687987,
+    50.941964510817975,
+    114.80131140052382,
+    54.71060060028979,
+    164.13512242114078
+  ],
+  "ess_min": 48.45591591687987,
+  "ess_mean": 83.43141797205058,
+  "ess_per_sec": 0.8280354159826833,
+  "n_target_evals": 2560000,
+  "eval_kind": "grad",
+  "ess_per_eval": 1.8928092155031198e-05,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.9594453573226929,
+    "final_step_size": 0.007961499504745007,
+    "nominal_L": 20.0,
+    "mean_L": 20.0,
+    "gamma": 2.0,
+    "n_grad_evals": 2560000.0
+  }
+}

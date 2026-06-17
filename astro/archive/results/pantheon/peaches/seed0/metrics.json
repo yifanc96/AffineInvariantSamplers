@@ -1,0 +1,30 @@
+{
+  "problem": "pantheon",
+  "sampler": "peaches",
+  "dim": 2,
+  "n_data": 1580,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 0,
+  "find_mode": true,
+  "wall_s": 144.8542693129275,
+  "ess": [
+    39321.33692171917,
+    25070.233508995167
+  ],
+  "ess_min": 25070.233508995167,
+  "ess_mean": 32195.78521535717,
+  "ess_per_sec": 173.072106386013,
+  "n_target_evals": 2688000,
+  "eval_kind": "grad",
+  "ess_per_eval": 0.009326723775667844,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.7071484923362732,
+    "final_step_size": 0.06427939981222153,
+    "nominal_L": 20.0,
+    "mean_L": 20.0,
+    "n_grad_evals": 2688000.0
+  }
+}

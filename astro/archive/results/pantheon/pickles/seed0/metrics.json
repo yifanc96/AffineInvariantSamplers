@@ -1,0 +1,31 @@
+{
+  "problem": "pantheon",
+  "sampler": "pickles",
+  "dim": 2,
+  "n_data": 1580,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 0,
+  "find_mode": true,
+  "wall_s": 148.49255088507198,
+  "ess": [
+    20043.676367976193,
+    16623.316487108925
+  ],
+  "ess_min": 16623.316487108925,
+  "ess_mean": 18333.49642754256,
+  "ess_per_sec": 111.94714070185775,
+  "n_target_evals": 2560000,
+  "eval_kind": "grad",
+  "ess_per_eval": 0.006493483002776924,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.7929610013961792,
+    "final_step_size": 0.06438367813825607,
+    "nominal_L": 20.0,
+    "mean_L": 20.0,
+    "gamma": 2.0,
+    "n_grad_evals": 2560000.0
+  }
+}

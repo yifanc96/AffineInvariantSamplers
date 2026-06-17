@@ -1,0 +1,25 @@
+# Large data + sample artifacts — NOT committed. See README.md for how to
+# obtain the dataset and regenerate samples/figures.
+
+# Raw posterior samples (regenerate by running the samplers; see launch/)
+*.npz
+
+# Datasets (download instructions in README.md / likelihoods_des_y1.py)
+data/*.fits
+archive/data/*.dat
+archive/data/*.cov
+
+# Compressed archive of exploratory runs (regenerable)
+*.tar.gz
+
+# LaTeX build cruft
+*.aux
+*.log
+*.out
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+
+# Python
+__pycache__/
+*.pyc

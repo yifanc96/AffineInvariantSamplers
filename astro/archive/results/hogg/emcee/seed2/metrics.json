@@ -1,0 +1,30 @@
+{
+  "problem": "hogg",
+  "sampler": "emcee",
+  "dim": 5,
+  "n_data": 20,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 0,
+  "find_mode": false,
+  "wall_s": 72.14002873003483,
+  "ess": [
+    2622.7429261295174,
+    2751.229319435897,
+    2736.1045317793905,
+    2356.489129560788,
+    2262.828838666027
+  ],
+  "ess_min": 2262.828838666027,
+  "ess_mean": 2545.878949114324,
+  "ess_per_sec": 31.367174071056603,
+  "n_target_evals": 160000,
+  "eval_kind": "logprob",
+  "ess_per_eval": 0.014142680241662669,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.5345156249999999,
+    "n_lp_evals": 160000.0
+  }
+}

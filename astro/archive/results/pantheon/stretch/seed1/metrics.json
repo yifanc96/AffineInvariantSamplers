@@ -1,0 +1,27 @@
+{
+  "problem": "pantheon",
+  "sampler": "stretch",
+  "dim": 2,
+  "n_data": 1580,
+  "n_chains": 64,
+  "warmup": 500,
+  "num_samples": 2000,
+  "warm_start": 0,
+  "find_mode": false,
+  "wall_s": 17.350095361936837,
+  "ess": [
+    4821.005795152393,
+    4017.2737999275478
+  ],
+  "ess_min": 4017.2737999275478,
+  "ess_mean": 4419.1397975399705,
+  "ess_per_sec": 231.54188585849298,
+  "n_target_evals": 160000,
+  "eval_kind": "logprob",
+  "ess_per_eval": 0.025107961249547173,
+  "fake_ess_warning": null,
+  "info": {
+    "acceptance_rate": 0.604242205619812,
+    "final_a": 2.399975299835205
+  }
+}
