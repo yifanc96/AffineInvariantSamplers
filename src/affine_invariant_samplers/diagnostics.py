@@ -95,6 +95,11 @@ def integrated_autocorr_time_1d(x, M=5, c=10, max_iterations=10):
 
     k = 0
     while k < max_iterations:
+        if x.size < 2:
+            # Reduced past the point where ACF is computable — fall through
+            # to the "chain too short" branch below, which uses the
+            # original-scale series.
+            break
         acf = autocorrelation_fft(x)
         tau = 1.0
         for window in range(1, len(acf)):

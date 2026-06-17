@@ -736,9 +736,16 @@ def sampler_peanuts(
         _step, (g1, g2, lp1, lp2), skeys)
 
     samples = all_states[::thin_by]
+    # Production-phase gradient count: each tree-building step does `ns` leapfrog
+    # evals across all chains. Warmup cost approximated at the max tree size
+    # (conservative upper bound, similar to NumPyro's reporting).
+    n_chains_prod = samples.shape[1]
+    prod_grads   = int(jnp.sum(all_ns)) * n_chains_prod
+    warmup_grads = int(warmup * n_chains_prod * (2 ** max_tree_depth))
     info = dict(acceptance_rate=float(jnp.mean(all_acc)),  # mean tree energy acceptance
                 final_step_size=float(final_eps),
-                mean_tree_depth=float(jnp.mean(jnp.log2(all_ns + 1))))
+                mean_tree_depth=float(jnp.mean(jnp.log2(all_ns + 1))),
+                n_grad_evals=prod_grads + warmup_grads)
     if verbose:
         print(f"Done.  accept={info['acceptance_rate']:.3f}"
               f"  mean_steps={float(jnp.mean(all_ns)):.1f}")

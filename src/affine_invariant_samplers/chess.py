@@ -318,9 +318,11 @@ def sampler_chess(
         _step, (state, lp, jnp.int32(0)), skeys)
 
     samples = all_states[::thin_by]
+    N, D = initial_state.shape
     info = dict(acceptance_rate=float(jnp.mean(all_acc)),
                 final_step_size=float(final_eps),
-                nominal_L=int(nominal_L))
+                nominal_L=int(nominal_L),
+                n_grad_evals=int((warmup + num_samples * thin_by) * N * int(nominal_L)))
     if verbose:
         print(f"Done.  accept={info['acceptance_rate']:.3f}")
     return samples, info
