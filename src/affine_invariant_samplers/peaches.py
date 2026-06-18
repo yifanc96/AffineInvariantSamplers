@@ -115,7 +115,11 @@ def _da_update(state, log_alpha, log_eps0, target, t0=10., gamma=0.05, kappa=0.7
     accept = log_alpha.size / jnp.sum(1. / jnp.clip(jnp.exp(log_alpha), 1e-10, 1.))
     eta    = 1. / (it + t0)
     H_bar  = (1. - eta) * state.H_bar + eta * (target - accept)
-    log_e  = log_eps0 - jnp.sqrt(it) / ((it + t0) * gamma) * H_bar
+    # Nesterov dual averaging (Hoffman & Gelman 2014): gain is sqrt(it)/gamma.
+    # A previous extra 1/(it+t0) factor crushed the feedback ~(it+t0)x, freezing
+    # the step size near its initial value so acceptance drifted with dimension
+    # and eps failed to follow the d^{-1/4} law; removed.
+    log_e  = log_eps0 - jnp.sqrt(it) / gamma * H_bar
     log_eb = it**(-kappa) * log_e + (1. - it**(-kappa)) * state.log_eps_bar
     return DAState(it, log_e, log_eb, H_bar)
 

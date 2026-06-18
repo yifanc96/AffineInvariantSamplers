@@ -1,0 +1,14 @@
+# Raw posterior samples — NOT committed (regenerate via experiments.py).
+# (*.npz/*.png/*.pdf are also ignored by the repo-root .gitignore; figures and
+# the note PDFs are force-added.)
+*.npz
+
+# Run / driver logs and LaTeX build cruft
+*.log
+*.aux
+*.out
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+
+__pycache__/

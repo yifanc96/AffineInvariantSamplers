@@ -139,7 +139,7 @@ def _da_update(state, accept_rate, log_eps0, target, t0=10., gamma_da=0.05, kapp
     it    = state.iteration + 1
     eta   = 1. / (it + t0)
     H_bar = (1. - eta) * state.H_bar + eta * (target - accept_rate)
-    log_e = log_eps0 - jnp.sqrt(it) / ((it + t0) * gamma_da) * H_bar
+    log_e = log_eps0 - jnp.sqrt(it) / gamma_da * H_bar
     log_eb = it**(-kappa) * log_e + (1. - it**(-kappa)) * state.log_eps_bar
     return DAState(it, log_e, log_eb, H_bar)
 

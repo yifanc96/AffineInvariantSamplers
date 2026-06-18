@@ -209,8 +209,8 @@ def _build_peanuts_tree(z0, log_prob_single, grad_U_single, eps, key,
     tree0 = _TreeState(
         z_left=z0, r_left=r0, z_right=z0, r_right=r0,
         z_prop=z0, lp_prop=lp0, depth=0,
-        log_weight=jnp.float32(0.), turning=False, diverging=False,
-        sum_accept=jnp.float32(0.), n_proposals=0,
+        log_weight=jnp.asarray(0.0), turning=False, diverging=False,
+        sum_accept=jnp.asarray(0.0), n_proposals=0,
     )
 
     # --- helpers closed over shared state ---
@@ -354,10 +354,10 @@ def _build_peanuts_tree(z0, log_prob_single, grad_U_single, eps, key,
         init_tree = _TreeState(
             z_left=z_start, r_left=r_start,
             z_right=z_start, r_right=r_start,
-            z_prop=z_start, lp_prop=jnp.float32(-jnp.inf),
-            depth=0, log_weight=jnp.float32(-jnp.inf),
+            z_prop=z_start, lp_prop=jnp.asarray(-jnp.inf),
+            depth=0, log_weight=jnp.asarray(-jnp.inf),
             turning=False, diverging=False,
-            sum_accept=jnp.float32(0.), n_proposals=0,
+            sum_accept=jnp.asarray(0.0), n_proposals=0,
         )
         tree, turn, z_ck, r_ck, _, _ = jax.lax.while_loop(
             cond, body,
@@ -503,7 +503,11 @@ def _da_update(state, log_alpha, log_eps0, target, t0=10., gamma=0.05, kappa=0.7
     accept = jnp.mean(jnp.clip(jnp.exp(log_alpha), 1e-10, 1.))
     eta    = 1. / (it + t0)
     H_bar  = (1. - eta) * state.H_bar + eta * (target - accept)
-    log_e  = log_eps0 - jnp.sqrt(it) / ((it + t0) * gamma) * H_bar
+    # Nesterov dual averaging (Hoffman & Gelman 2014): gain is sqrt(it)/gamma.
+    # A previous extra 1/(it+t0) factor crushed the feedback ~(it+t0)x, freezing
+    # the step size near its initial value so acceptance drifted with dimension
+    # and eps failed to follow the d^{-1/4} law; removed.
+    log_e  = log_eps0 - jnp.sqrt(it) / gamma * H_bar
     log_eb = it**(-kappa) * log_e + (1. - it**(-kappa)) * state.log_eps_bar
     return DAState(it, log_e, log_eb, H_bar)
 
@@ -745,6 +749,8 @@ def sampler_peanuts(
     info = dict(acceptance_rate=float(jnp.mean(all_acc)),  # mean tree energy acceptance
                 final_step_size=float(final_eps),
                 mean_tree_depth=float(jnp.mean(jnp.log2(all_ns + 1))),
+                mean_num_steps=float(jnp.mean(all_ns)),       # mean leapfrog steps / sample
+                n_grad_evals_prod=prod_grads,                 # production-only (exact)
                 n_grad_evals=prod_grads + warmup_grads)
     if verbose:
         print(f"Done.  accept={info['acceptance_rate']:.3f}"
