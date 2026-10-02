@@ -30,7 +30,7 @@ from collections import deque
 
 SEEDS = [0, 1, 2]
 N_PROD = 5000
-WS = 200                  # stretch pre-warmup: equilibrate ensemble SHAPE (fair,
+WS = 100                  # stretch pre-warmup: equilibrate ensemble SHAPE (fair,
                           # gradient-free, no target knowledge). Ensemble analogue
                           # of NUTS mass-matrix warmup. Critical: an isotropic
                           # init leaves the empirical-covariance preconditioner
@@ -177,6 +177,170 @@ def exp4c_jobs():
     return jobs
 
 
+def scale2_jobs():
+    """CLEAN dimensional scaling, ONE consistent protocol (tag ``scale2``).
+
+    Fixes the low-d artefact in the old scaling figure. Old runs mixed several
+    tags (scaleL/scaleLb/scaleLd/exp4c) with *different* warmup/tuning at the
+    same walker count, and used uniform 4d walkers -- at which the empirical
+    covariance is too noisy in low d for ChEES to find the (tiny) optimal
+    L~d^{1/4}, so peaches over-integrates (mean_L~6 vs optimal ~1.5) and the
+    per-gradient efficiency shows a spurious low-d hump.
+
+    Here: isotropic N(0,I_d), n_walkers = max(128, 4d) (the SAME floor the
+    conditioning/warmup experiments use -- abundant walkers in low d let ChEES
+    resolve the short optimal trajectory), one fixed protocol, 5 seeds.
+      - peaches: target_accept 0.8 (step-size law holds at fixed acceptance),
+        max_L 512 (never bind), ws=100, warmup 4000 (dual-averaging converges).
+      - stretch: only d<=64 (does not converge higher in a feasible run).
+      - nuts:    diagonal mass (optimal, low-noise on an isotropic target).
+    """
+    jobs = []
+    SC_SEEDS = [0, 1, 2, 3, 4]
+    DIMS = (2, 4, 8, 16, 32, 64, 128, 256)
+    for D in DIMS:
+        nch = max(128, 4 * D)
+        nprod = 3000 if D >= 256 else 5000        # d=256 sample array memory
+        # peaches
+        for sd in SC_SEEDS:
+            jobs.append(dict(target="gaussian", dim=D, sampler="peaches", seed=sd,
+                             tag="scale2", warmup=4000, num_samples=nprod,
+                             n_chains=nch, warm_start=WS, log_cond=0.0,
+                             no_rotate=True, target_accept=0.8, max_L=512))
+        # stretch/emcee: only where it can converge
+        if D <= 64:
+            for sd in SC_SEEDS:
+                jobs.append(dict(target="gaussian", dim=D, sampler="stretch",
+                                 seed=sd, tag="scale2", warmup=3000,
+                                 num_samples=12000, n_chains=nch, warm_start=0,
+                                 log_cond=0.0, no_rotate=True))
+    return jobs
+
+
+def scale3_jobs():
+    """SMOOTH dimensional scaling: constant walkers/dim = 8d (tag ``scale3``).
+
+    scale2 used n_walkers=max(128,4d); at 4d walkers ChEES cannot resolve the
+    short optimal trajectory (L~d^{1/4}<4) in low/moderate d, so it
+    over-integrates and the per-eval efficiency has a spurious low-d hump plus a
+    step at the floor->4d transition (d=16->32, where mean_L jumps 3->6). At a
+    CONSTANT ratio of 8 walkers/dim the empirical-covariance (and the ChEES ESJD
+    gradient) is equally well-resolved at every d, so mean_L grows smoothly as
+    d^{1/4} and ESS/eval is a clean monotone d^{-1/4} decline. A small floor 64
+    keeps d=2,4 well-populated. Scored with the fast ensemble-mean ESS
+    (--fast-ess), which is O(D N log N) and makes even d=256 (2048 walkers)
+    cheap. Isotropic N(0,I_d), 5 seeds.
+    """
+    jobs = []
+    SC_SEEDS = [0, 1, 2, 3, 4]
+    DIMS = (2, 4, 8, 16, 32, 64, 128, 256)
+    for D in DIMS:
+        nch = max(64, 8 * D)
+        nprod = 3000 if D >= 128 else 5000
+        for sd in SC_SEEDS:
+            jobs.append(dict(target="gaussian", dim=D, sampler="peaches", seed=sd,
+                             tag="scale3", warmup=4000, num_samples=nprod,
+                             n_chains=nch, warm_start=WS, log_cond=0.0,
+                             no_rotate=True, target_accept=0.8, max_L=512,
+                             fast_ess=True))
+        if D <= 64:
+            for sd in SC_SEEDS:
+                jobs.append(dict(target="gaussian", dim=D, sampler="stretch",
+                                 seed=sd, tag="scale3", warmup=3000,
+                                 num_samples=12000, n_chains=nch, warm_start=0,
+                                 log_cond=0.0, no_rotate=True, fast_ess=True))
+    return jobs
+
+
+def condf_jobs():
+    """Conditioning: ill-conditioned Gaussian d=50 vs kappa, ensemble ESS.
+
+    8d walkers (=400 at d=50), matching the scaling sweep so peaches numbers are
+    consistent across the note. peaches / emcee / NUTS-dense at tag condf_lc{k};
+    NUTS-identity (the no-mass-adapt ablation) at condfid_lc{k}. 3 seeds,
+    --fast-ess. The Rosenbrock curvature panel is produced by rosen8_jobs()."""
+    jobs = []
+    # (a) ill-conditioned Gaussian d=50 vs kappa
+    for lc in (2, 4, 6, 8):
+        for sd in SEEDS:
+            jobs.append(dict(target="gaussian", dim=50, sampler="peaches", seed=sd,
+                             tag=f"condf_lc{lc}", warmup=1000, num_samples=5000,
+                             n_chains=400, warm_start=WS, log_cond=float(lc),
+                             max_L=GAUSS_MAXL, fast_ess=True))
+            jobs.append(dict(target="gaussian", dim=50, sampler="stretch", seed=sd,
+                             tag=f"condf_lc{lc}", warmup=10000, num_samples=40000,
+                             n_chains=400, warm_start=0, log_cond=float(lc),
+                             fast_ess=True))
+            jobs.append(dict(target="gaussian", dim=50, sampler="nuts", seed=sd,
+                             tag=f"condf_lc{lc}", warmup=1000, num_samples=5000,
+                             n_chains=400, warm_start=0, log_cond=float(lc),
+                             nuts_mass="dense", fast_ess=True))
+            jobs.append(dict(target="gaussian", dim=50, sampler="nuts", seed=sd,
+                             tag=f"condfid_lc{lc}", warmup=1000, num_samples=2000,
+                             n_chains=400, warm_start=0, log_cond=float(lc),
+                             nuts_mass="identity", fast_ess=True))
+    return jobs
+
+
+def warmf_jobs():
+    """Warmup robustness, re-scored with the ensemble ESS (--fast-ess).
+
+    Gaussian d=100 (kappa=e^6, 400 walkers) + Rosenbrock d=8 (256 walkers),
+    warmup in {50..1000}, peaches vs NUTS-dense, 8 seeds. Tags warmf_w{w} /
+    warmfb_w{w}."""
+    jobs = []
+    W8 = [0, 1, 2, 3, 4, 5]
+    for warm in (50, 100, 200, 500, 1000):
+        for sd in W8:
+            jobs.append(dict(target="gaussian", dim=100, sampler="peaches", seed=sd,
+                             tag=f"warmf_w{warm}", warmup=warm, num_samples=5000,
+                             n_chains=400, warm_start=200, log_cond=6.0,
+                             max_L=GAUSS_MAXL, fast_ess=True))
+            jobs.append(dict(target="gaussian", dim=100, sampler="nuts", seed=sd,
+                             tag=f"warmf_w{warm}", warmup=warm, num_samples=5000,
+                             n_chains=400, warm_start=0, log_cond=6.0,
+                             nuts_mass="dense", fast_ess=True))
+            jobs.append(dict(target="rosenbrock", dim=8, sampler="peaches", seed=sd,
+                             tag=f"warmfb_w{warm}", warmup=warm, num_samples=5000,
+                             n_chains=64, warm_start=200, max_L=ROSEN_MAXL,
+                             fast_ess=True))
+            jobs.append(dict(target="rosenbrock", dim=8, sampler="nuts", seed=sd,
+                             tag=f"warmfb_w{warm}", warmup=warm, num_samples=5000,
+                             n_chains=64, warm_start=0, nuts_mass="dense",
+                             fast_ess=True))
+    return jobs
+
+
+def rosen8_jobs():
+    """Rosenbrock at the constant 8d walker rule (floor 64), ensemble ESS.
+
+    One unified set of Rosenbrock runs feeding BOTH the dimensional-scaling figure
+    (d=2..32, peaches vs emcee) and the curvature panel of Exp.~2b (d=8,16,32,
+    adding identity-mass NUTS). Lean 8d walkers land in the long (accurate)
+    ChEES mode more often (Sec. bistability); 8 peaches seeds stabilise the median
+    over the residual bimodality. Tags rz8 / rz8id."""
+    jobs = []
+    S8 = list(range(8))
+    for D in (2, 4, 8, 16, 32):
+        nch = max(64, 8 * D)
+        for sd in S8:
+            jobs.append(dict(target="rosenbrock", dim=D, sampler="peaches", seed=sd,
+                             tag="rz8", warmup=8000, num_samples=8000,
+                             n_chains=nch, warm_start=200, max_L=512,
+                             target_accept=0.8, fast_ess=True))
+        for sd in SEEDS:
+            jobs.append(dict(target="rosenbrock", dim=D, sampler="stretch", seed=sd,
+                             tag="rz8", warmup=20000, num_samples=60000,
+                             n_chains=nch, warm_start=0, fast_ess=True))
+        if D >= 8:      # curvature panel: identity-mass NUTS (mild global cond.)
+            for sd in SEEDS:
+                jobs.append(dict(target="rosenbrock", dim=D, sampler="nuts", seed=sd,
+                                 tag="rz8id", warmup=1000, num_samples=2000,
+                                 n_chains=nch, warm_start=0, nuts_mass="identity",
+                                 fast_ess=True))
+    return jobs
+
+
 def exp3_jobs():
     """Warmup robustness: peaches/peanuts vs NUTS, Gaussian D=100 + Rosenbrock D=8."""
     jobs = []
@@ -219,6 +383,8 @@ def spec_to_cmd(spec):
         cmd += ["--nuts-mass", str(spec["nuts_mass"])]
     if "target_accept" in spec:
         cmd += ["--target-accept", str(spec["target_accept"])]
+    if spec.get("fast_ess"):
+        cmd += ["--fast-ess"]
     return cmd, out
 
 
@@ -256,16 +422,21 @@ def run_pool(jobs, gpus):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--exp", choices=["1", "2", "3", "4", "4b", "4c", "all"],
-                    required=True)
+    ap.add_argument("--exp", choices=["1", "2", "3", "4", "4b", "4c", "scale2",
+                                      "scale3", "condf", "warmf", "rosen8",
+                                      "notef", "all"], required=True)
     ap.add_argument("--gpus", nargs="+", type=int, default=[0, 2, 3, 4, 5, 6],
                     help="GPU indices to use (default excludes GPU 1, which may "
                          "be shared with another user).")
     args = ap.parse_args()
     builders = {"1": exp1_jobs, "2": exp2_jobs, "3": exp3_jobs, "4": exp4_jobs,
-                "4b": exp4b_jobs, "4c": exp4c_jobs}
+                "4b": exp4b_jobs, "4c": exp4c_jobs, "scale2": scale2_jobs,
+                "scale3": scale3_jobs, "condf": condf_jobs, "warmf": warmf_jobs,
+                "rosen8": rosen8_jobs}
     if args.exp == "all":
         jobs = exp1_jobs() + exp2_jobs() + exp3_jobs() + exp4_jobs()
+    elif args.exp == "notef":            # all three note re-scores, in one pool
+        jobs = condf_jobs() + warmf_jobs() + rosen8_jobs()
     else:
         jobs = builders[args.exp]()
     print(f"exp {args.exp}: {len(jobs)} jobs over GPUs {args.gpus}", flush=True)

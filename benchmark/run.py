@@ -46,7 +46,8 @@ GRADFREE = {"stretch", "walk"}
 
 
 def run_pkg(name, log_prob, init, num_samples, warmup, seed, max_L=None,
-            max_tree_depth=None, target_accept=None):
+            max_tree_depth=None, target_accept=None, gamma=None,
+            chees_metric=None):
     sampler = PKG_SAMPLERS[name]
     import inspect
     sig = inspect.signature(sampler).parameters
@@ -57,6 +58,10 @@ def run_pkg(name, log_prob, init, num_samples, warmup, seed, max_L=None,
         kw["max_tree_depth"] = max_tree_depth
     if target_accept is not None and "target_accept" in sig:
         kw["target_accept"] = target_accept
+    if gamma is not None and "gamma" in sig:                     # pickles damping
+        kw["gamma"] = gamma
+    if chees_metric is not None and "chees_metric" in sig:       # ChEES norm
+        kw["chees_metric"] = chees_metric
     t0 = time.perf_counter()
     samples, info = sampler(log_prob, init, **kw)
     samples.block_until_ready()
@@ -65,7 +70,7 @@ def run_pkg(name, log_prob, init, num_samples, warmup, seed, max_L=None,
 
 
 def run_nuts(log_prob, init, num_samples, warmup, seed, dense_mass=True,
-             target_accept=0.8, max_tree_depth=10):
+             target_accept=0.8, max_tree_depth=10, adapt_mass=True):
     import numpyro
     from numpyro.infer import MCMC, NUTS
 
@@ -76,13 +81,16 @@ def run_nuts(log_prob, init, num_samples, warmup, seed, dense_mass=True,
     def potential(x):                               # x: (D,) -> scalar PE
         return -log_prob(x[None, :])[0]
 
+    # adapt_mass=False -> identity mass matrix throughout (only the scalar step
+    # size is adapted): the "naive HMC / NUTS without mass adaptation" baseline.
     kernel = NUTS(potential_fn=potential, dense_mass=dense_mass,
+                  adapt_mass_matrix=adapt_mass,
                   target_accept_prob=target_accept, max_tree_depth=max_tree_depth)
     mcmc = MCMC(kernel, num_warmup=warmup, num_samples=num_samples,
                 num_chains=n_chains, chain_method="vectorized", progress_bar=False)
     t0 = time.perf_counter()
     mcmc.run(jax.random.key(seed), init_params=jnp.asarray(init),
-             extra_fields=("num_steps", "mean_accept_prob"))
+             extra_fields=("num_steps", "mean_accept_prob", "diverging"))
     wall = time.perf_counter() - t0
 
     samp = np.asarray(mcmc.get_samples(group_by_chain=True))  # (C, N, D)
@@ -99,8 +107,12 @@ def run_nuts(log_prob, init, num_samples, warmup, seed, dense_mass=True,
         step = float(np.mean(np.asarray(mcmc.last_state.adapt_state.step_size)))
     except Exception:
         step = None
+    try:
+        n_div = int(np.sum(np.asarray(extra.get("diverging"))))   # production divergences
+    except Exception:
+        n_div = None
     info = dict(acceptance_rate=accept, n_grad_evals=n_grad_prod,
-                final_step_size=step,
+                final_step_size=step, n_divergences=n_div,
                 mean_num_steps=float(np.mean(n_steps)) if n_steps is not None else None)
     return samples, info, wall
 
@@ -142,17 +154,31 @@ def main():
     ap.add_argument("--warmup", type=int, default=500)
     ap.add_argument("--init-scale", type=float, default=2.0)
     ap.add_argument("--max-L", type=int, default=None)
+    ap.add_argument("--gamma", type=float, default=None,
+                    help="PICKLES kinetic-damping coefficient (recommended 0.5).")
     ap.add_argument("--target-accept", type=float, default=None,
                     help="target acceptance for the step-size adapter "
                          "(peaches/peanuts/NUTS); pin across d to recover the "
                          "d^{-1/4} step-size law.")
     ap.add_argument("--max-tree-depth", type=int, default=10,
                     help="peanuts/NUTS trajectory cap (2^depth steps)")
-    ap.add_argument("--nuts-mass", choices=["dense", "diag"], default="dense",
-                    help="NUTS mass matrix; use 'diag' on isotropic/diagonal "
-                         "targets to avoid noisy dense-mass estimation.")
+    ap.add_argument("--nuts-mass", choices=["dense", "diag", "identity"],
+                    default="dense",
+                    help="NUTS mass matrix; 'diag' on isotropic targets, "
+                         "'identity' disables mass adaptation entirely (naive "
+                         "HMC baseline: only the step size is adapted).")
     ap.add_argument("--seed", type=int, default=0)
+    ap.add_argument("--target-seed", type=int, default=0,
+                    help="random seed for the target realization (Gaussian "
+                         "rotation). Vary across runs to get problem-instance "
+                         "error bands rather than sampling-noise-only bands.")
     ap.add_argument("--tag", type=str, default="default")
+    ap.add_argument("--chees-metric", choices=["affine-invariant","euclidean"],
+                    default=None, help="norm used inside the ChEES ESJD criterion")
+    ap.add_argument("--fast-ess", action="store_true",
+                    help="score with the ensemble-mean ESS (O(D N log N), no "
+                         "per-chain FFT) instead of ArviZ rank ESS; use for "
+                         "large walker counts (high-d scaling).")
     ap.add_argument("--out", type=str, default=None)
     ap.add_argument("--warm-start", type=int, default=0,
                     help="Stretch-move pre-warmup iters (gradient-free, "
@@ -165,7 +191,8 @@ def main():
     # Build target + analytic truth
     tkw = {}
     if args.target == "gaussian":
-        tkw = dict(log_cond=args.log_cond, rotate=not args.no_rotate, seed=0)
+        tkw = dict(log_cond=args.log_cond, rotate=not args.no_rotate,
+                   seed=args.target_seed)
     log_prob, truth, meta = make_target(args.target, args.dim, **tkw)
 
     # Init: overdispersed ball so burn-in bias is visible
@@ -190,6 +217,8 @@ def main():
         samples, info, wall = run_nuts(log_prob, init, args.num_samples,
                                        args.warmup, args.seed,
                                        dense_mass=(args.nuts_mass == "dense"),
+                                       adapt_mass=(args.nuts_mass != "identity"),
+                                       max_tree_depth=args.max_tree_depth,
                                        target_accept=(args.target_accept
                                                       if args.target_accept
                                                       else 0.8))
@@ -198,10 +227,21 @@ def main():
                                       args.num_samples, args.warmup, args.seed,
                                       max_L=args.max_L,
                                       max_tree_depth=args.max_tree_depth,
-                                      target_accept=args.target_accept)
+                                      target_accept=args.target_accept,
+                                      gamma=args.gamma,
+                                      chees_metric=args.chees_metric)
 
     n_grad = production_grads(args.sampler, info, args.num_samples, args.n_chains)
-    met = M.all_metrics(samples, truth, n_grad_evals=n_grad or None)
+    # Thin before the (expensive) ESS/R-hat computation ONLY for gradient-free
+    # samplers (emcee/stretch), whose IAT is large (~hundreds), so thinning by
+    # k << IAT preserves ESS while shrinking the array at large N. Gradient HMC
+    # samplers (peaches/peanuts/nuts) have IAT ~ 1, so ANY thinning destroys
+    # their ESS -- they are never thinned (n_grad keeps the full production
+    # count regardless, so ESS/grad is exact).
+    thin = max(1, samples.shape[0] // 5000) if args.sampler in GRADFREE else 1
+    samples_m = samples[::thin] if thin > 1 else samples
+    met = M.all_metrics(samples_m, truth, n_grad_evals=n_grad or None,
+                        fast=args.fast_ess)
 
     out_dir = Path(args.out or
                    f"benchmark/results/{args.target}_d{args.dim}/"
@@ -217,6 +257,7 @@ def main():
         acceptance_rate=info.get("acceptance_rate"),
         mean_L=info.get("mean_L") or info.get("mean_num_steps"),
         final_step_size=info.get("final_step_size"),
+        n_divergences=info.get("n_divergences"),
         n_grad_evals_prod=int(n_grad),
         **met,
     )

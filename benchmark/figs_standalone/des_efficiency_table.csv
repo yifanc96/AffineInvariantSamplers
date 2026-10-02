@@ -1,0 +1,7 @@
+sampler,chains,ess_per_grad_mean_e-3,ess_per_grad_std_e-3,ess_per_sec_mean,ess_per_sec_std
+"PICKLES ($\gamma{=}0.5$)",64,5.9394,0.3199,1.8295,0.0982
+"PEACHES",64,7.4017,0.5446,1.4892,0.1180
+"ALDI",64,0.3573,0.0225,0.0475,0.0099
+"NUTS-dense (warmup 500)",4,5.5193,1.4463,0.0328,0.0185
+"NUTS-dense (warmup 50)",4,1.4070,1.1305,0.0307,0.0247
+"emcee (stretch)",64,0.2805,0.0093,0.0853,0.0123
