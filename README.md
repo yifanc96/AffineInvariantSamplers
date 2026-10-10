@@ -156,18 +156,27 @@ would close the gap.
 
 ### Walker count and tuning
 
-For ensemble HMC (PEACHES, PEAMS, PEANUTS and PICKLES), start with
-`N = max(32, 4*d)` walkers, where `d` is the dimension, or more if your
-budget allows. A larger ensemble is especially useful when covariance
-estimates or learned trajectory lengths are unstable. This gives small
-problems a larger ensemble and uses at least `4d` walkers in higher dimensions.
-If that is too expensive in high dimensions, compare `2d+2` or `2d+4`.
+For ensemble kinetic/HMC samplers (PEACHES, PEAMS, PEANUTS and PICKLES):
 
-This is a starting point: more walkers help estimate the covariance, but
-step size and trajectory length still need reliable tuning. Check mixing
-and estimates of both means and variances, especially on curved targets
-such as Rosenbrock. Performance relative to NUTS depends on the target,
-sampler and quantity being estimated.
+1. **Use enough walkers.** Start with `N = max(32, 4*d)`, where `d` is
+   the dimension, and try more walkers if affordable. Better covariance
+   estimates can improve robustness, while efficiency per gradient may
+   eventually level off. If `4d` is too expensive in high dimensions,
+   compare `2d+2` or `2d+4`.
+2. **Check step-size and trajectory-length tuning.** Poor performance can
+   reflect an unsuitable `L`, or sometimes step size `eps`. Inspect the
+   tuned values below, and try longer warmup or a higher `target_accept`.
+   Higher acceptance can help stability but may cost more gradients.
+   Monitor mean and second-moment accuracy, including variance estimates,
+   alongside ESS, especially on curved targets such as Rosenbrock.
+
+```python
+print("step size:", info["final_step_size"])
+print("mean steps:", info.get("mean_L", info.get("mean_num_steps")))
+```
+
+For PEANUTS, `mean_num_steps` reports tree steps; its U-turn criterion
+chooses trajectory length during sampling.
 
 ## Usage essentials
 
@@ -295,6 +304,9 @@ dual averaging will refine it during warmup.
 | `sampler_peanuts`  | **PEANUTS** — ensemble-preconditioned NUTS.                             |
 | `sampler_pickles`  | **PICKLES** — parallel interacting covariance-preconditioned kinetic Langevin. |
 | `sampler_chess`    | Standard HMC with joint dual-averaging + ChEES length tuning.           |
+
+For walker counts and tuning advice, see
+[Walker count and tuning](#walker-count-and-tuning).
 
 ### Unadjusted Langevin (ensemble / interacting)
 
