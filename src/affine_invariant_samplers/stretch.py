@@ -51,7 +51,8 @@ def _stretch_proposal(active, complement, key, a):
     idx = jax.random.randint(k1, (W,), 0, Wc)
     partner = complement[idx]
 
-    # stretch factor z ~ g(z) = 1/(2(a-1)) * 1/sqrt(z) on [1/a, a]
+    # Stretch factor density is proportional to 1/sqrt(z) on [1/a, a]
+    # for a > 1 (with normalization sqrt(a) / (2*(a - 1))).
     u = jax.random.uniform(k2, (W,))
     z = ((a - 1.) * u + 1.) ** 2 / a          # (W,)
 
@@ -83,7 +84,8 @@ def sampler_stretch(
         initial_state : (n_chains, D).  n_chains must be even and >= 4.
         num_samples   : Samples to collect.
         warmup        : Warmup iterations for parameter adaptation.
-        a             : Initial stretch parameter (adapted during warmup).
+        a             : Initial stretch parameter. Must exceed 1 when adapt_a=True.
+                        Fixed positive reciprocal parameters remain supported.
         target_accept : Target acceptance for DA (default 0.40).
         thin_by       : Thinning factor.
         seed          : Random seed.
@@ -95,7 +97,11 @@ def sampler_stretch(
         samples : (num_samples, n_chains, D)
         info    : dict(acceptance_rate, final_a)
     """
-    state = jnp.asarray(initial_state)
+    # Match momentum/noise precision, including with integer or float32 starts.
+    state = jnp.asarray(initial_state, dtype=jnp.float64
+                        if jax.config.jax_enable_x64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(state))):
+        raise ValueError("initial_state must contain only finite values")
     n_chains, dim = state.shape
     assert n_chains >= 4 and n_chains % 2 == 0
 
@@ -105,14 +111,21 @@ def sampler_stretch(
     key = jax.random.key(seed)
 
     a = jnp.asarray(a, jnp.float32)
-    log_a0 = jnp.log(a)
+    if not bool(jnp.isfinite(a)) or float(a) <= 0.:
+        raise ValueError("a must be finite and positive")
+    if adapt_a and float(a) <= 1.:
+        raise ValueError("adapt_a=True requires a > 1; use adapt_a=False for a fixed reciprocal stretch parameter")
+    # Adapt the positive width rather than a itself. DA can then shrink the
+    # proposal toward identity without crossing a=1 and reversing feedback.
+    log_a0 = jnp.log(a - 1.) if adapt_a else jnp.log(a)
     da = _da_init(log_a0)
 
     # --- warmup ---
     @jax.jit
     def _warmup_step(g1, g2, lp1, lp2, da, keys):
         k1, k2, ka1, ka2 = keys
-        a_cur = jnp.exp(da.log_h) if adapt_a else a
+        a_cur = (1. + jnp.maximum(jnp.exp(da.log_h), jnp.finfo(a.dtype).eps)
+                 if adapt_a else a)
 
         prop1, z1 = _stretch_proposal(g1, g2, k1, a_cur)
         lp_prop1 = log_prob_fn(prop1)
@@ -141,7 +154,8 @@ def sampler_stretch(
         g1, g2, lp1, lp2, da, rate = _warmup_step(g1, g2, lp1, lp2, da, wkeys[i])
         total_acc += rate
 
-    final_a = jnp.exp(da.log_h_bar) if adapt_a else a
+    final_a = (1. + jnp.maximum(jnp.exp(da.log_h_bar), jnp.finfo(a.dtype).eps)
+               if adapt_a else a)
     if verbose:
         print(f"Stretch move:  a={float(final_a):.3f}"
               f"  warmup_accept={float(total_acc)/max(warmup,1):.3f}")

@@ -17,6 +17,8 @@ Reference: Riou-Durand & Vogrinc, arXiv:2202.13230
            https://github.com/lrioudurand/malt
 """
 
+import math
+
 import jax
 import jax.numpy as jnp
 from typing import NamedTuple
@@ -223,7 +225,16 @@ def sampler_malt(
         samples : (num_samples, n_chains, D)
         info    : dict(acceptance_rate, final_step_size, gamma, L)
     """
-    state = jnp.asarray(initial_state)
+    if not (0.0 < float(step_size) < float("inf")):
+        raise ValueError("step_size must be finite and strictly positive")
+
+    if not math.isfinite(gamma) or gamma < 0:
+        raise ValueError("gamma must be finite and nonnegative")
+    # Match momentum/noise precision, including with integer or float32 starts.
+    state = jnp.asarray(initial_state, dtype=jnp.float64
+                        if jax.config.jax_enable_x64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(state))):
+        raise ValueError("initial_state must contain only finite values")
     n_chains, dim = state.shape
 
     # potential U = -log_prob  and its gradient
@@ -246,6 +257,8 @@ def sampler_malt(
     if find_init_step_size:
         key, k = jax.random.split(key)
         step_size = _find_init_eps(k, state, U_fn, grad_U_fn, gamma, step_size)
+        if not (0.0 < float(step_size) < float("inf")):
+            raise ValueError("initial scale search failed: check that the initial ensemble and target are finite and nondegenerate, or disable the search and supply a finite positive scale")
     if verbose:
         print(f"MALT  gamma={gamma}  L={L}  init_eps={float(step_size):.4f}")
 

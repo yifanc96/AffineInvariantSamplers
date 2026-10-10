@@ -14,6 +14,11 @@ stationary distribution pi(x) propto exp(-Phi(x)).
 
 No Metropolis correction — the discretisation has O(h) bias.
 
+State-dependent step adaptation continues during production. Equal-iteration
+samples generally follow a time-changed law and need clock/weight correction
+for target expectations; no such correction is applied here. Fixed-step runs
+still have discretization bias.
+
 Step-size adaptation options:
   "maxdrift" — per-step max-drift normalization (default, most robust).
                h = h_base / max(1, max_drift / target).
@@ -49,8 +54,8 @@ import jax.numpy as jnp
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _nan_guard_state(X_new, X_old):
-    """Replace NaN particles with old particles (reject divergent step)."""
-    ok = ~jnp.any(jnp.isnan(X_new), axis=1, keepdims=True)  # (N, 1)
+    """Replace nonfinite particles with old particles (reject divergent step)."""
+    ok = jnp.all(jnp.isfinite(X_new), axis=1, keepdims=True)  # (N, 1)
     return jnp.where(ok, X_new, X_old)
 
 
@@ -65,7 +70,7 @@ def _aldi_step_plain(X, h, grad_lp, corr_coeff, key):
     centered = (X - m) / jnp.sqrt(N)
     g = grad_lp(X)
     drift = (g @ centered.T) @ centered + corr_coeff * (X - m)
-    xi = jax.random.normal(key, (N, N))
+    xi = jax.random.normal(key, (N, N), dtype=X.dtype)
     noise = jnp.sqrt(2.0 * h) * (xi @ centered)
     return X + h * drift + noise
 
@@ -89,11 +94,11 @@ def _aldi_step_pgn(X, h_base, grad_lp, corr_coeff, target_gnorm, key):
 
     # EM step
     drift = (g @ centered.T) @ centered + corr_coeff * (X - m)
-    xi = jax.random.normal(key, (N, N))
+    xi = jax.random.normal(key, (N, N), dtype=X.dtype)
     noise = jnp.sqrt(2.0 * h) * (xi @ centered)
     X_new = X + h * drift + noise
 
-    # NaN guard: revert divergent particles
+    # Nonfinite guard: revert divergent particles
     X_new = _nan_guard_state(X_new, X)
     return X_new, h
 
@@ -120,14 +125,14 @@ def _aldi_step_samadams(X, h_base, grad_lp, corr_coeff, zeta, rho, eps_sa, key):
 
     # EM step
     drift = (g @ centered.T) @ centered + corr_coeff * (X - m)
-    xi = jax.random.normal(key, (N, N))
+    xi = jax.random.normal(key, (N, N), dtype=X.dtype)
     noise = jnp.sqrt(2.0 * h) * (xi @ centered)
     X_new = X + h * drift + noise
 
-    # NaN guard: protect both state and EMA
-    any_nan = jnp.any(jnp.isnan(X_new))
+    # Nonfinite guard: protect both state and EMA
+    any_bad = ~jnp.all(jnp.isfinite(X_new))
     X_new = _nan_guard_state(X_new, X)
-    s = jnp.where(any_nan | jnp.isnan(s), zeta, s)
+    s = jnp.where(any_bad | ~jnp.isfinite(s), zeta, s)
 
     zeta_new = rho * zeta + (1.0 - rho) * s
     return X_new, zeta_new, h
@@ -152,11 +157,11 @@ def _aldi_step_maxdrift(X, h_base, grad_lp, corr_coeff, target_gnorm, key):
     h = h_base / jnp.maximum(1.0, max_d / target_gnorm)
 
     # EM step
-    xi = jax.random.normal(key, (N, N))
+    xi = jax.random.normal(key, (N, N), dtype=X.dtype)
     noise = jnp.sqrt(2.0 * h) * (xi @ centered)
     X_new = X + h * drift + noise
 
-    # NaN guard
+    # Nonfinite guard
     X_new = _nan_guard_state(X_new, X)
     return X_new, h
 
@@ -205,14 +210,18 @@ def sampler_aldi(
         samples : (num_samples, N, D)
         info    : dict(step_size, adapt, ...)
     """
+    if not (0.0 < float(step_size) < float("inf")):
+        raise ValueError("step_size must be finite and strictly positive")
+
     if adapt is True:
         adapt = "maxdrift"
     if adapt is False:
         adapt = None
 
-    X = jnp.asarray(initial_state, dtype=jnp.float64
-                     if initial_state.dtype == jnp.float64
-                     else jnp.float32)
+    X = jnp.asarray(initial_state)
+    X = X.astype(jnp.float64 if X.dtype == jnp.float64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(X))):
+        raise ValueError("initial_state must contain only finite values")
     N, d = X.shape
 
     if grad_log_prob_fn is None:
@@ -223,7 +232,8 @@ def sampler_aldi(
     corr_coeff = (d + 1.0) / N
     key = jax.random.key(seed)
 
-    h_base = jnp.float32(step_size)   # keep as JAX scalar for clean tracing
+    h_base = jnp.asarray(step_size, dtype=X.dtype)
+    h = h_base
 
     # ── pgn ─────────────────────────────────────────────────────────────────
     if adapt == "pgn":
@@ -243,21 +253,22 @@ def sampler_aldi(
 
         # production (per-step adaptive via scan)
         @jax.jit
-        def _prod(X, key):
+        def _prod(carry, key):
+            X, _ = carry
             X_new, h = _aldi_step_pgn(
                 X, h_base, grad_lp, corr_coeff, target_gnorm, key)
-            return X_new, X_new
+            return (X_new, h), X_new
 
         key, k = jax.random.split(key)
         skeys = jax.random.split(k, num_samples * thin_by)
-        _, all_X = jax.lax.scan(_prod, X, skeys)
+        (X, h), all_X = jax.lax.scan(_prod, (X, h), skeys)
         samples = all_X[::thin_by]
         info = dict(step_size=float(h), adapt="pgn")
 
     # ── samadams ────────────────────────────────────────────────────────────
     elif adapt == "samadams":
-        eps_sa = jnp.float32(1e-8)
-        rho_j = jnp.float32(rho)
+        eps_sa = jnp.asarray(1e-8, dtype=h_base.dtype)
+        rho_j = jnp.asarray(rho, dtype=h_base.dtype)
 
         # initialise zeta from current projected-gradient norm
         m0 = jnp.mean(X, axis=0)
@@ -316,20 +327,21 @@ def sampler_aldi(
 
         # production
         @jax.jit
-        def _prod(X, key):
+        def _prod(carry, key):
+            X, _ = carry
             X_new, h = _aldi_step_maxdrift(
                 X, h_base, grad_lp, corr_coeff, target_gnorm, key)
-            return X_new, X_new
+            return (X_new, h), X_new
 
         key, k = jax.random.split(key)
         skeys = jax.random.split(k, num_samples * thin_by)
-        _, all_X = jax.lax.scan(_prod, X, skeys)
+        (X, h), all_X = jax.lax.scan(_prod, (X, h), skeys)
         samples = all_X[::thin_by]
         info = dict(step_size=float(h), adapt="maxdrift")
 
     # ── no adaptation ───────────────────────────────────────────────────────
     else:
-        h = jnp.float32(step_size)
+        h = jnp.asarray(step_size, dtype=X.dtype)
 
         # warmup via scan (was a Python loop; now fully jit'd).
         def _warm(X, key):

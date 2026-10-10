@@ -117,8 +117,11 @@ def sampler_ensemble_dr_stretch(
         initial_state : (n_chains, D).  n_chains must be even and >= 4.
         num_samples   : Samples to collect.
         warmup        : Warmup iterations for parameter adaptation.
-        a             : Initial stretch parameter (adapted during warmup).
-        shrink        : Shrink factor for second stage (default 0.5).
+        a             : Initial stretch parameter. Must exceed 1 when adapt_a=True.
+                        Fixed positive reciprocal parameters remain supported.
+        shrink        : Multiplier for the second-stage stretch parameter:
+                        a2 = a * shrink (default 0.5). a2 = 1 gives identity
+                        proposals; a2 < 1 has the same width as 1 / a2.
         target_accept : Target stage-1 acceptance for DA (default 0.40).
         thin_by       : Thinning factor.
         seed          : Random seed.
@@ -130,7 +133,11 @@ def sampler_ensemble_dr_stretch(
         samples : (num_samples, n_chains, D)
         info    : dict(acceptance_rate, stage1_rate, stage2_rate, final_a)
     """
-    state = jnp.asarray(initial_state)
+    # Match momentum/noise precision, including with integer or float32 starts.
+    state = jnp.asarray(initial_state, dtype=jnp.float64
+                        if jax.config.jax_enable_x64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(state))):
+        raise ValueError("initial_state must contain only finite values")
     n_chains, dim = state.shape
     assert n_chains >= 4 and n_chains % 2 == 0
 
@@ -140,7 +147,13 @@ def sampler_ensemble_dr_stretch(
     key = jax.random.key(seed)
 
     a = jnp.asarray(a, jnp.float32)
-    log_a0 = jnp.log(a)
+    if not bool(jnp.isfinite(a)) or float(a) <= 0.:
+        raise ValueError("a must be finite and positive")
+    if adapt_a and float(a) <= 1.:
+        raise ValueError("adapt_a=True requires a > 1; use adapt_a=False for a fixed reciprocal stretch parameter")
+    # Adapt the positive width rather than a itself. DA can then shrink the
+    # proposal toward identity without crossing a=1 and reversing feedback.
+    log_a0 = jnp.log(a - 1.) if adapt_a else jnp.log(a)
     da = _da_init(log_a0)
 
     def _one_group(active, comp, lp_active, keys, a_cur, a2_cur):
@@ -175,7 +188,8 @@ def sampler_ensemble_dr_stretch(
     # --- warmup ---
     @jax.jit
     def _warmup_step(g1, g2, lp1, lp2, da, keys):
-        a_cur = jnp.exp(da.log_h) if adapt_a else a
+        a_cur = (1. + jnp.maximum(jnp.exp(da.log_h), jnp.finfo(a.dtype).eps)
+                 if adapt_a else a)
         a2_cur = a_cur * shrink
 
         g1, lp1, a1_s1, a1_s2 = _one_group(g1, g2, lp1, keys[:4], a_cur, a2_cur)
@@ -197,7 +211,8 @@ def sampler_ensemble_dr_stretch(
         g1, g2, lp1, lp2, da, rate = _warmup_step(g1, g2, lp1, lp2, da, wkeys[i])
         total_acc += rate
 
-    final_a = jnp.exp(da.log_h_bar) if adapt_a else a
+    final_a = (1. + jnp.maximum(jnp.exp(da.log_h_bar), jnp.finfo(a.dtype).eps)
+               if adapt_a else a)
     final_a2 = final_a * shrink
     if verbose:
         print(f"DR Stretch:  a={float(final_a):.3f}  shrink={shrink}"
@@ -279,12 +294,24 @@ def sampler_ensemble_dr_side(
         samples : (num_samples, n_chains, D)
         info    : dict(acceptance_rate, stage1_rate, stage2_rate, final_gamma)
     """
-    state = jnp.asarray(initial_state)
+    if not (0.0 < float(gamma) < float("inf")):
+        raise ValueError("gamma must be finite and strictly positive")
+
+    # Match momentum/noise precision, including with integer or float32 starts.
+    state = jnp.asarray(initial_state, dtype=jnp.float64
+                        if jax.config.jax_enable_x64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(state))):
+        raise ValueError("initial_state must contain only finite values")
     n_chains, dim = state.shape
     assert n_chains >= 4 and n_chains % 2 == 0
 
     W = n_chains // 2
     g1, g2 = state[:W], state[W:]
+    if find_init_gamma and (bool(jnp.all(g1 == g1[0])) or
+                                 bool(jnp.all(g2 == g2[0]))):
+        raise ValueError("initial scale search requires at least two distinct walkers in each half; "
+                         "spread the initial ensemble or set find_init_gamma=False "
+                         "and supply a finite positive gamma")
     lp1, lp2 = log_prob_fn(g1), log_prob_fn(g2)
     key = jax.random.key(seed)
 
@@ -342,6 +369,8 @@ def sampler_ensemble_dr_side(
         key, k_ = jax.random.split(key)
         gamma_scale0, *_ = jax.lax.while_loop(_find_cond, _find_body,
                                                (gamma_scale0, 0, 0, k_))
+        if not (0.0 < float(gamma_scale0) < float("inf")):
+            raise ValueError("initial scale search failed: check that the initial ensemble and target are finite and nondegenerate, or disable the search and supply a finite positive scale")
         if verbose:
             print(f"DR Side:  init_gamma={float(gamma_scale0 * jnp.sqrt(dim)):.4f}")
 

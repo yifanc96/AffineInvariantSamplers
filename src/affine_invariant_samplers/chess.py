@@ -109,7 +109,8 @@ def _chees_init(eps, L):
 
 def _chees_update(state, log_alpha, pos_cur, pos_pro, vel,
                   lr=0.025, beta1=0., beta2=0.95, reg=1e-7,
-                  T_min=0.25, T_max=10., T_interp=0.9):
+                  T_min=0.25, T_max=10., T_interp=0.9,
+                  jitter=0.6, trajectory_time=None):
     """
     ChEES gradient signal (euclidean metric):
       g = t_n * diff_sq * inner
@@ -117,31 +118,57 @@ def _chees_update(state, log_alpha, pos_cur, pos_pro, vel,
       inner   = c_pro^T vel                    (alignment with velocity)
     """
     alpha = jnp.clip(jnp.exp(log_alpha), 0., 1.)
+    alpha = jnp.where(jnp.isfinite(alpha), alpha, 0.)
     c_cur = pos_cur - jnp.mean(pos_cur, axis=0)
     c_pro = pos_pro - jnp.mean(pos_pro, axis=0)
 
     diff_sq = jnp.sum(c_pro**2, 1) - jnp.sum(c_cur**2, 1)
     inner   = jnp.sum(c_pro * vel, 1)
 
-    g_m = state.halton * jnp.exp(state.log_T) * diff_sq * inner
+    # The continuous-flow gradient surrogate uses the integration time.
+    # Sampler callers provide eps * L so rounding and the step cap are reflected.
+    if trajectory_time is None:
+        trajectory_time = ((1 - jitter) + jitter * state.halton) * jnp.exp(state.log_T)
+    g_m = trajectory_time * diff_sq * inner
     g_m = jnp.where((alpha > 1e-4) & jnp.isfinite(g_m), g_m, 0.)
     g   = jnp.sum(alpha * g_m) / (jnp.sum(alpha) + reg)
+    # A finite weighted mean can overflow when its numerator is summed first.
+    normalized_g = jnp.sum((alpha / (jnp.sum(alpha) + reg)) * g_m)
+    g = jnp.where(jnp.isfinite(g), g, normalized_g)
+    g = jnp.where(jnp.isfinite(g), g, 0.)
+    # Keep Adam's square representable. This affects only extreme signals that
+    # otherwise poison v with infinity and later turn Inf/Inf into NaN.
+    gradient_limit = .5 * jnp.sqrt(jnp.finfo(pos_cur.dtype).max)
+    g = jnp.clip(g, -gradient_limit, gradient_limit)
 
     it = state.iteration + 1
-    m  = beta1 * state.m + (1 - beta1) * g
-    v  = beta2 * state.v + (1 - beta2) * g**2
+    previous_m = jnp.where(jnp.isfinite(state.m), state.m, 0.)
+    previous_v = jnp.where(jnp.isfinite(state.v), state.v, 0.)
+    m  = beta1 * previous_m + (1 - beta1) * g
+    v  = beta2 * previous_v + (1 - beta2) * g**2
     delta = lr * (m / (1 - beta1**it)) / jnp.sqrt(v / (1 - beta2**it) + reg)
+    delta = jnp.nan_to_num(delta, nan=0., posinf=.35, neginf=-.35)
     delta = jnp.clip(delta, -0.35, 0.35)       # per-step clip (TFP/BlackJAX)
-    log_T = jnp.clip(state.log_T + delta, jnp.log(T_min), jnp.log(T_max))
-    log_Tb = jnp.logaddexp(jnp.log(T_interp) + state.log_T_bar,
+    previous_log_T = jnp.nan_to_num(state.log_T, nan=jnp.log(T_min),
+                                    posinf=jnp.log(T_max), neginf=jnp.log(T_min))
+    previous_log_T_bar = jnp.nan_to_num(state.log_T_bar, nan=previous_log_T,
+                                        posinf=jnp.log(T_max), neginf=jnp.log(T_min))
+    log_T = jnp.clip(previous_log_T + delta, jnp.log(T_min), jnp.log(T_max))
+    log_Tb = jnp.logaddexp(jnp.log(T_interp) + previous_log_T_bar,
                             jnp.log(1 - T_interp) + log_T)
     log_Tb = jnp.clip(log_Tb, jnp.log(T_min), jnp.log(T_max))
     return ChEESState(log_T, log_Tb, m, v, it, _halton(it))
 
+def _safe_trajectory_L(time, eps, max_L):
+    """Bound the floating step count before converting it to an integer."""
+    steps = jnp.nan_to_num(jnp.ceil(time / eps), nan=1., posinf=max_L, neginf=1.)
+    return jnp.clip(steps, 1, max_L).astype(int)
+
+
 def _chees_L(state, eps, jitter=0.6, bar=False, max_L=100):
     T = jnp.exp(state.log_T_bar if bar else state.log_T)
     T = (1 - jitter) * T + jitter * state.halton * T
-    return jnp.clip(jnp.ceil(T / eps), 1, max_L).astype(int)
+    return _safe_trajectory_L(T, eps, max_L)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -201,11 +228,11 @@ def sampler_chess(
         warmup           : Warmup iterations.
         step_size        : Initial step size (adapted during warmup).
         L                : Initial leapfrog steps (adapted during warmup).
-        max_L            : Maximum leapfrog steps (default 100).
+        max_L            : Maximum leapfrog steps (default 20).
         thin_by          : Keep every thin_by-th sample.
         target_accept    : Target acceptance rate for dual averaging.
         grad_log_prob_fn : Vectorised gradient (batch,D)->(batch,D).
-                           If None, uses jax.vmap(jax.grad(log_prob_fn)).
+                           If None, uses JAX autodiff on each batched point.
         find_init_step_size : If True (default), run a short heuristic search at
                               the initial positions to scale `step_size` to
                               ~80% acceptance before warmup.
@@ -219,9 +246,18 @@ def sampler_chess(
 
     Returns:
         samples : (num_samples, n_chains, D)
-        info    : dict(acceptance_rate, final_step_size, final_L)
+        info    : dict(acceptance_rate, final_step_size, nominal_L, mean_L,
+                       n_grad_evals)
+        n_grad_evals counts production gradient evaluations only.
     """
-    state    = jnp.asarray(initial_state)
+    if not (0.0 < float(step_size) < float("inf")):
+        raise ValueError("step_size must be finite and strictly positive")
+
+    # Match momentum/noise precision, including with integer or float32 starts.
+    state = jnp.asarray(initial_state, dtype=jnp.float64
+                        if jax.config.jax_enable_x64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(state))):
+        raise ValueError("initial_state must contain only finite values")
     n_chains, dim = state.shape
     assert 1 <= L <= max_L, f"Need 1 <= L <= max_L (got L={L}, max_L={max_L})"
 
@@ -237,6 +273,8 @@ def sampler_chess(
     if find_init_step_size:
         key, k = jax.random.split(key)
         step_size = _find_init_eps(k, state, log_prob_fn, _grad_U, step_size)
+        if not (0.0 < float(step_size) < float("inf")):
+            raise ValueError("initial scale search failed: check that the initial ensemble and target are finite and nondegenerate, or disable the search and supply a finite positive scale")
     step_size = jnp.asarray(step_size)
     if verbose:
         print(f"metric=euclidean  init_eps={float(step_size):.4f}"
@@ -264,7 +302,8 @@ def sampler_chess(
         if adapt_step_size:
             da = _da_update(da, la, log_eps0, target_accept)
         if adapt_L:
-            ch = _chees_update(ch, la, positions, proposed, vel)
+            ch = _chees_update(ch, la, positions, proposed, vel,
+                                 trajectory_time=eps * cur_L)
         positions, accept = _mh(positions, proposed, la, ka)
         lp = jnp.where(accept, lp_new, lp)
 
@@ -302,27 +341,29 @@ def sampler_chess(
             h = _halton(halton_offset + step_i)
             T = jnp.exp(final_log_T)
             T_jit = (1 - jitter) * T + jitter * h * T
-            Lc = jnp.clip(jnp.ceil(T_jit / final_eps), 1, max_L).astype(int)
+            Lc = _safe_trajectory_L(T_jit, final_eps, max_L)
         else:
             Lc = fixed_L
         proposed, la, _, lp_new = _hmc_move(
             positions, final_eps, k1, log_prob_fn, _grad_U, Lc, lp)
         positions, accept = _mh(positions, proposed, la, ka)
         lp = jnp.where(accept, lp_new, lp)
-        return (positions, lp, step_i + 1), (positions, accept.astype(float))
+        return (positions, lp, step_i + 1), (positions, accept.astype(float), Lc)
 
     key, k  = jax.random.split(key)
     flat    = jax.random.split(k, num_samples * thin_by * 2)
     skeys   = flat.reshape(num_samples * thin_by, 2, *flat.shape[1:])
-    (state, lp, _), (all_states, all_acc) = jax.lax.scan(
+    (state, lp, _), (all_states, all_acc, all_L) = jax.lax.scan(
         _step, (state, lp, jnp.int32(0)), skeys)
 
     samples = all_states[::thin_by]
-    N, D = initial_state.shape
+    # Each uncached production trajectory evaluates gradients L + 1 times.
+    n_grad_evals = (int(jnp.sum(all_L)) + num_samples * thin_by) * int(n_chains)
     info = dict(acceptance_rate=float(jnp.mean(all_acc)),
                 final_step_size=float(final_eps),
                 nominal_L=int(nominal_L),
-                n_grad_evals=int((warmup + num_samples * thin_by) * N * int(nominal_L)))
+                mean_L=float(jnp.mean(all_L)),
+                n_grad_evals=n_grad_evals)
     if verbose:
         print(f"Done.  accept={info['acceptance_rate']:.3f}")
     return samples, info

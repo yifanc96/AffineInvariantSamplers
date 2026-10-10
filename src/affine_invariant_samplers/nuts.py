@@ -102,8 +102,8 @@ def _build_nuts_tree(z0, log_prob_single, grad_U_single, eps, key,
     tree0 = _TreeState(
         z_left=z0, r_left=r0, z_right=z0, r_right=r0,
         z_prop=z0, lp_prop=lp0, depth=0,
-        log_weight=jnp.float32(0.), turning=False, diverging=False,
-        sum_accept=jnp.float32(0.), n_proposals=0,
+        log_weight=jnp.zeros_like(E0), turning=False, diverging=False,
+        sum_accept=jnp.zeros_like(E0), n_proposals=0,
     )
 
     # --- helpers closed over shared state ---
@@ -225,10 +225,10 @@ def _build_nuts_tree(z0, log_prob_single, grad_U_single, eps, key,
         init_tree = _TreeState(
             z_left=z_start, r_left=r_start,
             z_right=z_start, r_right=r_start,
-            z_prop=z_start, lp_prop=jnp.float32(-jnp.inf),
-            depth=0, log_weight=jnp.float32(-jnp.inf),
+            z_prop=z_start, lp_prop=jnp.full_like(lp0, -jnp.inf),
+            depth=0, log_weight=jnp.full_like(E0, -jnp.inf),
             turning=False, diverging=False,
-            sum_accept=jnp.float32(0.), n_proposals=0,
+            sum_accept=jnp.zeros_like(E0), n_proposals=0,
         )
         tree, turn, z_ck, r_ck, _, _ = jax.lax.while_loop(
             cond, body,
@@ -407,7 +407,7 @@ def sampler_nuts(
         target_accept    : Target acceptance rate for dual averaging.
         max_delta_energy : Energy threshold for divergence detection.
         grad_log_prob_fn : Vectorised gradient (batch,D)->(batch,D).
-                           If None, uses jax.vmap(jax.grad(log_prob_fn)).
+                           If None, uses JAX autodiff on each batched point.
         find_init_step_size : If True (default), run a short heuristic search at
                               the initial positions to scale `step_size` to
                               ~80% acceptance before warmup.
@@ -423,7 +423,14 @@ def sampler_nuts(
         samples : (num_samples, n_chains, D)
         info    : dict(acceptance_rate, final_step_size, mean_tree_depth)
     """
-    state    = jnp.asarray(initial_state)
+    if not (0.0 < float(step_size) < float("inf")):
+        raise ValueError("step_size must be finite and strictly positive")
+
+    # Match momentum/noise precision, including with integer or float32 starts.
+    state = jnp.asarray(initial_state, dtype=jnp.float64
+                        if jax.config.jax_enable_x64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(state))):
+        raise ValueError("initial_state must contain only finite values")
     n_chains, dim = state.shape
     assert sampling in ("progressive", "multinomial"), \
         f"sampling must be 'progressive' or 'multinomial', got '{sampling}'"
@@ -442,6 +449,8 @@ def sampler_nuts(
     if find_init_step_size:
         key, k = jax.random.split(key)
         step_size = _find_init_eps(k, state, log_prob_fn, _grad_U, step_size)
+        if not (0.0 < float(step_size) < float("inf")):
+            raise ValueError("initial scale search failed: check that the initial ensemble and target are finite and nondegenerate, or disable the search and supply a finite positive scale")
     step_size = jnp.asarray(step_size)
     if verbose:
         print(f"sampling={sampling}  max_depth={max_tree_depth}"

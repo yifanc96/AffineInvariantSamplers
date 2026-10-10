@@ -244,7 +244,8 @@ def autocorrelation_plot(samples, max_lag=None, labels=None, figsize=None, fig=N
 
     Args:
         samples : (N,) or (N, D) or (N, n_chains, D).
-        max_lag : Maximum lag to plot (default min(N // 3, 500)).
+        max_lag : Number of lags including zero, capped at N. Default:
+                  max(1, min(N // 3, 500)).
         labels  : Optional list of parameter names.
         figsize : Default (7, 4).
         fig     : Optional pre-existing Figure.
@@ -259,7 +260,7 @@ def autocorrelation_plot(samples, max_lag=None, labels=None, figsize=None, fig=N
         arr = arr[:, None]                     # treat as (N, D=1)
     if max_lag is None:
         N = arr.shape[0]
-        max_lag = min(N // 3, 500)
+        max_lag = max(1, min(N // 3, 500))
     acf = autocorrelation(samples, max_lag=max_lag)
     D = acf.shape[1]
 
@@ -269,14 +270,14 @@ def autocorrelation_plot(samples, max_lag=None, labels=None, figsize=None, fig=N
     else:
         ax = fig.add_subplot(1, 1, 1)
 
-    lags = np.arange(max_lag)
+    lags = np.arange(acf.shape[0])
     for d in range(D):
         ax.plot(lags, acf[:, d], linewidth=1.1,
                 label=labels[d] if labels else f"x_{d}")
     ax.axhline(0.0, color="k", linewidth=0.6, alpha=0.5)
     ax.set_xlabel("lag")
     ax.set_ylabel("autocorrelation")
-    ax.set_xlim(0, max_lag - 1)
+    ax.set_xlim(0, max(1, acf.shape[0] - 1))
     if D <= 20:
         ax.legend(fontsize=8, loc="upper right", frameon=False)
     return fig

@@ -20,6 +20,8 @@ Adaptation (warmup only, toggleable):
 Reference: Robnik, Cohn-Gordon & Seljak, arXiv:2503.01707
 """
 
+import math
+
 import jax
 import jax.numpy as jnp
 from typing import NamedTuple
@@ -100,7 +102,7 @@ def _mams_trajectory(x, u, grad_L, L_x, L_fn, grad_L_fn, eps, n_steps, d,
         u = _o_step(u, k2, d, c1)
         return (x, u, g, W_k, key)
 
-    W_k = jnp.float32(0.)
+    W_k = jnp.zeros_like(L_x)
     x, u, grad_new, W_k, _ = jax.lax.fori_loop(
         0, n_steps, one_step, (x, u, grad_L, W_k, key))
 
@@ -150,7 +152,7 @@ def _mams_step(state, L_fn, grad_L_fn, eps, n_steps, d, key, c1=1.0):
     grad_out = jnp.where(accept[:, None], grad_new, grad_L)
     L_out    = jnp.where(accept, L_new, L_x)
 
-    return (x_out, grad_out, L_out), accept, x_new, u, log_alpha
+    return (x_out, grad_out, L_out), accept, x_new, u_end, log_alpha
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -190,7 +192,8 @@ def _chees_init(eps, L):
 
 def _chees_update(state, log_alpha, pos_cur, pos_pro, vel, metric="euclidean",
                   lr=0.025, beta1=0., beta2=0.95, reg=1e-7,
-                  T_min=0.25, T_max=10., T_interp=0.9):
+                  T_min=0.25, T_max=10., T_interp=0.9,
+                  jitter=0.6, trajectory_time=None):
     """ChEES gradient for vanilla (non-ensemble) MAMS.
 
     pos_cur, pos_pro : (n_chains, D)
@@ -199,6 +202,7 @@ def _chees_update(state, log_alpha, pos_cur, pos_pro, vel, metric="euclidean",
     metric           : "affine-invariant" or "euclidean"
     """
     alpha = jnp.clip(jnp.exp(log_alpha), 0., 1.)
+    alpha = jnp.where(jnp.isfinite(alpha), alpha, 0.)
     c_cur = pos_cur - jnp.mean(pos_cur, axis=0)
     c_pro = pos_pro - jnp.mean(pos_pro, axis=0)
 
@@ -213,25 +217,50 @@ def _chees_update(state, log_alpha, pos_cur, pos_pro, vel, metric="euclidean",
         diff_sq = jnp.sum(c_pro**2, 1) - jnp.sum(c_cur**2, 1)
         inner   = jnp.sum(c_pro * vel, 1)
 
-    g_m = state.halton * jnp.exp(state.log_T) * diff_sq * inner
+    # The continuous-flow gradient surrogate uses the integration time.
+    # Sampler callers provide eps * L so rounding and the step cap are reflected.
+    if trajectory_time is None:
+        trajectory_time = ((1 - jitter) + jitter * state.halton) * jnp.exp(state.log_T)
+    g_m = trajectory_time * diff_sq * inner
     g_m = jnp.where((alpha > 1e-4) & jnp.isfinite(g_m), g_m, 0.)
     g   = jnp.sum(alpha * g_m) / (jnp.sum(alpha) + reg)
+    # A finite weighted mean can overflow when its numerator is summed first.
+    normalized_g = jnp.sum((alpha / (jnp.sum(alpha) + reg)) * g_m)
+    g = jnp.where(jnp.isfinite(g), g, normalized_g)
+    g = jnp.where(jnp.isfinite(g), g, 0.)
+    # Keep Adam's square representable. This affects only extreme signals that
+    # otherwise poison v with infinity and later turn Inf/Inf into NaN.
+    gradient_limit = .5 * jnp.sqrt(jnp.finfo(pos_cur.dtype).max)
+    g = jnp.clip(g, -gradient_limit, gradient_limit)
 
     it = state.iteration + 1
-    m  = beta1 * state.m + (1 - beta1) * g
-    v  = beta2 * state.v + (1 - beta2) * g**2
+    previous_m = jnp.where(jnp.isfinite(state.m), state.m, 0.)
+    previous_v = jnp.where(jnp.isfinite(state.v), state.v, 0.)
+    m  = beta1 * previous_m + (1 - beta1) * g
+    v  = beta2 * previous_v + (1 - beta2) * g**2
     delta = lr * (m / (1 - beta1**it)) / jnp.sqrt(v / (1 - beta2**it) + reg)
+    delta = jnp.nan_to_num(delta, nan=0., posinf=.35, neginf=-.35)
     delta = jnp.clip(delta, -0.35, 0.35)
-    log_T = jnp.clip(state.log_T + delta, jnp.log(T_min), jnp.log(T_max))
-    log_Tb = jnp.logaddexp(jnp.log(T_interp) + state.log_T_bar,
+    previous_log_T = jnp.nan_to_num(state.log_T, nan=jnp.log(T_min),
+                                    posinf=jnp.log(T_max), neginf=jnp.log(T_min))
+    previous_log_T_bar = jnp.nan_to_num(state.log_T_bar, nan=previous_log_T,
+                                        posinf=jnp.log(T_max), neginf=jnp.log(T_min))
+    log_T = jnp.clip(previous_log_T + delta, jnp.log(T_min), jnp.log(T_max))
+    log_Tb = jnp.logaddexp(jnp.log(T_interp) + previous_log_T_bar,
                             jnp.log(1 - T_interp) + log_T)
     log_Tb = jnp.clip(log_Tb, jnp.log(T_min), jnp.log(T_max))
     return ChEESState(log_T, log_Tb, m, v, it, _halton(it))
 
+def _safe_trajectory_L(time, eps, max_L):
+    """Bound the floating step count before converting it to an integer."""
+    steps = jnp.nan_to_num(jnp.ceil(time / eps), nan=1., posinf=max_L, neginf=1.)
+    return jnp.clip(steps, 1, max_L).astype(int)
+
+
 def _chees_L(state, eps, jitter=0.6, bar=False, max_L=100):
     T = jnp.exp(state.log_T_bar if bar else state.log_T)
     T = (1 - jitter) * T + jitter * state.halton * T
-    return jnp.clip(jnp.ceil(T / eps), 1, max_L).astype(int)
+    return _safe_trajectory_L(T, eps, max_L)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -347,11 +376,12 @@ def sampler_mams(
         thin_by          : Keep every thin_by-th sample.
         target_accept    : Target acceptance rate (default 0.65).
         jitter           : Halton jitter fraction for trajectory length (default 0.6).
-        max_L            : Maximum trajectory length (default 100).
+        max_L            : Maximum leapfrog steps in every tuning mode (default 20).
         chees_metric     : "affine-invariant" (default) or "euclidean".
         langevin         : Ratio L_partial / (L * eps) for OBABO partial refreshment.
                            None (default) → deterministic BAB integrator.
-                           A positive float → OBABO with c1 = exp(-1 / (langevin * L)).
+                           A nonnegative float → OBABO; 0 gives full velocity refreshment,
+                           otherwise c1 = exp(-1 / (langevin * L)).
                            Paper recommends ~1.25.
         grad_log_prob_fn : (D,) -> (D,).  Gradient of log density.
                            If None, uses jax.grad(log_prob_fn).
@@ -369,14 +399,33 @@ def sampler_mams(
         samples : (num_samples, n_chains, D)
         info    : dict(acceptance_rate, final_step_size, L)
     """
-    state = jnp.asarray(initial_state)
+    if not (0.0 < float(step_size) < float("inf")):
+        raise ValueError("step_size must be finite and strictly positive")
+
+    if langevin is not None and (not math.isfinite(langevin) or langevin < 0):
+        raise ValueError("langevin must be finite and nonnegative, or None")
+    if chees_metric not in ("affine-invariant", "euclidean"):
+        raise ValueError("chees_metric must be 'affine-invariant' or 'euclidean'")
+    if tune not in ("chees", "tau"):
+        raise ValueError("tune must be 'chees' or 'tau'")
+    if not math.isfinite(float(jitter)) or not 0 <= jitter <= 1:
+        raise ValueError("jitter must be finite and between 0 and 1")
+    if max_L < 1:
+        raise ValueError("max_L must be at least 1")
+    # Match momentum/noise precision, including with integer or float32 starts.
+    state = jnp.asarray(initial_state, dtype=jnp.float64
+                        if jax.config.jax_enable_x64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(state))):
+        raise ValueError("initial_state must contain only finite values")
     n_chains, dim = state.shape
     assert dim >= 2, "MAMS requires dimension >= 2"
     _metric = chees_metric
 
     tune_L = (L == "auto")
     if tune_L:
-        L = max(1, int(jnp.ceil(jnp.sqrt(dim))))
+        L = min(max_L, max(1, int(jnp.ceil(jnp.sqrt(dim)))))
+    elif not 1 <= L <= max_L:
+        raise ValueError(f"Need 1 <= L <= max_L (got L={L}, max_L={max_L})")
 
     L_fn = lambda x: -log_prob_fn(x)
     if grad_log_prob_fn is None:
@@ -396,12 +445,16 @@ def sampler_mams(
     if find_init_step_size:
         key, k = jax.random.split(key)
         step_size = _find_init_eps(k, state, L_fn, grad_L_fn, step_size, dim, L)
+        if not (0.0 < float(step_size) < float("inf")):
+            raise ValueError("initial scale search failed: check that the initial ensemble and target are finite and nondegenerate, or disable the search and supply a finite positive scale")
 
     # --- compute c1 for OBABO ---
     # c1 = exp(-eps / L_partial) = exp(-eps / (langevin * L * eps)) = exp(-1 / (langevin * L))
     _use_langevin = langevin is not None
     def _c1_from_L(cur_L):
         if _use_langevin:
+            if langevin == 0:
+                return 0.0  # Zero partial-refresh time gives a full refresh.
             return jnp.exp(-1. / (langevin * cur_L))
         return 1.0
 
@@ -433,7 +486,8 @@ def sampler_mams(
             acc_rate = jnp.mean(accept.astype(float))
             if adapt_step_size:
                 da = _da_update(da, acc_rate, log_eps_anchor, target_accept)
-            ch  = _chees_update(ch, log_alpha, mams_state[0], x_pro, vel, _metric)
+            ch  = _chees_update(ch, log_alpha, mams_state[0], x_pro, vel, _metric, jitter=jitter,
+                                 trajectory_time=eps * cur_L)
             return new_state, da, ch, acc_rate
 
         key, k = jax.random.split(key)
@@ -460,7 +514,7 @@ def sampler_mams(
             total_acc += acc
 
         final_eps = jnp.exp(da.log_eps_bar) if adapt_step_size else step_size
-        final_L   = int(_chees_L(ch, final_eps, bar=True, max_L=max_L))
+        final_L   = int(_chees_L(ch, final_eps, jitter=jitter, bar=True, max_L=max_L))
         if verbose:
             print(f"Warmup done.  eps={float(final_eps):.4f}  L={final_L}"
                   f"  accept={float(total_acc)/max(warmup,1):.3f}")
@@ -515,7 +569,7 @@ def sampler_mams(
                 _tune_step, mams_state, tkeys)
 
             tau = _estimate_tau(tune_q)
-            L_new = max(1, int(round(0.3 * L * tau)))
+            L_new = min(max_L, max(1, int(round(0.3 * L * tau))))
             if verbose:
                 print(f"Stage 2 done.  tau_int={tau:.2f}"
                       f"  L: {L} -> {L_new}"
@@ -550,7 +604,7 @@ def sampler_mams(
             h = _halton(halton_offset + step_i)
             T = jnp.exp(final_log_T)
             T_jit = (1 - jitter) * T + jitter * h * T
-            cur_L = jnp.clip(jnp.ceil(T_jit / final_eps), 1, max_L).astype(int)
+            cur_L = _safe_trajectory_L(T_jit, final_eps, max_L)
             cur_c1 = _c1_from_L(cur_L)
             new_state, accept, _, _, _ = _mams_step(
                 mams_state, L_fn, grad_L_fn, final_eps, cur_L, dim, key, cur_c1)
@@ -562,7 +616,7 @@ def sampler_mams(
             mams_state, step_i = carry
             h = _halton(step_i + 1)
             L_jit = jnp.clip(
-                jnp.ceil(((1 - jitter) + jitter * h) * final_L), 1, 2 * final_L
+                jnp.ceil(((1 - jitter) + jitter * h) * final_L), 1, max_L
             ).astype(int)
             cur_c1 = _c1_from_L(L_jit)
             new_state, accept, _, _, _ = _mams_step(
