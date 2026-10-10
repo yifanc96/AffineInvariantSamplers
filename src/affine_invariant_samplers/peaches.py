@@ -169,7 +169,13 @@ def _chees_update(state, log_alpha, pos_cur, pos_pro, vel, complement, aux, metr
     c_pro = pos_pro - jnp.mean(pos_pro, axis=0)
 
     if metric == "affine-invariant":
-        cov  = jnp.atleast_2d(jnp.cov(complement, rowvar=False))
+        # Centered half-ensemble covariance has rank at most W-1.
+        # Use current full-ensemble points only when they can span the dimension.
+        use_full_metric = (complement.shape[0] <= pos_cur.shape[1]
+                           and pos_cur.shape[0] + complement.shape[0] > pos_cur.shape[1])
+        metric_points = (jnp.concatenate([pos_cur, complement], axis=0)
+                         if use_full_metric else complement)
+        cov  = jnp.atleast_2d(jnp.cov(metric_points, rowvar=False))
         W    = c_cur.shape[0]
         sol  = jnp.linalg.solve(cov, jnp.concatenate([c_cur.T, c_pro.T], axis=1))
         Sc   = sol[:, :W].T;   Sp = sol[:, W:].T    # Sigma^{-1} c_cur, c_pro

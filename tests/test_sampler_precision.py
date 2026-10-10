@@ -53,4 +53,3 @@ def test_numeric_initial_arrays_do_not_change_scan_carry_type(name, input_dtype)
         assert samples.dtype == expected_dtype
     finally:
         jax.config.update("jax_enable_x64", previous)
-

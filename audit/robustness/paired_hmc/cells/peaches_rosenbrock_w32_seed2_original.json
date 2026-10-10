@@ -1,0 +1,92 @@
+{
+  "version": "original",
+  "target": "rosenbrock",
+  "dim": 2,
+  "walkers": 32,
+  "seed": 2,
+  "sampler": "peaches",
+  "settings": {
+    "num_samples": 1500,
+    "warmup": 1000,
+    "move": "h-walk",
+    "step_size": 0.05,
+    "L": 5,
+    "max_L": 256,
+    "thin_by": 1,
+    "target_accept": 0.8,
+    "chees_metric": "affine-invariant",
+    "grad_log_prob_fn": null,
+    "find_init_step_size": true,
+    "adapt_step_size": true,
+    "adapt_L": true,
+    "seed": 2,
+    "verbose": false
+  },
+  "source": "/tmp/hmc-jitter-original/astro/src",
+  "source_sha256": "e4549dce07061ae564b0384f18bc579db2dc0413f6bdb23080208e63eff9852d",
+  "initial_sha256": "812804a0d1277adbeea10d3adb51a72e2cc21537931f1580b84ffe9a5edf119c",
+  "warm_start_requested": 100,
+  "preparation_iterations": 200,
+  "target_metadata": {
+    "name": "rosenbrock",
+    "dim": 2,
+    "n_pairs": 1,
+    "param_names": [
+      "q0",
+      "q1"
+    ]
+  },
+  "jax_version": "0.9.2",
+  "device": "TFRT_CPU_0",
+  "wall_s": 4.166840884834528,
+  "n_grad_evals_prod": 766528,
+  "info": {
+    "acceptance_rate": 0.9220416666666666,
+    "final_step_size": 0.0638826305255632,
+    "nominal_L": 16,
+    "mean_L": 14.969333333333333,
+    "n_grad_evals": 766528
+  },
+  "metrics": {
+    "ess_bulk_min": 1734.5686159520083,
+    "ess_bulk_median": 1848.5684512807197,
+    "iat_max": 27.672586462459122,
+    "iat_median": 26.065167081760816,
+    "mean_err_sigma_max": 0.0284633640664479,
+    "mean_err_sigma_mean": 0.021696295608456997,
+    "std_rel_err_max": 0.07291010499164804,
+    "bias_z_max": 1.2697385220539523,
+    "bias_z_median": 0.991564958823453,
+    "rhat_max": 1.0264175360789842,
+    "split_ess_ratio_med": 0.31059663419384503,
+    "ess_method": "ensemble",
+    "ess_ensemble_method": "ensemble_mean_sokal_iat_clamped_at_one",
+    "ess_ensemble_mean_min": 1734.5686159520083,
+    "ess_ensemble_second_moment_min": 1820.5040044826437,
+    "second_moment_rel_err_max": 0.08880995615584035,
+    "unestimable_mean_dimensions": [],
+    "unestimable_second_moment_dimensions": [],
+    "diagnostic_caveat": "Within-ensemble walkers are dependent; rank ESS/R-hat do not certify convergence.",
+    "ess_per_grad": 0.0022628900913626224
+  },
+  "mean": [
+    1.0201266377467668,
+    1.4763712258593027
+  ],
+  "std": [
+    0.6601652748772766,
+    1.4673229576114541
+  ],
+  "second_moment": [
+    1.476476547194331,
+    4.332708658478978
+  ],
+  "truth_mean": [
+    1.0,
+    1.5
+  ],
+  "truth_std": [
+    0.7071067811865476,
+    1.5827191791344413
+  ]
+}

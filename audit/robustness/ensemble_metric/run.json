@@ -1,0 +1,73 @@
+{
+  "recorded_utc": "2026-10-10T01:17:50.600807+00:00",
+  "packaged_in_branch": "main",
+  "packaged_at_revision": "d0aa5a359f3ec24926b6a18dd761ddbbd5a84e9a",
+  "source_snapshot_origin": "main worktree before conditional fallback; immutable references",
+  "Gaussian_protocol": {
+    "dimensions": [
+      32,
+      64
+    ],
+    "seeds": [
+      0,
+      1
+    ],
+    "walker_sizes": [
+      "2D",
+      "2D+2",
+      "2D+4",
+      "4D"
+    ],
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "max_L": 20,
+    "target_accept": 0.651,
+    "initial": "normal(key(42+seed),(4D,D))[:N]",
+    "baseline_cells": 16,
+    "full_N2D_cells": 4
+  },
+  "proposal_status": "isolated; public source/tests not edited",
+  "file_sha256": {
+    "REPORT.txt": "5205480669971f49afc6f4dc0d53f0a963af73012e4a3cdcb4d785bb72a044f4",
+    "benchmark_gaussian.py": "0f686e3332de3b250f68e1c39878e11a8ea0c67557c56b71ef93ef23575dfc9b",
+    "conditional_fallback.patch": "13d05c71ce37319b0183431d2fe38bd2a13864d885e9ab460eaaa66ab3d25041",
+    "full_metric_peaches.py": "485f97125b7330743bc9d3a869d2c3ef7502b8490b17c5910fcb05bbd26f9c0d",
+    "proposal/peaches.py": "31b64edfe7999c96921c963b429f71ac825645ae5066c7f0c2993337a83fb58b",
+    "proposal/peams.py": "5d360acac3e250e6e942206cca1bae439b541d63aca60191f51a1d62b38479ae",
+    "proposal/pickles.py": "70ed3415fb41296d96e0ab8e6298a5026dab224517a77f539d77f65ca965eb81",
+    "reference/peaches.py": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "reference/peams.py": "fa3863ec75e5e0d0411d667a7f3b63a4bf80d53cec81e56865511d6a215d9f7a",
+    "reference/pickles.py": "cc7a167367b014e0d365ee4f248564f4952682bf1e5e2677f7069b7a8c3cad6d",
+    "regression_tests.patch": "cd99089af06384d25e9ea114025455ac3ed24e80a1a342859d38fce678176a9b",
+    "results.json": "65e30e901e6aeedcb3cac9cb1f5d1156536edf6bba221f592e5ea957c231af64",
+    "rosen_results.json": "b444477883177eae24c09f64385559389eb646b33f80884ffd75fe73b25e42dd",
+    "run_gaussian_grid.py": "474f8599f8bab7f6c95a1e8739551e042401d848ed294838cac701433c120b55",
+    "verify_proposal.py": "e970e6c0d3d48a96279e0afdbc089048d38feb9b3a2cbaa63bea8ce42aaf4420"
+  },
+  "Rosenbrock_protocol": {
+    "dimensions": [
+      2,
+      8
+    ],
+    "walkers": 64,
+    "seeds": [
+      0,
+      1
+    ],
+    "warmup": 750,
+    "production": 3000,
+    "precision": "float32",
+    "max_L": 20,
+    "target_accept": 0.651,
+    "log_prob": "-sum(100*(b-a**2)**2+(a-1)**2) for independent adjacent pairs",
+    "initial": "normal(key(42+seed),(64,D)); shared stretch warmup100 plus100 draws, same seed",
+    "paired_cells": 8,
+    "metric_variants": [
+      "complement",
+      "full-always"
+    ],
+    "narrow_fallback_affects_these_cells": false
+  },
+  "conditional_fallback_status": "Applied to maintained main and astro source and public tests; full-always metric remains isolated."
+}

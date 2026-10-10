@@ -54,4 +54,3 @@ def test_degenerate_ensemble_search_fails_with_actionable_error(name):
         getattr(samplers, name)(
             lambda x: -0.5 * jnp.sum(x*x, axis=-1), jnp.ones((4, 2)),
             num_samples=1, warmup=0, verbose=False)
-

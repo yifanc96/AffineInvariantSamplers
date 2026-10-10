@@ -1,0 +1,3222 @@
+[
+  {
+    "dim": 32,
+    "walkers": 128,
+    "seed": 0,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "8dccf0cdb17892be8fc4d562dac118e5dece618d00cce12613011251e453b45d",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7808594107627869,
+      "mean_acceptance_probability": 0.7815002202987671,
+      "mean_harmonic_acceptance_probability": 0.6583155989646912,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.6515396237373352,
+      "nominal_L": 6,
+      "mean_L": 5.634000301361084,
+      "n_grad_evals": 424576
+    },
+    "wall_seconds_including_jit": 5.181023065932095,
+    "mean_rms_error": 0.00336534633042049,
+    "variance_rms_error": 0.006323782062779023,
+    "variance_relative_error_max": 0.014574774770689691,
+    "coordinate_ensemble_mean_ess_min": 422.30850067708565,
+    "squared_coordinate_ensemble_mean_ess_min": 151.081304995642,
+    "observable_ess_min": 151.081304995642,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 45547.574614302684,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 32,
+        "condition": 19.71490724963249,
+        "min_eigenvalue": 0.13665984275777152
+      },
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 32,
+        "condition": 25.340105323502186,
+        "min_eigenvalue": 0.10959520237483353
+      },
+      {
+        "sample": 0,
+        "points": 128,
+        "rank": 32,
+        "condition": 6.818781086954016,
+        "min_eigenvalue": 0.318553364247191
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 32,
+        "condition": 17.086280531456865,
+        "min_eigenvalue": 0.13982841258530587
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 32,
+        "condition": 24.750372875062553,
+        "min_eigenvalue": 0.09835482290776809
+      },
+      {
+        "sample": 100,
+        "points": 128,
+        "rank": 32,
+        "condition": 7.334682980555213,
+        "min_eigenvalue": 0.25601340830641384
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 32,
+        "condition": 26.152347041304818,
+        "min_eigenvalue": 0.10639388885645702
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 32,
+        "condition": 19.870501075649308,
+        "min_eigenvalue": 0.13208094901361167
+      },
+      {
+        "sample": 200,
+        "points": 128,
+        "rank": 32,
+        "condition": 7.2143507148857875,
+        "min_eigenvalue": 0.2968374045794315
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 32,
+        "condition": 21.55112960711559,
+        "min_eigenvalue": 0.13681959796089047
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 32,
+        "condition": 27.900057761880962,
+        "min_eigenvalue": 0.1072071052113871
+      },
+      {
+        "sample": 300,
+        "points": 128,
+        "rank": 32,
+        "condition": 8.96747375829993,
+        "min_eigenvalue": 0.2592579663631127
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 32,
+        "condition": 22.617340982174756,
+        "min_eigenvalue": 0.127702222049492
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 32,
+        "condition": 24.91473856923005,
+        "min_eigenvalue": 0.11003364553941955
+      },
+      {
+        "sample": 400,
+        "points": 128,
+        "rank": 32,
+        "condition": 8.550811940900525,
+        "min_eigenvalue": 0.26443443942149825
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 32,
+        "condition": 26.701215788624438,
+        "min_eigenvalue": 0.09858741486184278
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 32,
+        "condition": 20.202849475619832,
+        "min_eigenvalue": 0.12578038836528282
+      },
+      {
+        "sample": 499,
+        "points": 128,
+        "rank": 32,
+        "condition": 7.172287019768847,
+        "min_eigenvalue": 0.2868148568688934
+      }
+    ]
+  },
+  {
+    "dim": 32,
+    "walkers": 128,
+    "seed": 1,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "9e5783402cc81ac64a7c5ff4422be08bfedd8f4dd1cd4d8b12168af9426feaf7",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7828125357627869,
+      "mean_acceptance_probability": 0.782416582107544,
+      "mean_harmonic_acceptance_probability": 0.6618384718894958,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.6466181874275208,
+      "nominal_L": 6,
+      "mean_L": 6.044000148773193,
+      "n_grad_evals": 450816
+    },
+    "wall_seconds_including_jit": 5.097111287526786,
+    "mean_rms_error": 0.003966953880852989,
+    "variance_rms_error": 0.009877286299976003,
+    "variance_relative_error_max": 0.020717942446648596,
+    "coordinate_ensemble_mean_ess_min": 299.74581745173987,
+    "squared_coordinate_ensemble_mean_ess_min": 170.4855748954617,
+    "observable_ess_min": 170.4855748954617,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 48405.89860745647,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 32,
+        "condition": 28.93207572668816,
+        "min_eigenvalue": 0.08983048056013258
+      },
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 32,
+        "condition": 30.317990337519277,
+        "min_eigenvalue": 0.08428251024066129
+      },
+      {
+        "sample": 0,
+        "points": 128,
+        "rank": 32,
+        "condition": 6.375135715560696,
+        "min_eigenvalue": 0.3264639956515853
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 32,
+        "condition": 24.16896526541782,
+        "min_eigenvalue": 0.11866511177442622
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 32,
+        "condition": 22.627844662834637,
+        "min_eigenvalue": 0.11543975977755272
+      },
+      {
+        "sample": 100,
+        "points": 128,
+        "rank": 32,
+        "condition": 7.0926096479431155,
+        "min_eigenvalue": 0.2998511777614244
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 32,
+        "condition": 35.7488754453214,
+        "min_eigenvalue": 0.07158136248747103
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 32,
+        "condition": 19.753259853246888,
+        "min_eigenvalue": 0.12644404657013816
+      },
+      {
+        "sample": 200,
+        "points": 128,
+        "rank": 32,
+        "condition": 8.212268247339962,
+        "min_eigenvalue": 0.24436356826633188
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 32,
+        "condition": 21.28486126736531,
+        "min_eigenvalue": 0.12911337388913144
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 32,
+        "condition": 22.049316340069442,
+        "min_eigenvalue": 0.12198614776363
+      },
+      {
+        "sample": 300,
+        "points": 128,
+        "rank": 32,
+        "condition": 8.758502428074321,
+        "min_eigenvalue": 0.2391123144780185
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 32,
+        "condition": 33.47848275096539,
+        "min_eigenvalue": 0.07678388675658471
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 32,
+        "condition": 30.365673555067595,
+        "min_eigenvalue": 0.09311272805440747
+      },
+      {
+        "sample": 400,
+        "points": 128,
+        "rank": 32,
+        "condition": 7.8048903582119,
+        "min_eigenvalue": 0.27713729361317635
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 32,
+        "condition": 48.118319320065154,
+        "min_eigenvalue": 0.05466276420927505
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 32,
+        "condition": 35.1894414818786,
+        "min_eigenvalue": 0.08122572653266524
+      },
+      {
+        "sample": 499,
+        "points": 128,
+        "rank": 32,
+        "condition": 9.116442512066428,
+        "min_eigenvalue": 0.2368253760405023
+      }
+    ]
+  },
+  {
+    "dim": 32,
+    "walkers": 64,
+    "seed": 0,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "17208c37e0c96d1ef225cd94643c2e22ea270aedd7e3389c348769eda5eba8cb",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.788187563419342,
+      "mean_acceptance_probability": 0.7898199558258057,
+      "mean_harmonic_acceptance_probability": 0.6728681921958923,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.5934118032455444,
+      "nominal_L": 13,
+      "mean_L": 12.292000770568848,
+      "n_grad_evals": 425344
+    },
+    "wall_seconds_including_jit": 4.366137040778995,
+    "mean_rms_error": 0.00668049191883931,
+    "variance_rms_error": 0.008245770236958386,
+    "variance_relative_error_max": 0.016978640494610397,
+    "coordinate_ensemble_mean_ess_min": 212.43143552464483,
+    "squared_coordinate_ensemble_mean_ess_min": 176.9553011342001,
+    "observable_ess_min": 176.9553011342001,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 26625.83525943426,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 32,
+        "rank": 31,
+        "condition": 1.2893311969026458e+16,
+        "min_eigenvalue": 3.119745970441185e-16
+      },
+      {
+        "sample": 0,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.4847138870662515e+300,
+        "min_eigenvalue": -2.2767756487427305e-16
+      },
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 32,
+        "condition": 30.908234274973754,
+        "min_eigenvalue": 0.09371093905766453
+      },
+      {
+        "sample": 100,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.374845797270837e+300,
+        "min_eigenvalue": -1.4059622587002468e-16
+      },
+      {
+        "sample": 100,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.765210084437315e+300,
+        "min_eigenvalue": -2.5002875251589364e-16
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 32,
+        "condition": 23.274176423459828,
+        "min_eigenvalue": 0.10538304946484112
+      },
+      {
+        "sample": 200,
+        "points": 32,
+        "rank": 31,
+        "condition": 6.716659473478777e+16,
+        "min_eigenvalue": 6.289826053394484e-17
+      },
+      {
+        "sample": 200,
+        "points": 32,
+        "rank": 31,
+        "condition": 1.5498053093203124e+16,
+        "min_eigenvalue": 2.347386732230677e-16
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 32,
+        "condition": 25.73738191425477,
+        "min_eigenvalue": 0.11381621435600614
+      },
+      {
+        "sample": 300,
+        "points": 32,
+        "rank": 31,
+        "condition": 1.6075079138556708e+16,
+        "min_eigenvalue": 2.67157317272746e-16
+      },
+      {
+        "sample": 300,
+        "points": 32,
+        "rank": 31,
+        "condition": 4.4993689599719656e+300,
+        "min_eigenvalue": -1.716235015549452e-16
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 32,
+        "condition": 33.41808842338145,
+        "min_eigenvalue": 0.09000516815832339
+      },
+      {
+        "sample": 400,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.4188711814429514e+300,
+        "min_eigenvalue": -2.4176993378302505e-17
+      },
+      {
+        "sample": 400,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.6980387251744836e+300,
+        "min_eigenvalue": -1.2037607158654538e-17
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 32,
+        "condition": 23.348608983424437,
+        "min_eigenvalue": 0.1230051034938763
+      },
+      {
+        "sample": 499,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.908354438547794e+300,
+        "min_eigenvalue": -1.5308414619511052e-16
+      },
+      {
+        "sample": 499,
+        "points": 32,
+        "rank": 31,
+        "condition": 4.015815573326748e+300,
+        "min_eigenvalue": -1.9021008782802333e-16
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 32,
+        "condition": 24.80954472550968,
+        "min_eigenvalue": 0.11460692006243133
+      }
+    ]
+  },
+  {
+    "dim": 32,
+    "walkers": 64,
+    "seed": 0,
+    "metric": "full",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "17208c37e0c96d1ef225cd94643c2e22ea270aedd7e3389c348769eda5eba8cb",
+    "source_sha256": "485f97125b7330743bc9d3a869d2c3ef7502b8490b17c5910fcb05bbd26f9c0d",
+    "source_path": "/tmp/full-ensemble-chees-proposal/full_metric_peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7810937762260437,
+      "mean_acceptance_probability": 0.7827534675598145,
+      "mean_harmonic_acceptance_probability": 0.6595893502235413,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.6022961735725403,
+      "nominal_L": 12,
+      "mean_L": 11.75200080871582,
+      "n_grad_evals": 408064
+    },
+    "wall_seconds_including_jit": 4.1212294567376375,
+    "mean_rms_error": 0.008279108296275282,
+    "variance_rms_error": 0.011651393200649826,
+    "variance_relative_error_max": 0.027581302988719525,
+    "coordinate_ensemble_mean_ess_min": 196.1370588518571,
+    "squared_coordinate_ensemble_mean_ess_min": 188.1900112869011,
+    "observable_ess_min": 188.1900112869011,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 29515.371908234174,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 32,
+        "rank": 31,
+        "condition": 4.764567942945951e+300,
+        "min_eigenvalue": -4.9324123335769955e-17
+      },
+      {
+        "sample": 0,
+        "points": 32,
+        "rank": 31,
+        "condition": 6.393794696310025e+16,
+        "min_eigenvalue": 5.4749284503121145e-17
+      },
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 32,
+        "condition": 38.39651527457588,
+        "min_eigenvalue": 0.07255898931066458
+      },
+      {
+        "sample": 100,
+        "points": 32,
+        "rank": 31,
+        "condition": 2.0746888568204284e+16,
+        "min_eigenvalue": 1.5753168030056127e-16
+      },
+      {
+        "sample": 100,
+        "points": 32,
+        "rank": 31,
+        "condition": 4.883341057731384e+16,
+        "min_eigenvalue": 8.470962389786536e-17
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 32,
+        "condition": 27.932675030693126,
+        "min_eigenvalue": 0.09393757851224216
+      },
+      {
+        "sample": 200,
+        "points": 32,
+        "rank": 31,
+        "condition": 4.24236786506237e+16,
+        "min_eigenvalue": 8.194472202788004e-17
+      },
+      {
+        "sample": 200,
+        "points": 32,
+        "rank": 31,
+        "condition": 7.0057527712669976e+16,
+        "min_eigenvalue": 5.707735331278835e-17
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 32,
+        "condition": 25.45935807891372,
+        "min_eigenvalue": 0.12368398319712928
+      },
+      {
+        "sample": 300,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.64752222366965e+300,
+        "min_eigenvalue": -1.4980659446725283e-17
+      },
+      {
+        "sample": 300,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.8571799325746894e+300,
+        "min_eigenvalue": -5.986558221574377e-17
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 32,
+        "condition": 25.95055089035758,
+        "min_eigenvalue": 0.10569624944580164
+      },
+      {
+        "sample": 400,
+        "points": 32,
+        "rank": 31,
+        "condition": 2.1897004469488582e+17,
+        "min_eigenvalue": 1.6723685518687218e-17
+      },
+      {
+        "sample": 400,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.767388756246863e+300,
+        "min_eigenvalue": -5.025708831771426e-16
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 32,
+        "condition": 28.5129788876213,
+        "min_eigenvalue": 0.09209965076141834
+      },
+      {
+        "sample": 499,
+        "points": 32,
+        "rank": 31,
+        "condition": 4.2595481488259016e+300,
+        "min_eigenvalue": -1.213226612774208e-18
+      },
+      {
+        "sample": 499,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.0467901585061612e+16,
+        "min_eigenvalue": 1.2952018925765797e-16
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 32,
+        "condition": 23.080451915346956,
+        "min_eigenvalue": 0.11758136659289566
+      }
+    ]
+  },
+  {
+    "dim": 32,
+    "walkers": 64,
+    "seed": 1,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "94b49ac434ccee3563c73e9a9e235ab657e02e371a61444a0bb3e46e7947b430",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7935312986373901,
+      "mean_acceptance_probability": 0.7916746735572815,
+      "mean_harmonic_acceptance_probability": 0.6778326630592346,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.5962344408035278,
+      "nominal_L": 12,
+      "mean_L": 11.804000854492188,
+      "n_grad_evals": 409728
+    },
+    "wall_seconds_including_jit": 4.506300995126367,
+    "mean_rms_error": 0.00638304035949231,
+    "variance_rms_error": 0.010130934431494815,
+    "variance_relative_error_max": 0.02493402112249654,
+    "coordinate_ensemble_mean_ess_min": 182.4791476070643,
+    "squared_coordinate_ensemble_mean_ess_min": 193.2959991846224,
+    "observable_ess_min": 182.4791476070643,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 28503.45948251551,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 32,
+        "rank": 31,
+        "condition": 1.26292748336377e+16,
+        "min_eigenvalue": 2.762637501847041e-16
+      },
+      {
+        "sample": 0,
+        "points": 32,
+        "rank": 31,
+        "condition": 1.5709039805144382e+16,
+        "min_eigenvalue": 2.236435036889185e-16
+      },
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 32,
+        "condition": 21.770691833638384,
+        "min_eigenvalue": 0.11795380981591455
+      },
+      {
+        "sample": 100,
+        "points": 32,
+        "rank": 31,
+        "condition": 4.447138668221504e+300,
+        "min_eigenvalue": -5.607838764259392e-17
+      },
+      {
+        "sample": 100,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.8099478650420745e+300,
+        "min_eigenvalue": -3.8546424384955334e-16
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 32,
+        "condition": 41.514222018227606,
+        "min_eigenvalue": 0.07456738021981928
+      },
+      {
+        "sample": 200,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.792100459843502e+300,
+        "min_eigenvalue": -5.800440620740896e-17
+      },
+      {
+        "sample": 200,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.5256326299545876e+300,
+        "min_eigenvalue": -5.160440194883145e-18
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 32,
+        "condition": 23.722903659645986,
+        "min_eigenvalue": 0.10905215218141351
+      },
+      {
+        "sample": 300,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.914246948826958e+300,
+        "min_eigenvalue": -4.579587027574746e-18
+      },
+      {
+        "sample": 300,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.372407715054542e+300,
+        "min_eigenvalue": -6.979645684606657e-17
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 32,
+        "condition": 36.981121709997204,
+        "min_eigenvalue": 0.07871410198183443
+      },
+      {
+        "sample": 400,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.679838876214485e+300,
+        "min_eigenvalue": -1.2430784838732005e-16
+      },
+      {
+        "sample": 400,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.485942246781016e+300,
+        "min_eigenvalue": -5.0469363861419874e-17
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 32,
+        "condition": 26.32941608594414,
+        "min_eigenvalue": 0.09304055759311772
+      },
+      {
+        "sample": 499,
+        "points": 32,
+        "rank": 31,
+        "condition": 2.020635461163185e+16,
+        "min_eigenvalue": 1.575018125711535e-16
+      },
+      {
+        "sample": 499,
+        "points": 32,
+        "rank": 31,
+        "condition": 9641316035440800.0,
+        "min_eigenvalue": 3.5573763005514155e-16
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 32,
+        "condition": 24.89831835459176,
+        "min_eigenvalue": 0.10363028395858861
+      }
+    ]
+  },
+  {
+    "dim": 32,
+    "walkers": 64,
+    "seed": 1,
+    "metric": "full",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "94b49ac434ccee3563c73e9a9e235ab657e02e371a61444a0bb3e46e7947b430",
+    "source_sha256": "485f97125b7330743bc9d3a869d2c3ef7502b8490b17c5910fcb05bbd26f9c0d",
+    "source_path": "/tmp/full-ensemble-chees-proposal/full_metric_peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7896562814712524,
+      "mean_acceptance_probability": 0.7878301739692688,
+      "mean_harmonic_acceptance_probability": 0.668260931968689,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.5964809060096741,
+      "nominal_L": 10,
+      "mean_L": 10.030000686645508,
+      "n_grad_evals": 352960
+    },
+    "wall_seconds_including_jit": 4.496157965622842,
+    "mean_rms_error": 0.008320743509662207,
+    "variance_rms_error": 0.011754678902268756,
+    "variance_relative_error_max": 0.026478154967034317,
+    "coordinate_ensemble_mean_ess_min": 192.53017928414332,
+    "squared_coordinate_ensemble_mean_ess_min": 169.7345919220592,
+    "observable_ess_min": 169.7345919220592,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 30776.897900645366,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.404495068884731e+16,
+        "min_eigenvalue": 1.088445045786622e-16
+      },
+      {
+        "sample": 0,
+        "points": 32,
+        "rank": 31,
+        "condition": 4.303077823009431e+300,
+        "min_eigenvalue": -2.3045723281128324e-16
+      },
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 32,
+        "condition": 28.556131414885847,
+        "min_eigenvalue": 0.10718451598319963
+      },
+      {
+        "sample": 100,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.8698214646187546e+300,
+        "min_eigenvalue": -5.493141655915369e-16
+      },
+      {
+        "sample": 100,
+        "points": 32,
+        "rank": 31,
+        "condition": 7174617683059352.0,
+        "min_eigenvalue": 5.438984901568258e-16
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 32,
+        "condition": 31.701109089621124,
+        "min_eigenvalue": 0.09194229323598267
+      },
+      {
+        "sample": 200,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.4253924734811197e+300,
+        "min_eigenvalue": -5.647841385491619e-17
+      },
+      {
+        "sample": 200,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.780282892435604e+300,
+        "min_eigenvalue": -7.771928863516664e-17
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 32,
+        "condition": 24.29594170854644,
+        "min_eigenvalue": 0.10028971291572329
+      },
+      {
+        "sample": 300,
+        "points": 32,
+        "rank": 31,
+        "condition": 2.3221576033428164e+16,
+        "min_eigenvalue": 1.6751685935912603e-16
+      },
+      {
+        "sample": 300,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.766793548907203e+300,
+        "min_eigenvalue": -1.3605554071820904e-16
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 32,
+        "condition": 27.968871925180554,
+        "min_eigenvalue": 0.09737279595493527
+      },
+      {
+        "sample": 400,
+        "points": 32,
+        "rank": 31,
+        "condition": 3.758346496956052e+300,
+        "min_eigenvalue": -7.452474692252207e-17
+      },
+      {
+        "sample": 400,
+        "points": 32,
+        "rank": 31,
+        "condition": 7748872490851906.0,
+        "min_eigenvalue": 4.341088611744053e-16
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 32,
+        "condition": 33.811930869457285,
+        "min_eigenvalue": 0.08218286965332043
+      },
+      {
+        "sample": 499,
+        "points": 32,
+        "rank": 31,
+        "condition": 4.616059016203135e+16,
+        "min_eigenvalue": 8.453178515849954e-17
+      },
+      {
+        "sample": 499,
+        "points": 32,
+        "rank": 31,
+        "condition": 2.522296529139511e+16,
+        "min_eigenvalue": 1.3637341173050875e-16
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 32,
+        "condition": 26.931732843153178,
+        "min_eigenvalue": 0.10417791244192968
+      }
+    ]
+  },
+  {
+    "dim": 32,
+    "walkers": 66,
+    "seed": 0,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "6f8caa6fca50ca3637631982b6c056d699d35f7778b5cf944d913adf54aa3c50",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7863333225250244,
+      "mean_acceptance_probability": 0.785946249961853,
+      "mean_harmonic_acceptance_probability": 0.6673307418823242,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.6006438732147217,
+      "nominal_L": 13,
+      "mean_L": 12.152000427246094,
+      "n_grad_evals": 434016
+    },
+    "wall_seconds_including_jit": 4.225507863797247,
+    "mean_rms_error": 0.00811383230663036,
+    "variance_rms_error": 0.01136027159690947,
+    "variance_relative_error_max": 0.024583881864367108,
+    "coordinate_ensemble_mean_ess_min": 178.1846869548557,
+    "squared_coordinate_ensemble_mean_ess_min": 202.05996305188773,
+    "observable_ess_min": 178.1846869548557,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 27096.21151989898,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 33,
+        "rank": 32,
+        "condition": 11757.34735456184,
+        "min_eigenvalue": 0.0003259990797275057
+      },
+      {
+        "sample": 0,
+        "points": 33,
+        "rank": 32,
+        "condition": 19329.69694581289,
+        "min_eigenvalue": 0.00016416629464111425
+      },
+      {
+        "sample": 0,
+        "points": 66,
+        "rank": 32,
+        "condition": 28.587617757777593,
+        "min_eigenvalue": 0.09437609724050462
+      },
+      {
+        "sample": 100,
+        "points": 33,
+        "rank": 32,
+        "condition": 14309.981082600343,
+        "min_eigenvalue": 0.00024729397810924154
+      },
+      {
+        "sample": 100,
+        "points": 33,
+        "rank": 32,
+        "condition": 17208.93683503012,
+        "min_eigenvalue": 0.00018857815942743028
+      },
+      {
+        "sample": 100,
+        "points": 66,
+        "rank": 32,
+        "condition": 24.758442491634376,
+        "min_eigenvalue": 0.107981052045569
+      },
+      {
+        "sample": 200,
+        "points": 33,
+        "rank": 32,
+        "condition": 3491890.323269801,
+        "min_eigenvalue": 9.694682869299788e-07
+      },
+      {
+        "sample": 200,
+        "points": 33,
+        "rank": 32,
+        "condition": 36286.27645689485,
+        "min_eigenvalue": 0.00010732204735808548
+      },
+      {
+        "sample": 200,
+        "points": 66,
+        "rank": 32,
+        "condition": 19.582497557903046,
+        "min_eigenvalue": 0.14880850831087028
+      },
+      {
+        "sample": 300,
+        "points": 33,
+        "rank": 32,
+        "condition": 3643.9774792025746,
+        "min_eigenvalue": 0.001102127329655201
+      },
+      {
+        "sample": 300,
+        "points": 33,
+        "rank": 32,
+        "condition": 75771.51265879051,
+        "min_eigenvalue": 4.939299942262082e-05
+      },
+      {
+        "sample": 300,
+        "points": 66,
+        "rank": 32,
+        "condition": 23.700424948245303,
+        "min_eigenvalue": 0.12055481486752453
+      },
+      {
+        "sample": 400,
+        "points": 33,
+        "rank": 32,
+        "condition": 130770.83142587382,
+        "min_eigenvalue": 2.7909820785954628e-05
+      },
+      {
+        "sample": 400,
+        "points": 33,
+        "rank": 32,
+        "condition": 195502.0621995215,
+        "min_eigenvalue": 2.0727295962602428e-05
+      },
+      {
+        "sample": 400,
+        "points": 66,
+        "rank": 32,
+        "condition": 25.211393749512283,
+        "min_eigenvalue": 0.10695601399810487
+      },
+      {
+        "sample": 499,
+        "points": 33,
+        "rank": 32,
+        "condition": 8283.870345773768,
+        "min_eigenvalue": 0.0004757809071960865
+      },
+      {
+        "sample": 499,
+        "points": 33,
+        "rank": 32,
+        "condition": 4107.034766442012,
+        "min_eigenvalue": 0.0008111444536584754
+      },
+      {
+        "sample": 499,
+        "points": 66,
+        "rank": 32,
+        "condition": 25.735558380121972,
+        "min_eigenvalue": 0.10422415266098316
+      }
+    ]
+  },
+  {
+    "dim": 32,
+    "walkers": 66,
+    "seed": 1,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "a385e2f8d9090963b44430e45c67c32454d46e5b0b9a50ee94bf6c5c74adc822",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7812120914459229,
+      "mean_acceptance_probability": 0.7812531590461731,
+      "mean_harmonic_acceptance_probability": 0.6556870341300964,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.608377993106842,
+      "nominal_L": 12,
+      "mean_L": 12.008000373840332,
+      "n_grad_evals": 429264
+    },
+    "wall_seconds_including_jit": 4.627463461831212,
+    "mean_rms_error": 0.007169692930248157,
+    "variance_rms_error": 0.008749771779742352,
+    "variance_relative_error_max": 0.02338399246053635,
+    "coordinate_ensemble_mean_ess_min": 230.63588984051322,
+    "squared_coordinate_ensemble_mean_ess_min": 156.7511101871889,
+    "observable_ess_min": 156.7511101871889,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 24100.72419852228,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 33,
+        "rank": 32,
+        "condition": 4120.433276068514,
+        "min_eigenvalue": 0.0008403778782346833
+      },
+      {
+        "sample": 0,
+        "points": 33,
+        "rank": 32,
+        "condition": 10584.570279598724,
+        "min_eigenvalue": 0.000359175688213686
+      },
+      {
+        "sample": 0,
+        "points": 66,
+        "rank": 32,
+        "condition": 30.414770546303664,
+        "min_eigenvalue": 0.089539933124429
+      },
+      {
+        "sample": 100,
+        "points": 33,
+        "rank": 32,
+        "condition": 6886.908290931799,
+        "min_eigenvalue": 0.0005240102614647292
+      },
+      {
+        "sample": 100,
+        "points": 33,
+        "rank": 32,
+        "condition": 962716.3156212757,
+        "min_eigenvalue": 3.6530278094206293e-06
+      },
+      {
+        "sample": 100,
+        "points": 66,
+        "rank": 32,
+        "condition": 33.68589280643162,
+        "min_eigenvalue": 0.07713012555666961
+      },
+      {
+        "sample": 200,
+        "points": 33,
+        "rank": 32,
+        "condition": 26018.707761784604,
+        "min_eigenvalue": 0.00013871883546112774
+      },
+      {
+        "sample": 200,
+        "points": 33,
+        "rank": 32,
+        "condition": 3117.1311210832337,
+        "min_eigenvalue": 0.0012677462749270776
+      },
+      {
+        "sample": 200,
+        "points": 66,
+        "rank": 32,
+        "condition": 25.168302413777937,
+        "min_eigenvalue": 0.1164320029694638
+      },
+      {
+        "sample": 300,
+        "points": 33,
+        "rank": 32,
+        "condition": 5724.867578128579,
+        "min_eigenvalue": 0.0005884336106217114
+      },
+      {
+        "sample": 300,
+        "points": 33,
+        "rank": 32,
+        "condition": 21411.944678767242,
+        "min_eigenvalue": 0.00015860854776393412
+      },
+      {
+        "sample": 300,
+        "points": 66,
+        "rank": 32,
+        "condition": 26.30346575333399,
+        "min_eigenvalue": 0.0996950096151182
+      },
+      {
+        "sample": 400,
+        "points": 33,
+        "rank": 32,
+        "condition": 8033.1224147621,
+        "min_eigenvalue": 0.0003867493308310799
+      },
+      {
+        "sample": 400,
+        "points": 33,
+        "rank": 32,
+        "condition": 4445.50699101726,
+        "min_eigenvalue": 0.000749498712428039
+      },
+      {
+        "sample": 400,
+        "points": 66,
+        "rank": 32,
+        "condition": 30.878069965291044,
+        "min_eigenvalue": 0.07320151050705419
+      },
+      {
+        "sample": 499,
+        "points": 33,
+        "rank": 32,
+        "condition": 1000.909400119075,
+        "min_eigenvalue": 0.003595018236731101
+      },
+      {
+        "sample": 499,
+        "points": 33,
+        "rank": 32,
+        "condition": 4766763.627212525,
+        "min_eigenvalue": 8.859290667580077e-07
+      },
+      {
+        "sample": 499,
+        "points": 66,
+        "rank": 32,
+        "condition": 24.78935591514325,
+        "min_eigenvalue": 0.11118027491959626
+      }
+    ]
+  },
+  {
+    "dim": 32,
+    "walkers": 68,
+    "seed": 0,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "8a62575ca118d9624c62b1272bd41d864a531c58e55913c38d091bf4c2ca6abf",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7854706048965454,
+      "mean_acceptance_probability": 0.7831764817237854,
+      "mean_harmonic_acceptance_probability": 0.6626445055007935,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.6043521165847778,
+      "nominal_L": 12,
+      "mean_L": 12.082000732421875,
+      "n_grad_evals": 444788
+    },
+    "wall_seconds_including_jit": 4.4361416678875685,
+    "mean_rms_error": 0.005703190323364877,
+    "variance_rms_error": 0.009722984436351837,
+    "variance_relative_error_max": 0.02453159724875764,
+    "coordinate_ensemble_mean_ess_min": 150.7640081009325,
+    "squared_coordinate_ensemble_mean_ess_min": 168.29415770660478,
+    "observable_ess_min": 150.7640081009325,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 23049.0763034601,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 34,
+        "rank": 32,
+        "condition": 1687.7857947996367,
+        "min_eigenvalue": 0.0018689225276455035
+      },
+      {
+        "sample": 0,
+        "points": 34,
+        "rank": 32,
+        "condition": 27540.262993937722,
+        "min_eigenvalue": 0.00010773499228910772
+      },
+      {
+        "sample": 0,
+        "points": 68,
+        "rank": 32,
+        "condition": 33.35968062263729,
+        "min_eigenvalue": 0.07203968151049545
+      },
+      {
+        "sample": 100,
+        "points": 34,
+        "rank": 32,
+        "condition": 930.1737447986769,
+        "min_eigenvalue": 0.00362573849285144
+      },
+      {
+        "sample": 100,
+        "points": 34,
+        "rank": 32,
+        "condition": 14453.936229035011,
+        "min_eigenvalue": 0.0002581608176583854
+      },
+      {
+        "sample": 100,
+        "points": 68,
+        "rank": 32,
+        "condition": 25.01177238127254,
+        "min_eigenvalue": 0.09994424142113151
+      },
+      {
+        "sample": 200,
+        "points": 34,
+        "rank": 32,
+        "condition": 2575.579699374959,
+        "min_eigenvalue": 0.001308231975841334
+      },
+      {
+        "sample": 200,
+        "points": 34,
+        "rank": 32,
+        "condition": 3788.967778535802,
+        "min_eigenvalue": 0.0010084260464099663
+      },
+      {
+        "sample": 200,
+        "points": 68,
+        "rank": 32,
+        "condition": 20.670398187445347,
+        "min_eigenvalue": 0.13273653041028521
+      },
+      {
+        "sample": 300,
+        "points": 34,
+        "rank": 32,
+        "condition": 21548.07421845873,
+        "min_eigenvalue": 0.0001613023015429126
+      },
+      {
+        "sample": 300,
+        "points": 34,
+        "rank": 32,
+        "condition": 945.5649179407093,
+        "min_eigenvalue": 0.003892721303332544
+      },
+      {
+        "sample": 300,
+        "points": 68,
+        "rank": 32,
+        "condition": 21.48811047372765,
+        "min_eigenvalue": 0.1168265640890707
+      },
+      {
+        "sample": 400,
+        "points": 34,
+        "rank": 32,
+        "condition": 485.0264866705047,
+        "min_eigenvalue": 0.006224263300043613
+      },
+      {
+        "sample": 400,
+        "points": 34,
+        "rank": 32,
+        "condition": 4148.44212392049,
+        "min_eigenvalue": 0.0009575373813488763
+      },
+      {
+        "sample": 400,
+        "points": 68,
+        "rank": 32,
+        "condition": 19.749662002760918,
+        "min_eigenvalue": 0.12650380304897071
+      },
+      {
+        "sample": 499,
+        "points": 34,
+        "rank": 32,
+        "condition": 1500.052436032021,
+        "min_eigenvalue": 0.0023367050650055323
+      },
+      {
+        "sample": 499,
+        "points": 34,
+        "rank": 32,
+        "condition": 2941.207739492215,
+        "min_eigenvalue": 0.001236037424231572
+      },
+      {
+        "sample": 499,
+        "points": 68,
+        "rank": 32,
+        "condition": 29.84429578288988,
+        "min_eigenvalue": 0.08919546351746882
+      }
+    ]
+  },
+  {
+    "dim": 32,
+    "walkers": 68,
+    "seed": 1,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "f66459512e4cd56776f5526d3eec7c33978aab8885c32abd3add547cd1ef39fd",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7828529477119446,
+      "mean_acceptance_probability": 0.780092716217041,
+      "mean_harmonic_acceptance_probability": 0.6538132429122925,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.6125170588493347,
+      "nominal_L": 12,
+      "mean_L": 11.926000595092773,
+      "n_grad_evals": 439484
+    },
+    "wall_seconds_including_jit": 4.527190954424441,
+    "mean_rms_error": 0.008594872555653487,
+    "variance_rms_error": 0.008797764930696745,
+    "variance_relative_error_max": 0.019641423441263184,
+    "coordinate_ensemble_mean_ess_min": 188.6247519648196,
+    "squared_coordinate_ensemble_mean_ess_min": 175.03001852387186,
+    "observable_ess_min": 175.03001852387186,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 27081.85339994923,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 34,
+        "rank": 32,
+        "condition": 708.7434844724711,
+        "min_eigenvalue": 0.004841972744518513
+      },
+      {
+        "sample": 0,
+        "points": 34,
+        "rank": 32,
+        "condition": 2562.2228479355226,
+        "min_eigenvalue": 0.001463750210510708
+      },
+      {
+        "sample": 0,
+        "points": 68,
+        "rank": 32,
+        "condition": 14.603066356296633,
+        "min_eigenvalue": 0.1854844891738499
+      },
+      {
+        "sample": 100,
+        "points": 34,
+        "rank": 32,
+        "condition": 916.3524714470574,
+        "min_eigenvalue": 0.003766895939343314
+      },
+      {
+        "sample": 100,
+        "points": 34,
+        "rank": 32,
+        "condition": 2187.3881643236223,
+        "min_eigenvalue": 0.0013879558560769033
+      },
+      {
+        "sample": 100,
+        "points": 68,
+        "rank": 32,
+        "condition": 21.369944275386455,
+        "min_eigenvalue": 0.12342766223418898
+      },
+      {
+        "sample": 200,
+        "points": 34,
+        "rank": 32,
+        "condition": 5669.948265079581,
+        "min_eigenvalue": 0.0007273127847181606
+      },
+      {
+        "sample": 200,
+        "points": 34,
+        "rank": 32,
+        "condition": 1240.427184039894,
+        "min_eigenvalue": 0.0028091232388630905
+      },
+      {
+        "sample": 200,
+        "points": 68,
+        "rank": 32,
+        "condition": 41.357474411118304,
+        "min_eigenvalue": 0.06568435680385536
+      },
+      {
+        "sample": 300,
+        "points": 34,
+        "rank": 32,
+        "condition": 2753.193730441528,
+        "min_eigenvalue": 0.0014289448802482561
+      },
+      {
+        "sample": 300,
+        "points": 34,
+        "rank": 32,
+        "condition": 3666.5190874255013,
+        "min_eigenvalue": 0.0009902015028121014
+      },
+      {
+        "sample": 300,
+        "points": 68,
+        "rank": 32,
+        "condition": 21.007420727299944,
+        "min_eigenvalue": 0.12859755725919575
+      },
+      {
+        "sample": 400,
+        "points": 34,
+        "rank": 32,
+        "condition": 1409.7518810247525,
+        "min_eigenvalue": 0.0024205231165433014
+      },
+      {
+        "sample": 400,
+        "points": 34,
+        "rank": 32,
+        "condition": 19493.13090999831,
+        "min_eigenvalue": 0.00017817769850046115
+      },
+      {
+        "sample": 400,
+        "points": 68,
+        "rank": 32,
+        "condition": 21.297971451630623,
+        "min_eigenvalue": 0.12094885115081067
+      },
+      {
+        "sample": 499,
+        "points": 34,
+        "rank": 32,
+        "condition": 3069.9110964747,
+        "min_eigenvalue": 0.001087072228360129
+      },
+      {
+        "sample": 499,
+        "points": 34,
+        "rank": 32,
+        "condition": 28412.184722361748,
+        "min_eigenvalue": 0.0001286131716226527
+      },
+      {
+        "sample": 499,
+        "points": 68,
+        "rank": 32,
+        "condition": 18.62884631250622,
+        "min_eigenvalue": 0.13028840595318944
+      }
+    ]
+  },
+  {
+    "dim": 64,
+    "walkers": 128,
+    "seed": 0,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "c03ae6a36ea79db3c113d5bb1fa9599a185fea317f7ee434088d35fd4d9f834b",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7747969031333923,
+      "mean_acceptance_probability": 0.776053786277771,
+      "mean_harmonic_acceptance_probability": 0.6551332473754883,
+      "max_L_hit_rate": 0.03200000151991844,
+      "final_step_size": 0.5163257718086243,
+      "nominal_L": 14,
+      "mean_L": 14.04800033569336,
+      "n_grad_evals": 963072
+    },
+    "wall_seconds_including_jit": 5.864222086034715,
+    "mean_rms_error": 0.0054880755262318535,
+    "variance_rms_error": 0.006772777359290055,
+    "variance_relative_error_max": 0.023548780409277326,
+    "coordinate_ensemble_mean_ess_min": 164.2226690054441,
+    "squared_coordinate_ensemble_mean_ess_min": 176.9056459601553,
+    "observable_ess_min": 164.2226690054441,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 21826.511032089857,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.4763440670522106e+16,
+        "min_eigenvalue": 2.539468147649736e-16
+      },
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 63,
+        "condition": 4.078786916207534e+300,
+        "min_eigenvalue": -2.564241135097672e-16
+      },
+      {
+        "sample": 0,
+        "points": 128,
+        "rank": 64,
+        "condition": 24.81247369039941,
+        "min_eigenvalue": 0.1081697356939012
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.5281630242178076e+300,
+        "min_eigenvalue": -4.67034777907137e-17
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.7122469109880704e+16,
+        "min_eigenvalue": 2.0549292592904255e-16
+      },
+      {
+        "sample": 100,
+        "points": 128,
+        "rank": 64,
+        "condition": 32.334516234882365,
+        "min_eigenvalue": 0.0788530232986468
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.1778021974265748e+16,
+        "min_eigenvalue": 1.1902845787996231e-16
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.82921893070853e+300,
+        "min_eigenvalue": -1.9965671807333168e-16
+      },
+      {
+        "sample": 200,
+        "points": 128,
+        "rank": 64,
+        "condition": 24.769973129931007,
+        "min_eigenvalue": 0.10865133505372304
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.7419630367166944e+300,
+        "min_eigenvalue": -6.294492413460407e-17
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.9788541267721094e+300,
+        "min_eigenvalue": -7.463384247256015e-17
+      },
+      {
+        "sample": 300,
+        "points": 128,
+        "rank": 64,
+        "condition": 30.619603186435302,
+        "min_eigenvalue": 0.09023566944965614
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 63,
+        "condition": 9.063243000109536e+16,
+        "min_eigenvalue": 4.388165058902601e-17
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.6315983685577145e+300,
+        "min_eigenvalue": -2.731431300778911e-16
+      },
+      {
+        "sample": 400,
+        "points": 128,
+        "rank": 64,
+        "condition": 26.481231750380026,
+        "min_eigenvalue": 0.10449367843102758
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.0525405062078238e+16,
+        "min_eigenvalue": 3.7608033228874845e-16
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.420806704955302e+300,
+        "min_eigenvalue": -2.254708049933609e-16
+      },
+      {
+        "sample": 499,
+        "points": 128,
+        "rank": 64,
+        "condition": 27.58453258310258,
+        "min_eigenvalue": 0.09780731685031911
+      }
+    ]
+  },
+  {
+    "dim": 64,
+    "walkers": 128,
+    "seed": 0,
+    "metric": "full",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "c03ae6a36ea79db3c113d5bb1fa9599a185fea317f7ee434088d35fd4d9f834b",
+    "source_sha256": "485f97125b7330743bc9d3a869d2c3ef7502b8490b17c5910fcb05bbd26f9c0d",
+    "source_path": "/tmp/full-ensemble-chees-proposal/full_metric_peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7733438014984131,
+      "mean_acceptance_probability": 0.773030698299408,
+      "mean_harmonic_acceptance_probability": 0.6474493741989136,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.5198578834533691,
+      "nominal_L": 13,
+      "mean_L": 13.044000625610352,
+      "n_grad_evals": 898816
+    },
+    "wall_seconds_including_jit": 5.729376339353621,
+    "mean_rms_error": 0.004606984715600158,
+    "variance_rms_error": 0.006760761649065293,
+    "variance_relative_error_max": 0.01990620270486465,
+    "coordinate_ensemble_mean_ess_min": 194.05881728525944,
+    "squared_coordinate_ensemble_mean_ess_min": 184.37506854939696,
+    "observable_ess_min": 184.37506854939696,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 26256.774216661488,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 63,
+        "condition": 2.1320527186732436e+16,
+        "min_eigenvalue": 1.8949487576724156e-16
+      },
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.454478479775709e+300,
+        "min_eigenvalue": -3.262208265108897e-17
+      },
+      {
+        "sample": 0,
+        "points": 128,
+        "rank": 64,
+        "condition": 23.02797142118657,
+        "min_eigenvalue": 0.11212243428888825
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.9854697158510835e+300,
+        "min_eigenvalue": -3.2254727454870853e-16
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.7473676278438315e+300,
+        "min_eigenvalue": -1.491912412688113e-16
+      },
+      {
+        "sample": 100,
+        "points": 128,
+        "rank": 64,
+        "condition": 29.688749858516356,
+        "min_eigenvalue": 0.09828016985111679
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.2427040453011664e+16,
+        "min_eigenvalue": 3.027421790917199e-16
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 63,
+        "condition": 8.784190848250088e+16,
+        "min_eigenvalue": 4.3691555531162356e-17
+      },
+      {
+        "sample": 200,
+        "points": 128,
+        "rank": 64,
+        "condition": 23.61075489750616,
+        "min_eigenvalue": 0.12333013332931843
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 63,
+        "condition": 2.8654498103312573e+17,
+        "min_eigenvalue": 1.2679626102336193e-17
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 63,
+        "condition": 6.940776463294312e+16,
+        "min_eigenvalue": 5.2992230755924106e-17
+      },
+      {
+        "sample": 300,
+        "points": 128,
+        "rank": 64,
+        "condition": 26.71002475819084,
+        "min_eigenvalue": 0.10003557079871161
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.619721846334195e+300,
+        "min_eigenvalue": -2.951386778336307e-16
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 63,
+        "condition": 4.3234540698419125e+300,
+        "min_eigenvalue": -7.08247126698607e-17
+      },
+      {
+        "sample": 400,
+        "points": 128,
+        "rank": 64,
+        "condition": 34.17657662524694,
+        "min_eigenvalue": 0.08323738644288749
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.1666156762886963e+17,
+        "min_eigenvalue": 3.1363787078421973e-17
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.672882070116174e+300,
+        "min_eigenvalue": -6.500584463988986e-17
+      },
+      {
+        "sample": 499,
+        "points": 128,
+        "rank": 64,
+        "condition": 23.620137453802407,
+        "min_eigenvalue": 0.11707495281376791
+      }
+    ]
+  },
+  {
+    "dim": 64,
+    "walkers": 128,
+    "seed": 1,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "1f0e6afbe5546f578748516a1c23e6678638fa041aafc96812c81eb3904c816e",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7795313000679016,
+      "mean_acceptance_probability": 0.7802968621253967,
+      "mean_harmonic_acceptance_probability": 0.6649464964866638,
+      "max_L_hit_rate": 0.04000000283122063,
+      "final_step_size": 0.5135123133659363,
+      "nominal_L": 15,
+      "mean_L": 14.130001068115234,
+      "n_grad_evals": 968320
+    },
+    "wall_seconds_including_jit": 5.602884982712567,
+    "mean_rms_error": 0.005148459898860328,
+    "variance_rms_error": 0.006670216478770247,
+    "variance_relative_error_max": 0.017483692008724905,
+    "coordinate_ensemble_mean_ess_min": 191.96387747888514,
+    "squared_coordinate_ensemble_mean_ess_min": 128.1761758836607,
+    "observable_ess_min": 128.1761758836607,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 16943.314723550655,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.657527019186168e+300,
+        "min_eigenvalue": -1.8931943489548282e-16
+      },
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.5447222639511088e+16,
+        "min_eigenvalue": 2.499657942765672e-16
+      },
+      {
+        "sample": 0,
+        "points": 128,
+        "rank": 64,
+        "condition": 28.677664923332483,
+        "min_eigenvalue": 0.09520081724670965
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.3710874204380386e+17,
+        "min_eigenvalue": 2.6848404910929184e-17
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.668176640013389e+300,
+        "min_eigenvalue": -3.8077701961185084e-16
+      },
+      {
+        "sample": 100,
+        "points": 128,
+        "rank": 64,
+        "condition": 34.660116504434626,
+        "min_eigenvalue": 0.08259116613233054
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.4290156488626068e+16,
+        "min_eigenvalue": 1.152979114182738e-16
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 63,
+        "condition": 6.315299721840182e+17,
+        "min_eigenvalue": 5.485868439893295e-18
+      },
+      {
+        "sample": 200,
+        "points": 128,
+        "rank": 64,
+        "condition": 24.1337284884645,
+        "min_eigenvalue": 0.11347272753100711
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.204153227667514e+16,
+        "min_eigenvalue": 3.15514850746247e-16
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.9502760195414596e+300,
+        "min_eigenvalue": -2.3893341721081646e-16
+      },
+      {
+        "sample": 300,
+        "points": 128,
+        "rank": 64,
+        "condition": 32.760992383645814,
+        "min_eigenvalue": 0.09015489737580022
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.783904470011736e+17,
+        "min_eigenvalue": 1.903141323961072e-17
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.4643804586917226e+16,
+        "min_eigenvalue": 2.586850730835179e-16
+      },
+      {
+        "sample": 400,
+        "points": 128,
+        "rank": 64,
+        "condition": 28.168575029392983,
+        "min_eigenvalue": 0.09320622246129019
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 63,
+        "condition": 6.193536581033397e+16,
+        "min_eigenvalue": 6.048805954527097e-17
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.8146551384063936e+300,
+        "min_eigenvalue": -1.3265381022395643e-17
+      },
+      {
+        "sample": 499,
+        "points": 128,
+        "rank": 64,
+        "condition": 27.98945473600697,
+        "min_eigenvalue": 0.09602743154695081
+      }
+    ]
+  },
+  {
+    "dim": 64,
+    "walkers": 128,
+    "seed": 1,
+    "metric": "full",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "1f0e6afbe5546f578748516a1c23e6678638fa041aafc96812c81eb3904c816e",
+    "source_sha256": "485f97125b7330743bc9d3a869d2c3ef7502b8490b17c5910fcb05bbd26f9c0d",
+    "source_path": "/tmp/full-ensemble-chees-proposal/full_metric_peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7695313096046448,
+      "mean_acceptance_probability": 0.7719379663467407,
+      "mean_harmonic_acceptance_probability": 0.6493114829063416,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.5189461708068848,
+      "nominal_L": 13,
+      "mean_L": 12.356000900268555,
+      "n_grad_evals": 854784
+    },
+    "wall_seconds_including_jit": 5.266393353231251,
+    "mean_rms_error": 0.005268571018091673,
+    "variance_rms_error": 0.006344894598120884,
+    "variance_relative_error_max": 0.014013848463253709,
+    "coordinate_ensemble_mean_ess_min": 182.06320846907758,
+    "squared_coordinate_ensemble_mean_ess_min": 169.25863260284635,
+    "observable_ess_min": 169.25863260284635,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 25345.707188207,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.672140036958311e+16,
+        "min_eigenvalue": 2.52023784393976e-16
+      },
+      {
+        "sample": 0,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.4970240623052842e+16,
+        "min_eigenvalue": 2.6383180577897797e-16
+      },
+      {
+        "sample": 0,
+        "points": 128,
+        "rank": 64,
+        "condition": 32.1000909965153,
+        "min_eigenvalue": 0.09025873042340231
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.4488025135257706e+16,
+        "min_eigenvalue": 2.6512435402263907e-16
+      },
+      {
+        "sample": 100,
+        "points": 64,
+        "rank": 63,
+        "condition": 4.119244394813755e+300,
+        "min_eigenvalue": -1.606765912808852e-16
+      },
+      {
+        "sample": 100,
+        "points": 128,
+        "rank": 64,
+        "condition": 32.59301396721761,
+        "min_eigenvalue": 0.09166647357774003
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 63,
+        "condition": 4.05657827486324e+300,
+        "min_eigenvalue": -1.4082080272043623e-16
+      },
+      {
+        "sample": 200,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.761064246486047e+300,
+        "min_eigenvalue": -4.014889881184494e-16
+      },
+      {
+        "sample": 200,
+        "points": 128,
+        "rank": 64,
+        "condition": 32.35190335312703,
+        "min_eigenvalue": 0.09205916778717732
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.898661983995134e+300,
+        "min_eigenvalue": -1.1201163694490868e-16
+      },
+      {
+        "sample": 300,
+        "points": 64,
+        "rank": 63,
+        "condition": 9.750043318451611e+16,
+        "min_eigenvalue": 4.085378124358555e-17
+      },
+      {
+        "sample": 300,
+        "points": 128,
+        "rank": 64,
+        "condition": 23.463419894404424,
+        "min_eigenvalue": 0.1188410627853925
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 63,
+        "condition": 1.006890112731251e+18,
+        "min_eigenvalue": 3.554433948975973e-18
+      },
+      {
+        "sample": 400,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.656643059296276e+300,
+        "min_eigenvalue": -2.789360863788007e-16
+      },
+      {
+        "sample": 400,
+        "points": 128,
+        "rank": 64,
+        "condition": 23.02223961044232,
+        "min_eigenvalue": 0.12162477814748167
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.39313516793816e+300,
+        "min_eigenvalue": -5.728248471886122e-16
+      },
+      {
+        "sample": 499,
+        "points": 64,
+        "rank": 63,
+        "condition": 3.614320129622723e+300,
+        "min_eigenvalue": -1.5968799189329191e-16
+      },
+      {
+        "sample": 499,
+        "points": 128,
+        "rank": 64,
+        "condition": 23.442925841021676,
+        "min_eigenvalue": 0.11422596756161614
+      }
+    ]
+  },
+  {
+    "dim": 64,
+    "walkers": 130,
+    "seed": 0,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "011de4ac8181e870fb652be264ff54334a8e129ad47fba232be7826010365c8c",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7780769467353821,
+      "mean_acceptance_probability": 0.7777291536331177,
+      "mean_harmonic_acceptance_probability": 0.658428966999054,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.5138583779335022,
+      "nominal_L": 7,
+      "mean_L": 6.934000492095947,
+      "n_grad_evals": 515710
+    },
+    "wall_seconds_including_jit": 5.271910312585533,
+    "mean_rms_error": 0.004853277329826097,
+    "variance_rms_error": 0.005785676999850362,
+    "variance_relative_error_max": 0.015202492204099194,
+    "coordinate_ensemble_mean_ess_min": 181.65217479443004,
+    "squared_coordinate_ensemble_mean_ess_min": 184.53810180562496,
+    "observable_ess_min": 181.65217479443004,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 45790.817946667514,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 65,
+        "rank": 64,
+        "condition": 98682.60092657631,
+        "min_eigenvalue": 3.6833958183286714e-05
+      },
+      {
+        "sample": 0,
+        "points": 65,
+        "rank": 64,
+        "condition": 2147394.0623775646,
+        "min_eigenvalue": 1.7580496676139399e-06
+      },
+      {
+        "sample": 0,
+        "points": 130,
+        "rank": 64,
+        "condition": 28.475084634221865,
+        "min_eigenvalue": 0.09894214088269679
+      },
+      {
+        "sample": 100,
+        "points": 65,
+        "rank": 64,
+        "condition": 17661.065556460966,
+        "min_eigenvalue": 0.00019534166869424768
+      },
+      {
+        "sample": 100,
+        "points": 65,
+        "rank": 64,
+        "condition": 1677580.9508953947,
+        "min_eigenvalue": 2.3455746224821783e-06
+      },
+      {
+        "sample": 100,
+        "points": 130,
+        "rank": 64,
+        "condition": 26.07706154459805,
+        "min_eigenvalue": 0.10329344933386028
+      },
+      {
+        "sample": 200,
+        "points": 65,
+        "rank": 64,
+        "condition": 62349367.10149014,
+        "min_eigenvalue": 6.15771805947308e-08
+      },
+      {
+        "sample": 200,
+        "points": 65,
+        "rank": 64,
+        "condition": 10536.221533847001,
+        "min_eigenvalue": 0.00036380315702126144
+      },
+      {
+        "sample": 200,
+        "points": 130,
+        "rank": 64,
+        "condition": 29.03371486272678,
+        "min_eigenvalue": 0.1013640631482448
+      },
+      {
+        "sample": 300,
+        "points": 65,
+        "rank": 64,
+        "condition": 40052.28424687496,
+        "min_eigenvalue": 9.45922468593696e-05
+      },
+      {
+        "sample": 300,
+        "points": 65,
+        "rank": 64,
+        "condition": 11571.363690704144,
+        "min_eigenvalue": 0.00032219260862069725
+      },
+      {
+        "sample": 300,
+        "points": 130,
+        "rank": 64,
+        "condition": 28.08780251401863,
+        "min_eigenvalue": 0.09706412211479869
+      },
+      {
+        "sample": 400,
+        "points": 65,
+        "rank": 64,
+        "condition": 29823.496103231464,
+        "min_eigenvalue": 0.00011957998046657997
+      },
+      {
+        "sample": 400,
+        "points": 65,
+        "rank": 64,
+        "condition": 21125.997186080833,
+        "min_eigenvalue": 0.00017814717554797693
+      },
+      {
+        "sample": 400,
+        "points": 130,
+        "rank": 64,
+        "condition": 27.267861112302885,
+        "min_eigenvalue": 0.09450363964658332
+      },
+      {
+        "sample": 499,
+        "points": 65,
+        "rank": 64,
+        "condition": 36756.53768553634,
+        "min_eigenvalue": 9.707797184771514e-05
+      },
+      {
+        "sample": 499,
+        "points": 65,
+        "rank": 64,
+        "condition": 32063.491227838123,
+        "min_eigenvalue": 0.0001111125078750639
+      },
+      {
+        "sample": 499,
+        "points": 130,
+        "rank": 64,
+        "condition": 23.57200181982536,
+        "min_eigenvalue": 0.11840467905540268
+      }
+    ]
+  },
+  {
+    "dim": 64,
+    "walkers": 130,
+    "seed": 1,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "547175a43eb678c4dcef0f5434e8f2ce2503bbd895382b9edcd5612db163c598",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7760154008865356,
+      "mean_acceptance_probability": 0.7754547595977783,
+      "mean_harmonic_acceptance_probability": 0.6541857123374939,
+      "max_L_hit_rate": 0.020000001415610313,
+      "final_step_size": 0.5204259157180786,
+      "nominal_L": 14,
+      "mean_L": 13.94800090789795,
+      "n_grad_evals": 971620
+    },
+    "wall_seconds_including_jit": 5.916244423948228,
+    "mean_rms_error": 0.004750582998965072,
+    "variance_rms_error": 0.0076875884508433015,
+    "variance_relative_error_max": 0.02020923579161249,
+    "coordinate_ensemble_mean_ess_min": 182.2533160622681,
+    "squared_coordinate_ensemble_mean_ess_min": 171.0018261469052,
+    "observable_ess_min": 171.0018261469052,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 22879.559291798927,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 65,
+        "rank": 64,
+        "condition": 40930.069730339805,
+        "min_eigenvalue": 9.683582088768463e-05
+      },
+      {
+        "sample": 0,
+        "points": 65,
+        "rank": 64,
+        "condition": 9492.037062876561,
+        "min_eigenvalue": 0.0004157341482012378
+      },
+      {
+        "sample": 0,
+        "points": 130,
+        "rank": 64,
+        "condition": 33.52785608581611,
+        "min_eigenvalue": 0.0887048647316969
+      },
+      {
+        "sample": 100,
+        "points": 65,
+        "rank": 64,
+        "condition": 16956.327766834154,
+        "min_eigenvalue": 0.0002112137044957697
+      },
+      {
+        "sample": 100,
+        "points": 65,
+        "rank": 64,
+        "condition": 14962630.728425872,
+        "min_eigenvalue": 2.5327362022240517e-07
+      },
+      {
+        "sample": 100,
+        "points": 130,
+        "rank": 64,
+        "condition": 28.193133876902856,
+        "min_eigenvalue": 0.09104814190165841
+      },
+      {
+        "sample": 200,
+        "points": 65,
+        "rank": 64,
+        "condition": 17962.279586482135,
+        "min_eigenvalue": 0.00018921261667785314
+      },
+      {
+        "sample": 200,
+        "points": 65,
+        "rank": 64,
+        "condition": 300136.6352213894,
+        "min_eigenvalue": 1.2148111469043915e-05
+      },
+      {
+        "sample": 200,
+        "points": 130,
+        "rank": 64,
+        "condition": 25.13197633828356,
+        "min_eigenvalue": 0.10487037375240925
+      },
+      {
+        "sample": 300,
+        "points": 65,
+        "rank": 64,
+        "condition": 5635.997420864789,
+        "min_eigenvalue": 0.0007073046516007985
+      },
+      {
+        "sample": 300,
+        "points": 65,
+        "rank": 64,
+        "condition": 138312.6880446194,
+        "min_eigenvalue": 2.6020030957053613e-05
+      },
+      {
+        "sample": 300,
+        "points": 130,
+        "rank": 64,
+        "condition": 31.243772382874546,
+        "min_eigenvalue": 0.08963736838801671
+      },
+      {
+        "sample": 400,
+        "points": 65,
+        "rank": 64,
+        "condition": 67862.01552844014,
+        "min_eigenvalue": 5.875337890694508e-05
+      },
+      {
+        "sample": 400,
+        "points": 65,
+        "rank": 64,
+        "condition": 98319.94331110465,
+        "min_eigenvalue": 4.030961541448222e-05
+      },
+      {
+        "sample": 400,
+        "points": 130,
+        "rank": 64,
+        "condition": 29.354659885826965,
+        "min_eigenvalue": 0.09822995844555689
+      },
+      {
+        "sample": 499,
+        "points": 65,
+        "rank": 64,
+        "condition": 456367.4272815594,
+        "min_eigenvalue": 8.914036939838302e-06
+      },
+      {
+        "sample": 499,
+        "points": 65,
+        "rank": 64,
+        "condition": 7341.490784859922,
+        "min_eigenvalue": 0.0004914705090220082
+      },
+      {
+        "sample": 499,
+        "points": 130,
+        "rank": 64,
+        "condition": 33.039288675236875,
+        "min_eigenvalue": 0.08660209584713395
+      }
+    ]
+  },
+  {
+    "dim": 64,
+    "walkers": 132,
+    "seed": 0,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "881d72c3c7b79d773ba633810f680a3bfffe50311c93bb1906b2c3f407fcdad0",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7782878875732422,
+      "mean_acceptance_probability": 0.7777329087257385,
+      "mean_harmonic_acceptance_probability": 0.6588019132614136,
+      "max_L_hit_rate": 0.030000001192092896,
+      "final_step_size": 0.5167998671531677,
+      "nominal_L": 14,
+      "mean_L": 14.046000480651855,
+      "n_grad_evals": 993036
+    },
+    "wall_seconds_including_jit": 5.817250477150083,
+    "mean_rms_error": 0.0053838676847851406,
+    "variance_rms_error": 0.007766921558811493,
+    "variance_relative_error_max": 0.02046308765338356,
+    "coordinate_ensemble_mean_ess_min": 183.39057888883508,
+    "squared_coordinate_ensemble_mean_ess_min": 170.80264925274878,
+    "observable_ess_min": 170.80264925274878,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 22704.06078063921,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 66,
+        "rank": 64,
+        "condition": 10711.666786613621,
+        "min_eigenvalue": 0.00035029071536507724
+      },
+      {
+        "sample": 0,
+        "points": 66,
+        "rank": 64,
+        "condition": 24814.637099142088,
+        "min_eigenvalue": 0.00016345238589962396
+      },
+      {
+        "sample": 0,
+        "points": 132,
+        "rank": 64,
+        "condition": 27.220145167874406,
+        "min_eigenvalue": 0.10549082816538848
+      },
+      {
+        "sample": 100,
+        "points": 66,
+        "rank": 64,
+        "condition": 11707.653159555726,
+        "min_eigenvalue": 0.0003027695529025545
+      },
+      {
+        "sample": 100,
+        "points": 66,
+        "rank": 64,
+        "condition": 4549.926461053797,
+        "min_eigenvalue": 0.0008031739285707406
+      },
+      {
+        "sample": 100,
+        "points": 132,
+        "rank": 64,
+        "condition": 30.17180144680918,
+        "min_eigenvalue": 0.08556784468562666
+      },
+      {
+        "sample": 200,
+        "points": 66,
+        "rank": 64,
+        "condition": 6416.253430715402,
+        "min_eigenvalue": 0.0005615046635604186
+      },
+      {
+        "sample": 200,
+        "points": 66,
+        "rank": 64,
+        "condition": 448908.66132538323,
+        "min_eigenvalue": 9.618133945184773e-06
+      },
+      {
+        "sample": 200,
+        "points": 132,
+        "rank": 64,
+        "condition": 21.745844261310825,
+        "min_eigenvalue": 0.1289466995588455
+      },
+      {
+        "sample": 300,
+        "points": 66,
+        "rank": 64,
+        "condition": 7542.3484950044485,
+        "min_eigenvalue": 0.0005096067801660073
+      },
+      {
+        "sample": 300,
+        "points": 66,
+        "rank": 64,
+        "condition": 6193.100110789803,
+        "min_eigenvalue": 0.0006573471300595883
+      },
+      {
+        "sample": 300,
+        "points": 132,
+        "rank": 64,
+        "condition": 28.330274435589402,
+        "min_eigenvalue": 0.10078672828777316
+      },
+      {
+        "sample": 400,
+        "points": 66,
+        "rank": 64,
+        "condition": 81393.5120257958,
+        "min_eigenvalue": 4.543262463816973e-05
+      },
+      {
+        "sample": 400,
+        "points": 66,
+        "rank": 64,
+        "condition": 8110.557396548065,
+        "min_eigenvalue": 0.0004499210107892597
+      },
+      {
+        "sample": 400,
+        "points": 132,
+        "rank": 64,
+        "condition": 20.98916992044314,
+        "min_eigenvalue": 0.1264965715681864
+      },
+      {
+        "sample": 499,
+        "points": 66,
+        "rank": 64,
+        "condition": 12777.279055325344,
+        "min_eigenvalue": 0.0002971383302591851
+      },
+      {
+        "sample": 499,
+        "points": 66,
+        "rank": 64,
+        "condition": 10024.430896247604,
+        "min_eigenvalue": 0.0003280629764969825
+      },
+      {
+        "sample": 499,
+        "points": 132,
+        "rank": 64,
+        "condition": 21.535717602703887,
+        "min_eigenvalue": 0.12077801492261898
+      }
+    ]
+  },
+  {
+    "dim": 64,
+    "walkers": 132,
+    "seed": 1,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "ef6c80783f30259ec0df439549c4e19feec2116c66d54ae3c9aaa117e8b0cfdb",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.777681827545166,
+      "mean_acceptance_probability": 0.7768927216529846,
+      "mean_harmonic_acceptance_probability": 0.6581903100013733,
+      "max_L_hit_rate": 0.020000001415610313,
+      "final_step_size": 0.5202242732048035,
+      "nominal_L": 14,
+      "mean_L": 13.952000617980957,
+      "n_grad_evals": 986832
+    },
+    "wall_seconds_including_jit": 5.905644994229078,
+    "mean_rms_error": 0.0046221978762780395,
+    "variance_rms_error": 0.007294542758489333,
+    "variance_relative_error_max": 0.016628704591104215,
+    "coordinate_ensemble_mean_ess_min": 176.85058845789987,
+    "squared_coordinate_ensemble_mean_ess_min": 187.1792141815255,
+    "observable_ess_min": 176.85058845789987,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 23655.77694728463,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 66,
+        "rank": 64,
+        "condition": 12910.58211797923,
+        "min_eigenvalue": 0.0003030123684042263
+      },
+      {
+        "sample": 0,
+        "points": 66,
+        "rank": 64,
+        "condition": 22855.53197231365,
+        "min_eigenvalue": 0.00016465660082976518
+      },
+      {
+        "sample": 0,
+        "points": 132,
+        "rank": 64,
+        "condition": 27.74983954690062,
+        "min_eigenvalue": 0.09499079802652138
+      },
+      {
+        "sample": 100,
+        "points": 66,
+        "rank": 64,
+        "condition": 2421.459893094346,
+        "min_eigenvalue": 0.0015511979749336666
+      },
+      {
+        "sample": 100,
+        "points": 66,
+        "rank": 64,
+        "condition": 6141.655918388458,
+        "min_eigenvalue": 0.0005874984044407927
+      },
+      {
+        "sample": 100,
+        "points": 132,
+        "rank": 64,
+        "condition": 24.184319387909117,
+        "min_eigenvalue": 0.1079564379912519
+      },
+      {
+        "sample": 200,
+        "points": 66,
+        "rank": 64,
+        "condition": 2358.9238357317035,
+        "min_eigenvalue": 0.0015755276732904624
+      },
+      {
+        "sample": 200,
+        "points": 66,
+        "rank": 64,
+        "condition": 21385.87367645723,
+        "min_eigenvalue": 0.00017531190779699802
+      },
+      {
+        "sample": 200,
+        "points": 132,
+        "rank": 64,
+        "condition": 26.548645823568727,
+        "min_eigenvalue": 0.1063781483055721
+      },
+      {
+        "sample": 300,
+        "points": 66,
+        "rank": 64,
+        "condition": 2869.6878051463514,
+        "min_eigenvalue": 0.0013508456065548615
+      },
+      {
+        "sample": 300,
+        "points": 66,
+        "rank": 64,
+        "condition": 16113.795406410118,
+        "min_eigenvalue": 0.0002379427736309435
+      },
+      {
+        "sample": 300,
+        "points": 132,
+        "rank": 64,
+        "condition": 25.864195137913292,
+        "min_eigenvalue": 0.10822031701093053
+      },
+      {
+        "sample": 400,
+        "points": 66,
+        "rank": 64,
+        "condition": 304011.36829167773,
+        "min_eigenvalue": 1.1436489943585213e-05
+      },
+      {
+        "sample": 400,
+        "points": 66,
+        "rank": 64,
+        "condition": 15187.760607969894,
+        "min_eigenvalue": 0.0002605455741872377
+      },
+      {
+        "sample": 400,
+        "points": 132,
+        "rank": 64,
+        "condition": 25.326708912203546,
+        "min_eigenvalue": 0.10913454841526467
+      },
+      {
+        "sample": 499,
+        "points": 66,
+        "rank": 64,
+        "condition": 19936.940977702627,
+        "min_eigenvalue": 0.00017720279536599168
+      },
+      {
+        "sample": 499,
+        "points": 66,
+        "rank": 64,
+        "condition": 2554.0021317502737,
+        "min_eigenvalue": 0.0014648405645450622
+      },
+      {
+        "sample": 499,
+        "points": 132,
+        "rank": 64,
+        "condition": 30.714290543705886,
+        "min_eigenvalue": 0.09123167661553772
+      }
+    ]
+  },
+  {
+    "dim": 64,
+    "walkers": 256,
+    "seed": 0,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "b65cce1251888622ba35e02fd206099d165ba32816a19147822e9353474698c3",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7783672213554382,
+      "mean_acceptance_probability": 0.7798846960067749,
+      "mean_harmonic_acceptance_probability": 0.6646538972854614,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.5588041543960571,
+      "nominal_L": 7,
+      "mean_L": 6.354000091552734,
+      "n_grad_evals": 941312
+    },
+    "wall_seconds_including_jit": 6.798191777430475,
+    "mean_rms_error": 0.002949990645936233,
+    "variance_rms_error": 0.005728790008590638,
+    "variance_relative_error_max": 0.014225608009584612,
+    "coordinate_ensemble_mean_ess_min": 342.65791840975015,
+    "squared_coordinate_ensemble_mean_ess_min": 161.66237146909003,
+    "observable_ess_min": 161.66237146909003,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 43965.83395950232,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 128,
+        "rank": 64,
+        "condition": 25.020512628910755,
+        "min_eigenvalue": 0.10894928968674528
+      },
+      {
+        "sample": 0,
+        "points": 128,
+        "rank": 64,
+        "condition": 31.248520449349737,
+        "min_eigenvalue": 0.09079220411157969
+      },
+      {
+        "sample": 0,
+        "points": 256,
+        "rank": 64,
+        "condition": 8.33179225790902,
+        "min_eigenvalue": 0.2663170252760117
+      },
+      {
+        "sample": 100,
+        "points": 128,
+        "rank": 64,
+        "condition": 36.144628802905586,
+        "min_eigenvalue": 0.07766975087942064
+      },
+      {
+        "sample": 100,
+        "points": 128,
+        "rank": 64,
+        "condition": 27.997798904605094,
+        "min_eigenvalue": 0.10267413395734167
+      },
+      {
+        "sample": 100,
+        "points": 256,
+        "rank": 64,
+        "condition": 7.721450996065499,
+        "min_eigenvalue": 0.27872533136275796
+      },
+      {
+        "sample": 200,
+        "points": 128,
+        "rank": 64,
+        "condition": 24.96429364366763,
+        "min_eigenvalue": 0.10704530195974779
+      },
+      {
+        "sample": 200,
+        "points": 128,
+        "rank": 64,
+        "condition": 28.817517947729968,
+        "min_eigenvalue": 0.09464768170377734
+      },
+      {
+        "sample": 200,
+        "points": 256,
+        "rank": 64,
+        "condition": 8.588705296109362,
+        "min_eigenvalue": 0.24700250675371732
+      },
+      {
+        "sample": 300,
+        "points": 128,
+        "rank": 64,
+        "condition": 34.963204519378166,
+        "min_eigenvalue": 0.08266566171923231
+      },
+      {
+        "sample": 300,
+        "points": 128,
+        "rank": 64,
+        "condition": 27.174909537076147,
+        "min_eigenvalue": 0.09616634498380128
+      },
+      {
+        "sample": 300,
+        "points": 256,
+        "rank": 64,
+        "condition": 9.254298665966205,
+        "min_eigenvalue": 0.234433779276578
+      },
+      {
+        "sample": 400,
+        "points": 128,
+        "rank": 64,
+        "condition": 27.071740692986072,
+        "min_eigenvalue": 0.10353862562241464
+      },
+      {
+        "sample": 400,
+        "points": 128,
+        "rank": 64,
+        "condition": 24.555282336171057,
+        "min_eigenvalue": 0.10971064878420796
+      },
+      {
+        "sample": 400,
+        "points": 256,
+        "rank": 64,
+        "condition": 8.110579485002164,
+        "min_eigenvalue": 0.27195949585357676
+      },
+      {
+        "sample": 499,
+        "points": 128,
+        "rank": 64,
+        "condition": 27.878243461610396,
+        "min_eigenvalue": 0.1021160664442975
+      },
+      {
+        "sample": 499,
+        "points": 128,
+        "rank": 64,
+        "condition": 28.147362591805067,
+        "min_eigenvalue": 0.09488812284378981
+      },
+      {
+        "sample": 499,
+        "points": 256,
+        "rank": 64,
+        "condition": 8.40011859916878,
+        "min_eigenvalue": 0.25049067418826715
+      }
+    ]
+  },
+  {
+    "dim": 64,
+    "walkers": 256,
+    "seed": 1,
+    "metric": "complement",
+    "initial_formula": "jax.random.normal(key(42+seed),(4*D,D))[:N]",
+    "initial_sha256": "68b211876c87312cbe56424b7ac7ebac5d0b91abe856ec27e766a46f6bde7509",
+    "source_sha256": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "source_path": "/tmp/full-ensemble-chees-proposal/baseline/src/affine_invariant_samplers/peaches.py",
+    "warmup": 200,
+    "production": 500,
+    "precision": "float32",
+    "info": {
+      "acceptance_rate": 0.7771250605583191,
+      "mean_acceptance_probability": 0.7763628363609314,
+      "mean_harmonic_acceptance_probability": 0.658109724521637,
+      "max_L_hit_rate": 0.0,
+      "final_step_size": 0.5611252188682556,
+      "nominal_L": 7,
+      "mean_L": 6.462000370025635,
+      "n_grad_evals": 955136
+    },
+    "wall_seconds_including_jit": 6.651398541405797,
+    "mean_rms_error": 0.0025921358923018927,
+    "variance_rms_error": 0.005500571108249338,
+    "variance_relative_error_max": 0.01254079996019386,
+    "coordinate_ensemble_mean_ess_min": 321.5998556644097,
+    "squared_coordinate_ensemble_mean_ess_min": 110.82085383409424,
+    "observable_ess_min": 110.82085383409424,
+    "reliable_ess_fraction": 1.0,
+    "effective_draws_equivalent_per_million_gradients": 29702.721477913223,
+    "finite_samples": true,
+    "rank_records": [
+      {
+        "sample": 0,
+        "points": 128,
+        "rank": 64,
+        "condition": 39.46156131121342,
+        "min_eigenvalue": 0.07666913992858822
+      },
+      {
+        "sample": 0,
+        "points": 128,
+        "rank": 64,
+        "condition": 33.427658012133136,
+        "min_eigenvalue": 0.08436897442421629
+      },
+      {
+        "sample": 0,
+        "points": 256,
+        "rank": 64,
+        "condition": 9.338309625044014,
+        "min_eigenvalue": 0.23830091518881483
+      },
+      {
+        "sample": 100,
+        "points": 128,
+        "rank": 64,
+        "condition": 25.87491458244451,
+        "min_eigenvalue": 0.10593799383512238
+      },
+      {
+        "sample": 100,
+        "points": 128,
+        "rank": 64,
+        "condition": 29.200890181192964,
+        "min_eigenvalue": 0.10218564752575103
+      },
+      {
+        "sample": 100,
+        "points": 256,
+        "rank": 64,
+        "condition": 8.41308429877155,
+        "min_eigenvalue": 0.2639637208316125
+      },
+      {
+        "sample": 200,
+        "points": 128,
+        "rank": 64,
+        "condition": 30.22519402197093,
+        "min_eigenvalue": 0.1011653068361598
+      },
+      {
+        "sample": 200,
+        "points": 128,
+        "rank": 64,
+        "condition": 26.996265912489427,
+        "min_eigenvalue": 0.10514012415929248
+      },
+      {
+        "sample": 200,
+        "points": 256,
+        "rank": 64,
+        "condition": 8.79155028998044,
+        "min_eigenvalue": 0.2558009297292413
+      },
+      {
+        "sample": 300,
+        "points": 128,
+        "rank": 64,
+        "condition": 30.065034689262774,
+        "min_eigenvalue": 0.0918247734181251
+      },
+      {
+        "sample": 300,
+        "points": 128,
+        "rank": 64,
+        "condition": 27.796449236210123,
+        "min_eigenvalue": 0.10602250712607154
+      },
+      {
+        "sample": 300,
+        "points": 256,
+        "rank": 64,
+        "condition": 8.433691095060214,
+        "min_eigenvalue": 0.27234851398916776
+      },
+      {
+        "sample": 400,
+        "points": 128,
+        "rank": 64,
+        "condition": 32.932797343719656,
+        "min_eigenvalue": 0.08606004971948468
+      },
+      {
+        "sample": 400,
+        "points": 128,
+        "rank": 64,
+        "condition": 43.25253452275614,
+        "min_eigenvalue": 0.06729001000991121
+      },
+      {
+        "sample": 400,
+        "points": 256,
+        "rank": 64,
+        "condition": 8.221232415895427,
+        "min_eigenvalue": 0.2673413851379299
+      },
+      {
+        "sample": 499,
+        "points": 128,
+        "rank": 64,
+        "condition": 25.095294926564936,
+        "min_eigenvalue": 0.10968174672040844
+      },
+      {
+        "sample": 499,
+        "points": 128,
+        "rank": 64,
+        "condition": 24.96041297278594,
+        "min_eigenvalue": 0.10645043608187865
+      },
+      {
+        "sample": 499,
+        "points": 256,
+        "rank": 64,
+        "condition": 7.913194898870213,
+        "min_eigenvalue": 0.27480529735182696
+      }
+    ]
+  }
+]

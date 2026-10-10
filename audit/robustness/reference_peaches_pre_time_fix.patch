@@ -1,0 +1,5 @@
+--- a/src/affine_invariant_samplers/peaches.py
++++ b/src/affine_invariant_samplers/peaches.py
+@@ -195,1 +195,1 @@
+-    g_m = trajectory_time * diff_sq * inner
++    g_m = state.halton * jnp.exp(state.log_T) * diff_sq * inner
