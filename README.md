@@ -166,8 +166,10 @@ would close the gap.
 ### Walker count and tuning
 
 For ensemble HMC (PEACHES, PEAMS, PEANUTS and PICKLES), start with
-`N = max(32, 4*d)` walkers, where `d` is the dimension. This gives small
-problems a larger ensemble and uses `4d` walkers in higher dimensions.
+`N = max(32, 4*d)` walkers, where `d` is the dimension, or more if your
+budget allows. A larger ensemble is especially useful when covariance
+estimates or learned trajectory lengths are unstable. This gives small
+problems a larger ensemble and uses at least `4d` walkers in higher dimensions.
 If that is too expensive in high dimensions, compare `2d+2` or `2d+4`.
 
 This is a starting point: more walkers help estimate the covariance, but
@@ -175,6 +177,52 @@ step size and trajectory length still need reliable tuning. Check mixing
 and estimates of both means and variances, especially on curved targets
 such as Rosenbrock. Performance relative to NUTS depends on the target,
 sampler and quantity being estimated.
+
+### Gaussian comparison with NUTS
+
+A 32-dimensional Gaussian, `N(1, 10 I)`, with JAX float64 mode on an H200
+GPU. Every method starts from `N(0, I)`, runs 1,000 warmup iterations and
+retains 4,096 draws per walker or chain. Results are mean ± sample standard
+deviation across three independent runs (seeds 5, 6 and 7).
+
+| Sampler | Mean ESS/gradient | Variance ESS/gradient |
+|---|---:|---:|
+| PEACHES | 0.146 ± 0.008 | 0.080 ± 0.004 |
+| PEAMS | 0.108 ± 0.002 | 0.157 ± 0.004 |
+| PICKLES | 0.041 ± 0.001 | 0.052 ± 0.003 |
+| PEANUTS | 0.060 ± 0.001 | 0.036 ± 0.002 |
+| NumPyro NUTS, dense | 0.233 ± 0.019 | 0.071 ± 0.003 |
+| NumPyro NUTS, diagonal | 0.294 ± 0.006 | 0.057 ± 0.003 |
+
+All ensemble methods use 128 walkers (`4d`), initial `step_size=0.1`
+and automatic step-size adaptation. PEACHES, PEAMS and PICKLES use affine
+ChEES tuning, initial `L=10`, `max_L=128` and `target_accept=0.651`.
+PEACHES uses `h-walk`; PICKLES uses `gamma=2`.
+
+PEANUTS uses `h-walk`, affine U-turn checks, progressive sampling,
+`target_accept=0.8` and `max_tree_depth=10`. Its trajectory length is
+chosen by the U-turn criterion. Other settings retain their defaults.
+
+NUTS uses **NumPyro 0.20.1**, with 16 vectorized independent chains,
+step-size and mass-matrix adaptation, `target_accept_prob=0.8` and
+`max_tree_depth=10`. Both diagonal and dense mass matrices are tested.
+The initial step size is `0.1`; heuristic step-size search is disabled.
+
+Each run reports the median ESS/gradient over the 32 coordinates, for
+means and squared deviations from the known target mean (variance estimates).
+ESS uses batch means of the complete ensemble/chain average, including walker
+correlations; batch length is 64. Antithetic sampling can give ESS above the
+number of stored draws. Gradient counts cover active evaluations across
+all walkers or chains; warmup, padded tree work and wall time are excluded.
+Higher values are better.
+
+Across all 18 runs, the RMS relative error of marginal variances was below
+1%; NUTS had no production divergences. Doubling the ESS batch length to
+128 changed each reported per-run efficiency by less than 9%.
+
+See the [reproduction script](benchmark/gaussian_nuts_comparison.py) and
+[per-seed results](benchmark/results/gaussian_nuts_comparison/). These results
+apply to this Gaussian; performance on curved and multiscale targets can differ.
 
 ## Usage essentials
 
