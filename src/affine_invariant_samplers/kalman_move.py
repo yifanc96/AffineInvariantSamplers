@@ -8,6 +8,9 @@ Langevin-like move using both parameter-space and data-space ensemble statistics
 where B_param, B_data are centered complement ensembles in parameter/data space,
 M is precision in data space, and G is the forward model.
 
+Covariance regularization stabilizes deficient complement spans and weakens
+exact affine invariance at floating-point precision.
+
 Requires a forward model G: (batch, D) -> (batch, D_data) and a data-space
 precision matrix M: (D_data, D_data).
 
@@ -92,22 +95,24 @@ def _ekm_propose(active, complement, key, h, forward_fn, M, k):
     bt_MG = jnp.einsum('wkd,wd->wk', B_data, MG)                    # (W, k)
     drift = -h * jnp.einsum('wkd,wk->wd', B_param, bt_MG)           # (W, D)
 
-    # noise = sqrt(2h) * B_param @ z
-    z = jax.random.normal(k2, (W, k))
-    noise = jnp.sqrt(2. * h) * jnp.einsum('wkd,wk->wd', B_param, z)
+    # Sampling and both MH densities must use the same covariance, including
+    # regularization. This also supplies noise outside a deficient subset span.
+    C = jnp.einsum('wkd,wke->wde', B_param, B_param)                 # (W, D, D)
+    norm_C = jnp.max(jnp.sum(jnp.abs(C), axis=-1), axis=-1)
+    ridge = jnp.maximum(1e-8, 4. * jnp.finfo(C.dtype).eps * norm_C)
+    C_reg = C + ridge[:, None, None] * jnp.eye(D)[None]
+    L_C = jnp.linalg.cholesky(C_reg)
+    z = jax.random.normal(k2, (W, D))
+    noise = jnp.sqrt(2. * h) * jnp.einsum('wde,we->wd', L_C, z)
 
     proposal = active + drift + noise
 
-    # --- MH correction: C = B_param^T B_param (D x D), same as LWM ---
-    C = jnp.einsum('wkd,wke->wde', B_param, B_param)                 # (W, D, D)
-    D_ = active.shape[1]
-    reg = 1e-8 * jnp.eye(D_)[None]
-    C_reg = C + reg
+    # --- MH correction using the same regularized covariance ---
 
     # forward
     r_fwd = proposal - active - drift
-    sol_fwd = jnp.linalg.solve(C_reg, r_fwd[..., None])[..., 0]
-    quad_fwd = jnp.sum(r_fwd * sol_fwd, axis=1) / (2. * h)
+    sol_fwd = jax.scipy.linalg.solve_triangular(L_C, r_fwd, lower=True)
+    quad_fwd = jnp.sum(sol_fwd**2, axis=1) / (2. * h)
 
     # reverse: drift at proposal
     G_prop = forward_fn(proposal)
@@ -115,8 +120,8 @@ def _ekm_propose(active, complement, key, h, forward_fn, M, k):
     bt_MG_prop = jnp.einsum('wkd,wd->wk', B_data, MG_prop)
     drift_prop = -h * jnp.einsum('wkd,wk->wd', B_param, bt_MG_prop)
     r_rev = active - proposal - drift_prop
-    sol_rev = jnp.linalg.solve(C_reg, r_rev[..., None])[..., 0]
-    quad_rev = jnp.sum(r_rev * sol_rev, axis=1) / (2. * h)
+    sol_rev = jax.scipy.linalg.solve_triangular(L_C, r_rev, lower=True)
+    quad_rev = jnp.sum(sol_rev**2, axis=1) / (2. * h)
 
     log_q_diff = 0.5 * (quad_rev - quad_fwd)
     return proposal, log_q_diff
@@ -202,7 +207,14 @@ def sampler_kalman_move(
         samples : (num_samples, n_chains, D)
         info    : dict(acceptance_rate, final_step_size)
     """
-    state = jnp.asarray(initial_state)
+    if not (0.0 < float(step_size) < float("inf")):
+        raise ValueError("step_size must be finite and strictly positive")
+
+    # Match momentum/noise precision, including with integer or float32 starts.
+    state = jnp.asarray(initial_state, dtype=jnp.float64
+                        if jax.config.jax_enable_x64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(state))):
+        raise ValueError("initial_state must contain only finite values")
     n_chains, dim = state.shape
     assert n_chains >= 4 and n_chains % 2 == 0
     M = jnp.asarray(M)
@@ -222,6 +234,8 @@ def sampler_kalman_move(
         step_size = _find_init_eps(k_, g1, g2, lp1, lp2, step_size,
                                     log_prob_fn, forward_fn, M, W, k,
                                     target_accept)
+        if not (0.0 < float(step_size) < float("inf")):
+            raise ValueError("initial scale search failed: check that the initial ensemble and target are finite and nondegenerate, or disable the search and supply a finite positive scale")
         if verbose:
             print(f"[kalman_move] find_init_step_size: step_size {_user_h:.4g} → "
                   f"{float(step_size):.4g}\n"

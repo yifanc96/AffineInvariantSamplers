@@ -11,12 +11,18 @@ All functions accept samples of shape (N,), (N, D), or (N, n_chains, D):
   * (N, n_chains, D) — full output of sampler_xxx(...); chains are averaged
 
 The integrated autocorrelation time follows Sokal's self-consistent-window
-estimator (used also by emcee / arviz).  ESS = N_total / τ.
+estimator (used also by emcee). ESS = N_total / τ.
+
+Per-walker averages omit correlations between different walkers at different
+times. Inspect ensemble-mean observables and independent ensemble runs as well.
+Constant series have undefined autocorrelation; tau=inf and ESS=0 are used as
+conservative reporting sentinels rather than evidence of independent samples.
 """
 
 from __future__ import annotations
 
 import numpy as np
+from operator import index
 
 
 __all__ = [
@@ -32,22 +38,39 @@ __all__ = [
 # 1D primitives (port of initial-samplers/autocorrelation_func.py)
 # ──────────────────────────────────────────────────────────────────────────────
 
+def _normalize_max_lag(n, max_lag):
+    """Choose a positive ACF length that fits the available samples."""
+    if n < 2:
+        raise ValueError("autocorrelation requires at least 2 samples")
+    if max_lag is None:
+        return max(1, min(n // 3, 20_000))
+    try:
+        max_lag = index(max_lag)
+    except TypeError as exc:
+        raise ValueError("max_lag must be a positive integer") from exc
+    if max_lag < 1:
+        raise ValueError("max_lag must be a positive integer")
+    return min(max_lag, n)
+
+
 def autocorrelation_fft(x, max_lag=None):
     """FFT-based autocorrelation function for a 1D sequence.
 
     Args:
         x        : 1D array-like of samples.
-        max_lag  : Maximum lag to return (default min(N // 3, 20000)).
+        max_lag  : Number of lags to return, including lag zero. Defaults to
+                   max(1, min(N // 3, 20000)) and is capped at N.
 
     Returns:
-        acf : 1D numpy array of length `max_lag`.  acf[0] == 1.
+        acf : 1D numpy array of length min(max_lag, N). acf[0] == 1.
     """
     x = np.asarray(x, dtype=float).ravel()
     n = x.size
     if n < 2:
         raise ValueError("autocorrelation_fft requires at least 2 samples")
-    if max_lag is None:
-        max_lag = min(n // 3, 20_000)
+    if not np.isfinite(x).all():
+        raise ValueError("autocorrelation samples must all be finite")
+    max_lag = _normalize_max_lag(n, max_lag)
 
     x_norm = x - x.mean()
     var = x_norm.var()
@@ -87,6 +110,19 @@ def integrated_autocorr_time_1d(x, M=5, c=10, max_iterations=10):
     x = np.asarray(x, dtype=float).ravel()
     if x.size < 2:
         raise ValueError("integrated_autocorr_time_1d requires at least 2 samples")
+    if not np.isfinite(x).all():
+        raise ValueError("autocorrelation samples must all be finite")
+    if M <= 0 or c <= 0:
+        raise ValueError("M and c must be positive")
+    try:
+        max_iterations = index(max_iterations)
+    except TypeError as exc:
+        raise ValueError("max_iterations must be a nonnegative integer") from exc
+    if max_iterations < 0:
+        raise ValueError("max_iterations must be a nonnegative integer")
+
+    if np.all(x == x[0]):
+        return float("inf"), autocorrelation_fft(x), 0.0
 
     orig_x = x.copy()
     n_orig = orig_x.size
@@ -94,7 +130,10 @@ def integrated_autocorr_time_1d(x, M=5, c=10, max_iterations=10):
     tau = 1.0
 
     k = 0
+    converged = False
     while k < max_iterations:
+        if x.size < 2:
+            break
         acf = autocorrelation_fft(x)
         tau = 1.0
         for window in range(1, len(acf)):
@@ -105,6 +144,7 @@ def integrated_autocorr_time_1d(x, M=5, c=10, max_iterations=10):
                 break
         if n >= c * tau:
             tau = tau * (2 ** k)
+            converged = True
             break
         # pairwise reduction
         k += 1
@@ -118,9 +158,10 @@ def integrated_autocorr_time_1d(x, M=5, c=10, max_iterations=10):
 
     # final recompute at original scale
     acf = autocorrelation_fft(orig_x)
-    if k >= max_iterations or n < c * tau:
-        tau_reduced = 1.0 + 2.0 * float(acf[1: min(len(acf), int(M) + 1)].sum())
-        tau = tau_reduced * (2 ** k)
+    if not converged:
+        # This ACF is already on the original time scale: multiplying by
+        # the reduction factor again would inflate tau with each retry.
+        tau = 1.0 + 2.0 * float(acf[1: min(len(acf), int(M) + 1)].sum())
 
     return float(tau), acf, float(n_orig / tau)
 
@@ -147,15 +188,15 @@ def autocorrelation(samples, max_lag=None):
 
     Args:
         samples : (N,) or (N, D) or (N, n_chains, D) array.
-        max_lag : Maximum lag (default min(N // 3, 20_000)).
+        max_lag : Number of lags including zero, capped at N. Default:
+                  max(1, min(N // 3, 20_000)).
 
     Returns:
-        acf : array of shape `(max_lag, D)`.  `acf[0] == 1` for every column.
+        acf : array of shape `(min(max_lag, N), D)`. `acf[0] == 1`.
     """
     s = _to_3d(samples)
     N, C, D = s.shape
-    if max_lag is None:
-        max_lag = min(N // 3, 20_000)
+    max_lag = _normalize_max_lag(N, max_lag)
     out = np.zeros((max_lag, D))
     for d in range(D):
         acc = np.zeros(max_lag)
@@ -194,10 +235,11 @@ def effective_sample_size(samples, M=5, c=10, clamp=True):
         samples : (N,) or (N, D) or (N, n_chains, D).
         M, c    : Passed to the self-consistent-window estimator.
         clamp   : If True (default), τ is clamped at 1 so ESS ≤ N · n_chains
-                  (emcee/arviz convention).  If False, ESS = N · n_chains / τ
+                  as a reporting policy. If False, ESS = N · n_chains / τ
                   with no cap — well-tuned HMC can produce antithetic samples
-                  (τ < 1), giving ESS > N.  Use `clamp=False` when comparing
-                  HMC variants whose clamped ESS both saturate.
+                  (τ < 1), giving ESS > N. This window estimator can miss
+                  strong alternating correlations even with clamp=False;
+                  compare additional observables and independent runs.
 
     Returns:
         ess : 1D array of length D.  Scalar if input was 1D.

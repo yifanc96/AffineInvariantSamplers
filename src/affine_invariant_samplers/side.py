@@ -132,12 +132,24 @@ def sampler_side(
         samples : (num_samples, n_chains, D)
         info    : dict(acceptance_rate, final_gamma)
     """
-    state = jnp.asarray(initial_state)
+    if not (0.0 < float(gamma) < float("inf")):
+        raise ValueError("gamma must be finite and strictly positive")
+
+    # Match momentum/noise precision, including with integer or float32 starts.
+    state = jnp.asarray(initial_state, dtype=jnp.float64
+                        if jax.config.jax_enable_x64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(state))):
+        raise ValueError("initial_state must contain only finite values")
     n_chains, dim = state.shape
     assert n_chains >= 4 and n_chains % 2 == 0
 
     W = n_chains // 2
     g1, g2 = state[:W], state[W:]
+    if find_init_gamma and (bool(jnp.all(g1 == g1[0])) or
+                                 bool(jnp.all(g2 == g2[0]))):
+        raise ValueError("initial scale search requires at least two distinct walkers in each half; "
+                         "spread the initial ensemble or set find_init_gamma=False "
+                         "and supply a finite positive gamma")
     lp1, lp2 = log_prob_fn(g1), log_prob_fn(g2)
     key = jax.random.key(seed)
 
@@ -148,6 +160,8 @@ def sampler_side(
         key, k_ = jax.random.split(key)
         gamma_scale0 = _find_init_gs(k_, g1, g2, lp1, lp2, gamma_scale0,
                                       log_prob_fn, W, target_accept)
+        if not (0.0 < float(gamma_scale0) < float("inf")):
+            raise ValueError("initial scale search failed: check that the initial ensemble and target are finite and nondegenerate, or disable the search and supply a finite positive scale")
         if verbose:
             _tuned_gamma = float(gamma_scale0 * jnp.sqrt(dim))
             print(f"[side] find_init_gamma: gamma {_user_gamma:.4g} → "

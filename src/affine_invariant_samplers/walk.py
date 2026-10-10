@@ -136,7 +136,14 @@ def sampler_walk(
         samples : (num_samples, n_chains, D)
         info    : dict(acceptance_rate, final_step_size)
     """
-    state = jnp.asarray(initial_state)
+    if not (0.0 < float(step_size) < float("inf")):
+        raise ValueError("step_size must be finite and strictly positive")
+
+    # Match momentum/noise precision, including with integer or float32 starts.
+    state = jnp.asarray(initial_state, dtype=jnp.float64
+                        if jax.config.jax_enable_x64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(state))):
+        raise ValueError("initial_state must contain only finite values")
     n_chains, dim = state.shape
     assert n_chains >= 4 and n_chains % 2 == 0
 
@@ -145,6 +152,11 @@ def sampler_walk(
     assert 2 <= k <= W, f"subset_size must be in [2, {W}]"
 
     g1, g2 = state[:W], state[W:]
+    if find_init_step_size and (bool(jnp.all(g1 == g1[0])) or
+                                 bool(jnp.all(g2 == g2[0]))):
+        raise ValueError("initial scale search requires at least two distinct walkers in each half; "
+                         "spread the initial ensemble or set find_init_step_size=False "
+                         "and supply a finite positive step_size")
     lp1, lp2 = log_prob_fn(g1), log_prob_fn(g2)
     key = jax.random.key(seed)
 
@@ -154,6 +166,8 @@ def sampler_walk(
         key, k_ = jax.random.split(key)
         step_size = _find_init_eps(k_, g1, g2, lp1, lp2, step_size,
                                     log_prob_fn, W, k, target_accept)
+        if not (0.0 < float(step_size) < float("inf")):
+            raise ValueError("initial scale search failed: check that the initial ensemble and target are finite and nondegenerate, or disable the search and supply a finite positive scale")
         if verbose:
             print(f"[walk] find_init_step_size: step_size {_user_h:.4g} → "
                   f"{float(step_size):.4g}\n"

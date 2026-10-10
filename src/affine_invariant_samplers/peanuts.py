@@ -209,8 +209,8 @@ def _build_peanuts_tree(z0, log_prob_single, grad_U_single, eps, key,
     tree0 = _TreeState(
         z_left=z0, r_left=r0, z_right=z0, r_right=r0,
         z_prop=z0, lp_prop=lp0, depth=0,
-        log_weight=jnp.float32(0.), turning=False, diverging=False,
-        sum_accept=jnp.float32(0.), n_proposals=0,
+        log_weight=jnp.zeros_like(E0), turning=False, diverging=False,
+        sum_accept=jnp.zeros_like(E0), n_proposals=0,
     )
 
     # --- helpers closed over shared state ---
@@ -354,10 +354,10 @@ def _build_peanuts_tree(z0, log_prob_single, grad_U_single, eps, key,
         init_tree = _TreeState(
             z_left=z_start, r_left=r_start,
             z_right=z_start, r_right=r_start,
-            z_prop=z_start, lp_prop=jnp.float32(-jnp.inf),
-            depth=0, log_weight=jnp.float32(-jnp.inf),
+            z_prop=z_start, lp_prop=jnp.full_like(lp0, -jnp.inf),
+            depth=0, log_weight=jnp.full_like(E0, -jnp.inf),
             turning=False, diverging=False,
-            sum_accept=jnp.float32(0.), n_proposals=0,
+            sum_accept=jnp.zeros_like(E0), n_proposals=0,
         )
         tree, turn, z_ck, r_ck, _, _ = jax.lax.while_loop(
             cond, body,
@@ -608,7 +608,7 @@ def sampler_peanuts(
         target_accept    : Target acceptance rate for dual averaging.
         max_delta_energy : Energy threshold for divergence detection.
         grad_log_prob_fn : Vectorised gradient (batch,D)->(batch,D).
-                           If None, uses jax.vmap(jax.grad(log_prob_fn)).
+                           If None, uses JAX autodiff on each batched point.
         find_init_step_size : If True (default), run a short heuristic search at
                               the initial positions to scale `step_size` to
                               ~80% acceptance before warmup.
@@ -623,8 +623,22 @@ def sampler_peanuts(
     Returns:
         samples : (num_samples, n_chains, D)
         info    : dict(acceptance_rate, final_step_size, mean_tree_depth)
+        mean_num_steps counts tree leaves per walker/iteration.
+        n_grad_evals_prod counts logical production gradient evaluations (two
+        per active tree leaf); n_grad_evals adds the corresponding warmup cost.
+        Both exclude initial step-size probes and extra work on inactive/padded
+        lanes in the vectorized dynamic trees.
     """
-    state    = jnp.asarray(initial_state)
+    if not (0.0 < float(step_size) < float("inf")):
+        raise ValueError("step_size must be finite and strictly positive")
+
+    if move not in ("h-walk", "h-side"):
+        raise ValueError("move must be 'h-walk' or 'h-side'")
+    # Match momentum/noise precision, including with integer or float32 starts.
+    state = jnp.asarray(initial_state, dtype=jnp.float64
+                        if jax.config.jax_enable_x64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(state))):
+        raise ValueError("initial_state must contain only finite values")
     n_chains, dim = state.shape
     assert n_chains >= 4 and n_chains % 2 == 0, "Need >= 4 even chains"
     assert sampling in ("progressive", "multinomial"), \
@@ -645,6 +659,11 @@ def sampler_peanuts(
 
     W = n_chains // 2
     g1, g2 = state[:W], state[W:]
+    if find_init_step_size and (bool(jnp.all(g1 == g1[0])) or
+                                 bool(jnp.all(g2 == g2[0]))):
+        raise ValueError("initial scale search requires at least two distinct walkers in each half; "
+                         "spread the initial ensemble or set find_init_step_size=False "
+                         "and supply a finite positive step_size")
     key = jax.random.key(seed)
 
     # --- initial step size ---
@@ -652,6 +671,8 @@ def sampler_peanuts(
         _user_h = float(step_size)
         key, k = jax.random.split(key)
         step_size = _find_init_eps(k, g1, g2, log_prob_fn, _grad_U, step_size, move)
+        if not (0.0 < float(step_size) < float("inf")):
+            raise ValueError("initial scale search failed: check that the initial ensemble and target are finite and nondegenerate, or disable the search and supply a finite positive scale")
         if verbose:
             print(f"[peanuts] find_init_step_size: step_size {_user_h:.4g} → "
                   f"{float(step_size):.4g}\n"
@@ -695,18 +716,21 @@ def sampler_peanuts(
 
         acc = (jnp.mean(jnp.exp(la1)) + jnp.mean(jnp.exp(la2))) / 2
         mean_ns = (jnp.mean(ns1) + jnp.mean(ns2)) / 2
-        return g1, g2, lp1, lp2, da, acc, mean_ns
+        num_leaves = jnp.sum(ns1) + jnp.sum(ns2)
+        return g1, g2, lp1, lp2, da, acc, mean_ns, num_leaves
 
     key, k = jax.random.split(key)
     flat  = jax.random.split(k, warmup * 4)
     wkeys = flat.reshape(warmup, 4, *flat.shape[1:])
     total_acc = 0.
     total_ns  = 0.
+    total_leaves = 0
     for i in range(warmup):
-        g1, g2, lp1, lp2, da, acc, mean_ns = _warmup_step(
+        g1, g2, lp1, lp2, da, acc, mean_ns, num_leaves = _warmup_step(
             g1, g2, lp1, lp2, da, wkeys[i])
         total_acc += acc
         total_ns  += mean_ns
+        total_leaves += int(num_leaves)
 
     final_eps = jnp.exp(da.log_eps_bar) if adapt_step_size else step_size
     if verbose:
@@ -734,18 +758,27 @@ def sampler_peanuts(
         # Report tree acceptance rate (integrator quality diagnostic)
         accept = jnp.concatenate([jnp.exp(la1), jnp.exp(la2)])
         n_steps = (jnp.mean(ns1) + jnp.mean(ns2)) / 2
-        return (g1, g2, lp1, lp2), (state, accept, n_steps)
+        num_leaves = jnp.sum(ns1) + jnp.sum(ns2)
+        return (g1, g2, lp1, lp2), (state, accept, n_steps, num_leaves)
 
     key, k  = jax.random.split(key)
     flat    = jax.random.split(k, num_samples * thin_by * 4)
     skeys   = flat.reshape(num_samples * thin_by, 4, *flat.shape[1:])
-    (g1, g2, lp1, lp2), (all_states, all_acc, all_ns) = jax.lax.scan(
+    (g1, g2, lp1, lp2), (all_states, all_acc, all_ns, all_leaves) = jax.lax.scan(
         _step, (g1, g2, lp1, lp2), skeys)
 
     samples = all_states[::thin_by]
+    # Each active leaf has two uncached gradient evaluations. This logical
+    # count excludes extra inactive/padded lane work in the vmapped trees.
+    # Sum host integers; device int32 reductions can overflow on long runs.
+    prod_grads = 2 * sum(all_leaves.tolist())
+    warmup_grads = 2 * total_leaves
     info = dict(acceptance_rate=float(jnp.mean(all_acc)),  # mean tree energy acceptance
                 final_step_size=float(final_eps),
-                mean_tree_depth=float(jnp.mean(jnp.log2(all_ns + 1))))
+                mean_tree_depth=float(jnp.mean(jnp.log2(all_ns + 1))),
+                mean_num_steps=float(jnp.mean(all_ns)),  # leaf steps per walker/iteration
+                n_grad_evals_prod=prod_grads,
+                n_grad_evals=prod_grads + warmup_grads)
     if verbose:
         print(f"Done.  accept={info['acceptance_rate']:.3f}"
               f"  mean_steps={float(jnp.mean(all_ns)):.1f}")

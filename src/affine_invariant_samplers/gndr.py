@@ -224,9 +224,9 @@ def sampler_gndr(
         thin_by       : Thinning factor.
         residual_fn   : (D,) -> (N_res,).  Residual vector r(x) for GN Hessian.
                         H_GN(x) = J_r(x)^T J_r(x) where J_r = dr/dx.
-        hessian_fn    : (D,) -> (D,D).  Override: explicit GN Hessian.
+        hessian_fn    : (D,) -> (D,D). Explicit positive-semidefinite metric.
                         If None and residual_fn is given, auto-derived.
-                        If both None, falls back to -jax.hessian(log_prob).
+                        If both are None, raises ValueError.
         grad_fn       : (D,) -> (D,).   If None, auto-derived via jax.grad.
         seed          : Random seed.
         verbose       : Print progress.
@@ -239,10 +239,17 @@ def sampler_gndr(
 
     Returns:
         samples : (num_samples, n_chains, D)
-        info    : dict(acceptance_rate, stage_rates, final_step_size)
+        info    : dict(acceptance_rate, stage1_rate, final_step_size, n_grad_evals)
     """
+    if not (0.0 < float(step_size) < float("inf")):
+        raise ValueError("step_size must be finite and strictly positive")
+
     assert 1 <= n_try <= 3, "n_try must be 1, 2, or 3"
-    state = jnp.asarray(initial_state)
+    # Match momentum/noise precision, including with integer or float32 starts.
+    state = jnp.asarray(initial_state, dtype=jnp.float64
+                        if jax.config.jax_enable_x64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(state))):
+        raise ValueError("initial_state must contain only finite values")
     n_chains, dim = state.shape
 
     # auto-derive gradient
@@ -292,6 +299,8 @@ def sampler_gndr(
         L_x0 = _safe_cholesky(v_hess(x))
         step_size = _find_init_eps(k_, x, lp, grad_x0, L_x0, step_size, v_lp,
                                     target_accept)
+        if not (0.0 < float(step_size) < float("inf")):
+            raise ValueError("initial scale search failed: check that the initial ensemble and target are finite and nondegenerate, or disable the search and supply a finite positive scale")
         if verbose:
             print(f"[gndr] find_init_step_size: step_size {_user_h:.4g} → "
                   f"{float(step_size):.4g}\n"

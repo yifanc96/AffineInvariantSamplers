@@ -38,7 +38,8 @@ Caveats
 * **Multimodal targets.**  MAP is a point estimate — it seeds all chains
   in one mode.  Use ``find_map_restarts`` with many restarts and inspect
   the spread, or fall back to a dispersed random init.
-* **Non-smooth / unbounded potentials.**  BFGS needs twice-differentiability.
+* **Non-smooth / unbounded potentials.** BFGS needs differentiability;
+  the Laplace Hessian additionally needs twice-differentiability.
   Targets with genuinely unbounded potentials (no MAP at all) will send
   the optimizer to infinity.
 * The Hessian at an early-stopped optimum may be indefinite; we regularize
@@ -129,7 +130,7 @@ def find_map_restarts(log_prob_single: Callable,
                       x0_batch: jnp.ndarray,
                       maxiter: int = 500,
                       verbose: bool = False) -> MAPResult:
-    """Run BFGS from a batch of starting points and return the best minimum.
+    """Run BFGS from a batch of starts and return the best finite minimum.
 
     Uses ``vmap`` to run all restarts in parallel on the accelerator.  Good
     when a single start is unreliable — either because the landscape has
@@ -150,9 +151,13 @@ def find_map_restarts(log_prob_single: Callable,
     Returns
     -------
     MAPResult
-        Best minimum across restarts.
+        Best converged finite minimum across restarts. If none converged,
+        returns the best finite unfinished result with success=False.
     """
-    x0_batch = jnp.asarray(x0_batch)
+    x0_batch = jnp.asarray(
+        x0_batch, dtype=jnp.float64 if jax.config.jax_enable_x64 else jnp.float32)
+    if x0_batch.ndim != 2 or x0_batch.shape[0] < 1:
+        raise ValueError("x0_batch must contain at least one starting point with shape (n_restarts, D)")
     neg = lambda x: -log_prob_single(x)
 
     def _one(x0):
@@ -162,13 +167,19 @@ def find_map_restarts(log_prob_single: Callable,
         return res.x, res.fun, res.success, res.nit
 
     xs, funs, succ, nits = jax.vmap(_one)(x0_batch)
-    i_best = int(jnp.argmin(funs))
+    finite = jnp.isfinite(funs) & jnp.all(jnp.isfinite(xs), axis=1)
+    if not bool(jnp.any(finite)):
+        raise ValueError("No MAP restart produced a finite point and objective")
+    converged = finite & succ
+    candidates = jnp.where(jnp.any(converged), converged, finite)
+    i_best = int(jnp.argmin(jnp.where(candidates, funs, jnp.inf)))
     out = MAPResult(x=xs[i_best], fun=float(funs[i_best]),
                     success=bool(succ[i_best]), nit=int(nits[i_best]))
     if verbose:
-        n_ok = int(jnp.sum(succ))
+        n_ok = int(jnp.sum(converged))
         n_total = x0_batch.shape[0]
-        spread = float(jnp.max(funs) - jnp.min(funs))
+        spread = float(jnp.max(jnp.where(finite, funs, -jnp.inf))
+                       - jnp.min(jnp.where(finite, funs, jnp.inf)))
         print(f"[find_map_restarts] {n_ok}/{n_total} restarts converged, "
               f"best -log_prob = {out.fun:.4g}, spread across restarts = {spread:.4g}")
     return out
@@ -210,7 +221,8 @@ def init_ensemble_from_map(log_prob_single: Callable,
     n_restarts : int
         Number of BFGS restarts.  If > 1, uses ``find_map_restarts``.
     scale : float
-        Multiplier on the Laplace covariance.  ``1.0`` matches the local
+        Multiplier on Laplace standard deviations (covariance scales as
+        ``scale**2``). ``1.0`` matches the local
         curvature; ``<1`` gives a tighter init, ``>1`` a more dispersed one.
     eig_floor : float
         Hessian eigenvalues below this are clipped up (regularization for
@@ -246,12 +258,16 @@ def init_ensemble_from_map(log_prob_single: Callable,
                         maxiter=maxiter, verbose=verbose)
 
     x_map = res.x
+    if not bool(jnp.all(jnp.isfinite(x_map))) or not jnp.isfinite(res.fun):
+        raise ValueError("MAP search did not produce a finite point and objective; choose a valid starting point")
     D = x_map.shape[0]
 
     # ── Hessian + regularized inverse cholesky ────────────────────────────
     H = jax.hessian(lambda x: -log_prob_single(x))(x_map)
     # Symmetrize (autodiff can produce tiny asymmetry)
     H = 0.5 * (H + H.T)
+    if not bool(jnp.all(jnp.isfinite(H))):
+        raise ValueError("MAP Hessian contains nonfinite values; cannot form a Laplace ensemble")
     # Eigendecomp, clip eigenvalues, reconstruct inverse
     eigvals, eigvecs = jnp.linalg.eigh(H)
     eigvals_clipped = jnp.maximum(eigvals, eig_floor)
@@ -262,6 +278,8 @@ def init_ensemble_from_map(log_prob_single: Callable,
     # (scale * eigvecs @ diag(1/sqrt(eig)))  is the Cholesky-like factor L
     # such that  L L^T = H^{-1} (up to regularization)
     L = scale * eigvecs * inv_sqrt_eigvals[None, :]     # (D, D)
+    if not bool(jnp.all(jnp.isfinite(L))):
+        raise ValueError("Regularized MAP Hessian did not yield a finite Laplace covariance factor")
     init = x_map[None, :] + z @ L.T                     # (n_chains, D)
 
     if verbose:

@@ -14,11 +14,18 @@ where B = (1/sqrt(N))[q^(1)-m, ..., q^(N)-m]  in R^{d x N},
 The correction  nabla_{q^(i)} . B^T  ensures the correct stationary distribution
 Pi*(Q,P) propto exp( -sum Phi(q^(i)) - (1/2) sum ||p^(i)||^2 ).
 
-The BAOAB splitting gives O(h^2) configurational bias (weak 2nd order).
+The centered ensemble matrix is frozen within each step. This is a BAOAB-like
+approximation to the state-dependent dynamics; the usual second-order bias
+result for constant-metric BAOAB does not establish its order.
 
 Gradient caching: the gradient nabla Phi(Q) evaluated for the second B-kick
 at the end of step n is reused (re-projected onto the new centered matrix)
 for the first B-kick of step n+1.  Thus k steps cost k+1 gradient evaluations.
+
+State-dependent step adaptation continues during production. Equal-iteration
+samples generally follow a time-changed law and need clock/weight correction
+for target expectations; no such correction is applied here. Fixed-step runs
+still have discretization bias.
 
 Step-size adaptation options:
   "maxdrift" — per-step max projected-gradient-norm scaling (default,
@@ -55,14 +62,14 @@ import jax.numpy as jnp
 # ──────────────────────────────────────────────────────────────────────────────
 
 def _nan_guard_state(X_new, X_old):
-    """Replace NaN particles with old particles (reject divergent step)."""
-    ok = ~jnp.any(jnp.isnan(X_new), axis=1, keepdims=True)
+    """Replace nonfinite particles with old particles (reject divergent step)."""
+    ok = jnp.all(jnp.isfinite(X_new), axis=1, keepdims=True)
     return jnp.where(ok, X_new, X_old)
 
 
 def _nan_guard_mom(P_new, P_old):
-    """Replace NaN momentum rows with old (reject divergent step)."""
-    ok = ~jnp.any(jnp.isnan(P_new), axis=1, keepdims=True)
+    """Replace nonfinite momentum rows with old (reject divergent step)."""
+    ok = jnp.all(jnp.isfinite(P_new), axis=1, keepdims=True)
     return jnp.where(ok, P_new, P_old)
 
 
@@ -87,7 +94,7 @@ def _baoab_core(Q, P, h, gamma, pg_start, centered, corr, grad_lp, key):
     # A: half-drift
     Q = Q + (h / 2.0) * (P @ centered)
     # O: full Ornstein-Uhlenbeck
-    xi = jax.random.normal(key, (N, N))
+    xi = jax.random.normal(key, (N, N), dtype=P.dtype)
     P = alpha * P + sigma * xi
     # A: half-drift  (same centered, fixed from start of step)
     Q = Q + (h / 2.0) * (P @ centered)
@@ -136,11 +143,11 @@ def _baoab_step_pgn(Q, P, h_base, gamma, grad_lp, corr,
     Q_new, P_new, grad_phi_new = _baoab_core(
         Q, P, h, gamma, pg, centered, corr, grad_lp, key)
 
-    # NaN guard
-    any_nan = jnp.any(jnp.isnan(Q_new))
+    # Nonfinite guard
+    valid_rows = jnp.all(jnp.isfinite(Q_new), axis=1, keepdims=True)
     Q_new = _nan_guard_state(Q_new, Q)
     P_new = _nan_guard_mom(P_new, P)
-    grad_phi_new = jnp.where(any_nan, grad_phi_cached, grad_phi_new)
+    grad_phi_new = jnp.where(valid_rows, grad_phi_new, grad_phi_cached)
 
     return Q_new, P_new, grad_phi_new, h
 
@@ -165,12 +172,12 @@ def _baoab_step_samadams(Q, P, h_base, gamma, grad_lp, corr,
     Q_new, P_new, grad_phi_new = _baoab_core(
         Q, P, h, gamma, pg, centered, corr, grad_lp, key)
 
-    # NaN guard: protect state, gradient cache, and EMA
-    any_nan = jnp.any(jnp.isnan(Q_new))
+    # Nonfinite guard: protect state, gradient cache, and EMA
+    valid_rows = jnp.all(jnp.isfinite(Q_new), axis=1, keepdims=True)
     Q_new = _nan_guard_state(Q_new, Q)
     P_new = _nan_guard_mom(P_new, P)
-    grad_phi_new = jnp.where(any_nan, grad_phi_cached, grad_phi_new)
-    s = jnp.where(any_nan | jnp.isnan(s), zeta, s)
+    grad_phi_new = jnp.where(valid_rows, grad_phi_new, grad_phi_cached)
+    s = jnp.where((~jnp.all(valid_rows)) | ~jnp.isfinite(s), zeta, s)
 
     zeta_new = rho * zeta + (1.0 - rho) * s
     return Q_new, P_new, grad_phi_new, zeta_new, h
@@ -195,11 +202,11 @@ def _baoab_step_maxpgn(Q, P, h_base, gamma, grad_lp, corr,
     Q_new, P_new, grad_phi_new = _baoab_core(
         Q, P, h, gamma, pg, centered, corr, grad_lp, key)
 
-    # NaN guard
-    any_nan = jnp.any(jnp.isnan(Q_new))
+    # Nonfinite guard
+    valid_rows = jnp.all(jnp.isfinite(Q_new), axis=1, keepdims=True)
     Q_new = _nan_guard_state(Q_new, Q)
     P_new = _nan_guard_mom(P_new, P)
-    grad_phi_new = jnp.where(any_nan, grad_phi_cached, grad_phi_new)
+    grad_phi_new = jnp.where(valid_rows, grad_phi_new, grad_phi_cached)
 
     return Q_new, P_new, grad_phi_new, h
 
@@ -252,12 +259,18 @@ def sampler_pickles_unadjusted(
         samples : (num_samples, N, D)
         info    : dict(step_size, gamma, adapt, ...)
     """
+    if not (0.0 < float(step_size) < float("inf")):
+        raise ValueError("step_size must be finite and strictly positive")
+
     if adapt is True:
         adapt = "maxdrift"
     if adapt is False:
         adapt = None
 
     Q = jnp.asarray(initial_state)
+    Q = Q.astype(jnp.float64 if Q.dtype == jnp.float64 else jnp.float32)
+    if not bool(jnp.all(jnp.isfinite(Q))):
+        raise ValueError("initial_state must contain only finite values")
     N, d = Q.shape
 
     if grad_log_prob_fn is None:
@@ -266,13 +279,15 @@ def sampler_pickles_unadjusted(
         grad_lp = grad_log_prob_fn
 
     # constant correction matrix: (d/sqrt(N)) * (I - 11^T/N)
-    corr = (d / jnp.sqrt(N)) * (jnp.eye(N) - jnp.ones((N, N)) / N)
+    corr = (d / jnp.sqrt(jnp.asarray(N, dtype=Q.dtype))) * (
+        jnp.eye(N, dtype=Q.dtype) - jnp.ones((N, N), dtype=Q.dtype) / N)
 
     key = jax.random.key(seed)
     key, k = jax.random.split(key)
-    P = jax.random.normal(k, (N, N))
+    P = jax.random.normal(k, (N, N), dtype=Q.dtype)
 
-    h_base = jnp.float32(step_size)
+    h_base = jnp.asarray(step_size, dtype=Q.dtype)
+    h = h_base
 
     # initial gradient (the only "extra" evaluation; all subsequent steps reuse)
     gp = -grad_lp(Q)                                  # nabla Phi(Q_0)
@@ -294,21 +309,21 @@ def sampler_pickles_unadjusted(
 
         @jax.jit
         def _prod(carry, key):
-            Q, P, gp = carry
+            Q, P, gp, _ = carry
             Q_new, P_new, gp_new, h = _baoab_step_pgn(
                 Q, P, h_base, gamma, grad_lp, corr, target_gnorm, gp, key)
-            return (Q_new, P_new, gp_new), Q_new
+            return (Q_new, P_new, gp_new, h), Q_new
 
         key, k = jax.random.split(key)
         skeys = jax.random.split(k, num_samples * thin_by)
-        _, all_Q = jax.lax.scan(_prod, (Q, P, gp), skeys)
+        (Q, P, gp, h), all_Q = jax.lax.scan(_prod, (Q, P, gp, h), skeys)
         samples = all_Q[::thin_by]
         info = dict(step_size=float(h), gamma=gamma, adapt="pgn")
 
     # ── samadams ────────────────────────────────────────────────────────────
     elif adapt == "samadams":
-        eps_sa = jnp.float32(1e-8)
-        rho_j = jnp.float32(rho)
+        eps_sa = jnp.asarray(1e-8, dtype=h_base.dtype)
+        rho_j = jnp.asarray(rho, dtype=h_base.dtype)
 
         # initialise zeta
         m0 = jnp.mean(Q, axis=0)
@@ -365,20 +380,20 @@ def sampler_pickles_unadjusted(
 
         @jax.jit
         def _prod(carry, key):
-            Q, P, gp = carry
+            Q, P, gp, _ = carry
             Q_new, P_new, gp_new, h = _baoab_step_maxpgn(
                 Q, P, h_base, gamma, grad_lp, corr, target_gnorm, gp, key)
-            return (Q_new, P_new, gp_new), Q_new
+            return (Q_new, P_new, gp_new, h), Q_new
 
         key, k = jax.random.split(key)
         skeys = jax.random.split(k, num_samples * thin_by)
-        _, all_Q = jax.lax.scan(_prod, (Q, P, gp), skeys)
+        (Q, P, gp, h), all_Q = jax.lax.scan(_prod, (Q, P, gp, h), skeys)
         samples = all_Q[::thin_by]
         info = dict(step_size=float(h), gamma=gamma, adapt="maxdrift")
 
     # ── no adaptation ───────────────────────────────────────────────────────
     else:
-        h = jnp.float32(step_size)
+        h = jnp.asarray(step_size, dtype=Q.dtype)
 
         # warmup via scan (was a Python loop; now fully jit'd).
         def _warm(carry, key):
