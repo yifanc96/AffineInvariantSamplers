@@ -290,6 +290,7 @@ def sampler_peaches(
     adapt_L          = True,
     seed             = 0,
     verbose          = True,
+    trajectory_jitter = 0.6,
 ):
     """
     Ensemble preconditioned HMC with automatic step-size and integration-length tuning.
@@ -320,6 +321,10 @@ def sampler_peaches(
                            warmup.  If False, use `L` as given.
         seed             : Integer random seed.
         verbose          : Print progress.
+        trajectory_jitter : Fraction of the trajectory-time range randomized.
+                            0 uses a fixed time; 1 jitters from zero to the
+                            learned time (at least one leapfrog step).
+                            Default 0.6 retains the existing partial jitter.
 
     Returns:
         samples : (num_samples, n_chains, D)
@@ -333,6 +338,9 @@ def sampler_peaches(
     """
     if not (0.0 < float(step_size) < float("inf")):
         raise ValueError("step_size must be finite and strictly positive")
+    trajectory_jitter = float(trajectory_jitter)
+    if not (0.0 <= trajectory_jitter <= 1.0):
+        raise ValueError("trajectory_jitter must be finite and between 0 and 1")
 
     assert chees_metric in ("affine-invariant", "euclidean"), \
         "chees_metric must be 'affine-invariant' or 'euclidean'"
@@ -399,7 +407,7 @@ def sampler_peaches(
     def _warmup_step(g1, g2, lp1, lp2, da, ch, keys):
         k1, k2, ka1, ka2 = keys
         eps   = jnp.exp(da.log_eps) if adapt_step_size else step_size
-        cur_L = _chees_L(ch, eps, max_L=max_L) if adapt_L else fixed_L
+        cur_L = _chees_L(ch, eps, jitter=trajectory_jitter, max_L=max_L) if adapt_L else fixed_L
         p1, la1, v1, lp1n, aux1 = move_fn(g1, g2, eps, k1, log_prob_fn, _grad_U,
                                             cur_L, lp1)
         if adapt_step_size:
@@ -410,7 +418,7 @@ def sampler_peaches(
         g1, a1 = _mh(g1, p1, la1, ka1);   lp1 = jnp.where(a1, lp1n, lp1)
 
         eps   = jnp.exp(da.log_eps) if adapt_step_size else step_size
-        cur_L = _chees_L(ch, eps, max_L=max_L) if adapt_L else fixed_L
+        cur_L = _chees_L(ch, eps, jitter=trajectory_jitter, max_L=max_L) if adapt_L else fixed_L
         p2, la2, v2, lp2n, aux2 = move_fn(g2, g1, eps, k2, log_prob_fn, _grad_U,
                                             cur_L, lp2)
         if adapt_step_size:
@@ -434,7 +442,7 @@ def sampler_peaches(
     final_eps   = jnp.exp(da.log_eps_bar) if adapt_step_size else step_size
     if adapt_L:
         final_log_T = ch.log_T_bar                # learned trajectory time (log)
-        nominal_L   = _chees_L(ch, final_eps, bar=True, max_L=max_L)
+        nominal_L   = _chees_L(ch, final_eps, jitter=trajectory_jitter, bar=True, max_L=max_L)
     else:
         final_log_T = jnp.log(final_eps * L)
         nominal_L   = fixed_L
@@ -443,7 +451,7 @@ def sampler_peaches(
               f"  accept={float(total_acc)/max(warmup,1):.3f}")
 
     # production: jitter L each step via Halton sequence (standard ChEES)
-    jitter = 0.6
+    jitter = trajectory_jitter
     halton_offset = ch.iteration          # continue Halton from where warmup left off
 
     @jax.jit
