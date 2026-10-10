@@ -154,6 +154,19 @@ would close the gap.
   use `sampler_kalman_move` if you have no gradient and the target is
   approximately Gaussian.
 
+### Walker count and tuning
+
+For ensemble HMC (PEACHES, PEAMS, PEANUTS and PICKLES), start with
+`N = max(32, 4*d)` walkers, where `d` is the dimension. This gives small
+problems a larger ensemble and uses `4d` walkers in higher dimensions.
+If that is too expensive in high dimensions, compare `2d+2` or `2d+4`.
+
+This is a starting point: more walkers help estimate the covariance, but
+step size and trajectory length still need reliable tuning. Check mixing
+and estimates of both means and variances, especially on curved targets
+such as Rosenbrock. Performance relative to NUTS depends on the target,
+sampler and quantity being estimated.
+
 ## Usage essentials
 
 ### `log_prob_fn` convention
