@@ -17,6 +17,10 @@ Examples
 from __future__ import annotations
 
 import argparse
+import hashlib
+import inspect
+import importlib.metadata
+import subprocess
 import json
 import time
 from pathlib import Path
@@ -49,7 +53,6 @@ def run_pkg(name, log_prob, init, num_samples, warmup, seed, max_L=None,
             max_tree_depth=None, target_accept=None, gamma=None,
             chees_metric=None):
     sampler = PKG_SAMPLERS[name]
-    import inspect
     sig = inspect.signature(sampler).parameters
     kw = dict(num_samples=num_samples, warmup=warmup, seed=seed, verbose=False)
     if max_L is not None and "max_L" in sig:
@@ -63,10 +66,17 @@ def run_pkg(name, log_prob, init, num_samples, warmup, seed, max_L=None,
     if chees_metric is not None and "chees_metric" in sig:       # ChEES norm
         kw["chees_metric"] = chees_metric
     t0 = time.perf_counter()
-    samples, info = sampler(log_prob, init, **kw)
+    # MALT's public API evaluates one point, unlike the batched ensemble APIs.
+    density = (lambda x: log_prob(x[None, :])[0]) if name == "malt" else log_prob
+    samples, info = sampler(density, init, **kw)
     samples.block_until_ready()
     wall = time.perf_counter() - t0
-    return np.asarray(samples), dict(info), wall
+    info = dict(info)
+    info["benchmark_effective_settings"] = {
+        key: kw.get(key, param.default) for key, param in list(sig.items())[2:]
+        if key in kw or param.default is not inspect.Parameter.empty
+    }
+    return np.asarray(samples), info, wall
 
 
 def run_nuts(log_prob, init, num_samples, warmup, seed, dense_mass=True,
@@ -91,14 +101,16 @@ def run_nuts(log_prob, init, num_samples, warmup, seed, dense_mass=True,
     t0 = time.perf_counter()
     mcmc.run(jax.random.key(seed), init_params=jnp.asarray(init),
              extra_fields=("num_steps", "mean_accept_prob", "diverging"))
+    raw_samples = mcmc.get_samples(group_by_chain=True)
+    jax.block_until_ready(raw_samples)
     wall = time.perf_counter() - t0
 
-    samp = np.asarray(mcmc.get_samples(group_by_chain=True))  # (C, N, D)
+    samp = np.asarray(raw_samples)  # (C, N, D)
     samples = np.transpose(samp, (1, 0, 2))                   # (N, C, D)
     extra = mcmc.get_extra_fields()
     n_steps = extra.get("num_steps", None)
     n_grad_prod = int(np.sum(n_steps)) if n_steps is not None else \
-        num_samples * n_chains * (2 ** max_tree_depth)
+        None
     try:
         accept = float(np.mean(extra.get("mean_accept_prob", np.nan)))
     except Exception:
@@ -113,31 +125,90 @@ def run_nuts(log_prob, init, num_samples, warmup, seed, dense_mass=True,
         n_div = None
     info = dict(acceptance_rate=accept, n_grad_evals=n_grad_prod,
                 final_step_size=step, n_divergences=n_div,
-                mean_num_steps=float(np.mean(n_steps)) if n_steps is not None else None)
+                mean_num_steps=float(np.mean(n_steps)) if n_steps is not None else None,
+                benchmark_effective_settings=dict(num_samples=num_samples, warmup=warmup,
+                    seed=seed, dense_mass=dense_mass, adapt_mass=adapt_mass,
+                    target_accept=target_accept, max_tree_depth=max_tree_depth,
+                    chain_method="vectorized", num_chains=n_chains))
     return samples, info, wall
 
 
 def production_grads(sampler, info, num_samples, n_chains):
-    """Production-only leapfrog/gradient count, consistent & exact per sampler.
+    """Production gradient evaluations; excludes warmup and initial probes.
 
-    Every sampler is counted as (production leapfrog steps) so ESS/grad is a
-    fair cross-sampler efficiency. NUTS and peanuts use adaptive trajectory
-    lengths, so we use their exact summed step counts (not a nominal L).
+    Trust production counters before trajectory lengths: PEACHES/PEAMS/CHESS
+    evaluate the initial gradient as well as L integration gradients. Cached-
+    gradient samplers have a different count. Gradient-free methods return None.
     """
     if sampler in GRADFREE:
-        return num_samples * n_chains            # one log-prob per walker per iter
-    if sampler == "nuts":
-        return int(info.get("n_grad_evals") or 0)          # exact sum of num_steps
-    if sampler == "peanuts":
-        # exact production leapfrog count (added to info); fall back to mean_num_steps
-        if info.get("n_grad_evals_prod"):
-            return int(info["n_grad_evals_prod"])
-        if info.get("mean_num_steps"):
-            return int(num_samples * n_chains * info["mean_num_steps"])
-    mean_L = info.get("mean_L")
-    if mean_L:
-        return int(num_samples * n_chains * mean_L)
-    return int(info.get("n_grad_evals") or 0)
+        return None
+    prod = info.get("n_grad_evals_prod")
+    if prod is not None:
+        return int(prod)
+    # PEANUTS's generic counter includes warmup; other supported samplers' do not.
+    exact = info.get("n_grad_evals")
+    if sampler != "peanuts" and exact is not None:
+        return int(exact)
+    # MALT caches the starting gradient and computes one new gradient per step.
+    if sampler == "malt" and info.get("L") is not None:
+        thin = info.get("benchmark_effective_settings", {}).get("thin_by", 1)
+        return int(num_samples * thin * n_chains * info["L"])
+    return None
+
+
+def production_cost(sampler, info, num_samples, n_chains):
+    n_grad = production_grads(sampler, info, num_samples, n_chains)
+    thin = info.get("benchmark_effective_settings", {}).get("thin_by", 1)
+    n_logp = num_samples * thin * n_chains if sampler in GRADFREE else None
+    count = n_logp if sampler in GRADFREE else n_grad
+    return dict(n_grad_evals_prod=n_grad, n_log_prob_evals_prod=n_logp,
+                n_evals_prod=count,
+                evaluation_unit=("log_density" if sampler in GRADFREE else "gradient"),
+                production_cost_available=count is not None,
+                cost_scope="production only; excludes warmup, initial scale probes and preparation")
+
+
+def source_metadata():
+    root = Path(__file__).resolve().parents[1]
+    def git(*args):
+        result = subprocess.run(["git", "-C", str(root), *args], capture_output=True,
+                                text=True, check=False)
+        return result.stdout.strip() if result.returncode == 0 else None
+    files = list((root / "src").rglob("*.py")) + [
+        root / "benchmark" / name for name in ("run.py", "metrics.py", "distributions.py")]
+    digest = hashlib.sha256()
+    for path in sorted(files):
+        digest.update(str(path.relative_to(root)).encode())
+        digest.update(path.read_bytes())
+    versions = {}
+    for name in ("jax", "jaxlib", "numpy", "arviz", "numpyro"):
+        try:
+            versions[name] = importlib.metadata.version(name)
+        except importlib.metadata.PackageNotFoundError:
+            versions[name] = None
+    return dict(git_revision=git("rev-parse", "HEAD"),
+                git_branch=git("branch", "--show-current"),
+                git_tracked_dirty=bool(git("status", "--porcelain", "--untracked-files=no")),
+                source_sha256=digest.hexdigest(), library_versions=versions,
+                devices=[str(device) for device in jax.devices()],
+                jax_enable_x64=bool(jax.config.jax_enable_x64))
+
+
+def json_safe(value):
+    """Strict JSON: unavailable/nonfinite numbers become null, never NaN/Infinity."""
+    if isinstance(value, dict):
+        return {str(key): json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(item) for item in value]
+    if isinstance(value, np.ndarray):
+        return json_safe(value.tolist())
+    if isinstance(value, (float, np.floating)):
+        return float(value) if np.isfinite(value) else None
+    if isinstance(value, np.integer):
+        return int(value)
+    if isinstance(value, np.bool_):
+        return bool(value)
+    return value
 
 
 def main():
@@ -146,7 +217,8 @@ def main():
     ap.add_argument("--dim", type=int, required=True)
     ap.add_argument("--sampler", required=True,
                     choices=list(PKG_SAMPLERS) + ["nuts"])
-    ap.add_argument("--log-cond", type=float, default=6.0)
+    ap.add_argument("--log-cond", type=float, default=6.0,
+                    help="log eigen-standard-deviation condition; covariance condition is exp(2*log_cond)")
     ap.add_argument("--no-rotate", action="store_true",
                     help="axis-aligned Gaussian covariance (default rotates)")
     ap.add_argument("--n-chains", type=int, default=64)
@@ -188,6 +260,8 @@ def main():
                          "Does not use the target covariance (not an oracle).")
     args = ap.parse_args()
 
+    provenance = source_metadata()
+
     # Build target + analytic truth
     tkw = {}
     if args.target == "gaussian":
@@ -203,11 +277,16 @@ def main():
     # finding. Lets the ensemble cloud morph to the target's anisotropy before
     # the gradient sampler starts (so the empirical-covariance preconditioner
     # is well-conditioned). Uses no gradient and no knowledge of the target.
+    preparation_wall = 0.0
+    preparation_iterations = 0
     if args.warm_start > 0 and args.sampler != "nuts":
+        preparation_t0 = time.perf_counter()
         sw, _ = sampler_stretch(log_prob, init, num_samples=args.warm_start,
                                 warmup=args.warm_start, seed=args.seed, verbose=False)
         sw.block_until_ready()
         init = sw[-1]
+        preparation_wall = time.perf_counter() - preparation_t0
+        preparation_iterations = 2 * args.warm_start
 
     print(f"[{args.target} D={args.dim}] sampler={args.sampler} "
           f"chains={args.n_chains} warmup={args.warmup} ws={args.warm_start} "
@@ -220,7 +299,7 @@ def main():
                                        adapt_mass=(args.nuts_mass != "identity"),
                                        max_tree_depth=args.max_tree_depth,
                                        target_accept=(args.target_accept
-                                                      if args.target_accept
+                                                      if args.target_accept is not None
                                                       else 0.8))
     else:
         samples, info, wall = run_pkg(args.sampler, log_prob, init,
@@ -231,17 +310,23 @@ def main():
                                       gamma=args.gamma,
                                       chees_metric=args.chees_metric)
 
-    n_grad = production_grads(args.sampler, info, args.num_samples, args.n_chains)
+    cost = production_cost(args.sampler, info, args.num_samples, args.n_chains)
+    n_grad = cost["n_grad_evals_prod"]
     # Thin before the (expensive) ESS/R-hat computation ONLY for gradient-free
     # samplers (emcee/stretch), whose IAT is large (~hundreds), so thinning by
     # k << IAT preserves ESS while shrinking the array at large N. Gradient HMC
     # samplers (peaches/peanuts/nuts) have IAT ~ 1, so ANY thinning destroys
     # their ESS -- they are never thinned (n_grad keeps the full production
-    # count regardless, so ESS/grad is exact).
+    # count regardless; thinning and ESS estimation are recorded separately).
     thin = max(1, samples.shape[0] // 5000) if args.sampler in GRADFREE else 1
     samples_m = samples[::thin] if thin > 1 else samples
     met = M.all_metrics(samples_m, truth, n_grad_evals=n_grad or None,
                         fast=args.fast_ess)
+
+    if args.sampler in GRADFREE and cost["n_evals_prod"]:
+        met["ess_per_log_prob"] = met["ess_bulk_min"] / cost["n_evals_prod"]
+    if cost["n_evals_prod"]:
+        met["ess_per_eval"] = met["ess_bulk_min"] / cost["n_evals_prod"]
 
     out_dir = Path(args.out or
                    f"benchmark/results/{args.target}_d{args.dim}/"
@@ -258,10 +343,28 @@ def main():
         mean_L=info.get("mean_L") or info.get("mean_num_steps"),
         final_step_size=info.get("final_step_size"),
         n_divergences=info.get("n_divergences"),
-        n_grad_evals_prod=int(n_grad),
+        **cost,
+        requested_settings=vars(args),
+        effective_sampler_settings=info.get("benchmark_effective_settings"),
+        target_metadata=meta,
+        source_metadata=provenance,
+        initialization=dict(method="isotropic Gaussian ball", seed=args.seed + 1,
+                            scale=args.init_scale, center=0.0),
+        preparation=dict(sampler="stretch" if preparation_iterations else None,
+                         iterations=preparation_iterations,
+                         log_prob_evals=preparation_iterations * args.n_chains,
+                         wall_s=preparation_wall,
+                         excludes_initial_density=True),
+        wall_s_with_preparation=wall + preparation_wall,
+        metrics_thin_by=thin, metrics_num_draws=len(samples_m),
+        sampler_info=info,
         **met,
     )
-    (out_dir / "metrics.json").write_text(json.dumps(summary, indent=2))
+    summary["unavailable_metrics"] = [
+        key for key, value in {**met, **cost}.items()
+        if value is None or isinstance(value, (float, np.floating)) and not np.isfinite(value)]
+    summary = json_safe(summary)
+    (out_dir / "metrics.json").write_text(json.dumps(summary, indent=2, allow_nan=False))
     print(json.dumps({k: summary[k] for k in
                       ("sampler", "dim", "acceptance_rate", "mean_err_sigma_max",
                        "bias_z_max", "iat_max", "ess_bulk_min", "ess_per_grad",

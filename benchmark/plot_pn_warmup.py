@@ -1,7 +1,7 @@
 """peaches-note Fig 3: warmup robustness -- peaches vs NUTS-dense (no peanuts).
 
 ESS/grad vs the gradient-sampler warmup length, on ill-conditioned Gaussian
-(d=100, kappa=e^6, 400 walkers, tag exp3) and Rosenbrock (d=8, 256 walkers, tag
+(d=100, kappa=e^12, 400 walkers, tag exp3) and Rosenbrock (d=8, 256 walkers, tag
 exp3b). 8 sampling seeds. Line = median over CONVERGED seeds (R-hat<=1.03); band =
 interquartile range (25-75%) over those seeds -- IQR rather than min--max because
 ChEES's integration length is bimodal on the banana. Marker hollow if a minority
@@ -27,7 +27,7 @@ plt.rcParams.update({
 })
 SS = [("peaches", "#c0392b", "o", "-", "peaches (ChEES h-walk)"),
       ("nuts", "#2c3e50", "v", "--", "NUTS-dense")]
-PANELS = [("gaussian_d100", r"Ill-conditioned Gaussian ($d{=}100$, $\kappa=e^6$)", "warmf"),
+PANELS = [("gaussian_d100", r"Ill-conditioned Gaussian ($d{=}100$, $\kappa=e^12$)", "warmf"),
           ("rosenbrock_d8", r"Rosenbrock ($d{=}8$)", "warmfb")]
 
 

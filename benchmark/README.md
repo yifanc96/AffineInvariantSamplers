@@ -5,8 +5,9 @@ targets, complementing the real-data DES Y1 experiment in `../astro/`.
 
 Targets (both with **closed-form ground truth**, so bias needs no reference run):
 
-- **Anisotropic Gaussian** `N(0, Σ)` — eigenvalues log-spaced over condition
-  number `κ = exp(log_cond)`, optionally rotated. Isolates *global*
+- **Anisotropic Gaussian** `N(0, Σ)` — eigen-standard-deviations have condition
+  `κσ = exp(log_cond)`; the covariance condition is `κ = exp(2*log_cond)`
+  (one for `D=1`), optionally rotated. Isolates *global*
   anisotropy / conditioning and *dimension*.
 - **Paired Rosenbrock** (even `D`) — `π(q) ∝ exp(−Σ_i [100(q_{2i-1}²−q_{2i})² + (q_{2i-1}−1)²])`.
   Banana *curvature* that no global affine map removes. Per pair
@@ -41,7 +42,7 @@ Targets (both with **closed-form ground truth**, so bias needs no reference run)
 
 ## Reproduce
 
-From the repo root (needs `pip install -e .` and `numpyro`):
+From the repo root (needs `pip install -e . numpyro arviz`):
 
 ```bash
 # one cell
@@ -69,12 +70,31 @@ python -m benchmark.plots
 - peaches `max_L=20` (Gaussian) / `256` (Rosenbrock); peanuts/NUTS
   `max_tree_depth=10`, `target_accept=0.8`; NUTS is NumPyro dense-mass.
 
-## Metrics (rigorous)
+## Metrics and recorded costs
 
-ESS and MCSE via ArviZ rank-normalized split-chain estimators;
-IAT = N·C / ESS; bias judged by **z-score** |mean−truth|/MCSE (O(1) when
-converged, ≫1 flags real bias); per-gradient efficiency uses the *exact*
-production leapfrog count (NUTS/peanuts adapt trajectory length).
+Rank-normalized ArviZ ESS/R-hat and ensemble-mean Sokal ESS are reported as
+separate methods. Walkers in an interacting ensemble are dependent, so the
+usual independent-chain interpretation of rank ESS/R-hat does not establish
+convergence here. Check independent ensemble seeds, errors against analytic
+first/second moments, and ensemble-mean diagnostics. The fast estimator clamps
+IAT to at least one and differs from rank ESS on antithetic trajectories.
+Frozen or constant observables receive zero ESS rather than a successful mixing
+score; unavailable diagnostics are stored as JSON `null` and identified.
+
+Gradient efficiency uses reported production gradient counts, including the
+initial gradient on every PEACHES/PEAMS/CHESS trajectory. Gradient-free samplers
+report log-density evaluations and ESS per log-density evaluation separately.
+Warmup and initial step-size searches are excluded from production efficiency.
+`--warm-start W` currently runs W stretch warmup iterations plus W retained
+iterations: 2W preparation iterations, recorded separately with their cost and
+elapsed time. Package/NUTS wall time includes device synchronization and
+compilation; it excludes this preparation, with a second field including it.
+
+New result cells record requested and effective sampler settings, target
+metadata, source revision and hash, dependency versions, devices, preparation,
+and diagnostic thinning. Historical cells lack this metadata and raw samples;
+comparisons involving them should identify assumptions instead of inferring
+unrecorded tuning settings or recomputing unavailable diagnostics.
 
 Raw samples (`*.npz`) are not stored; rerun to regenerate. The small
 `metrics.json` per cell + `results/summary.csv` are the committed artifacts.

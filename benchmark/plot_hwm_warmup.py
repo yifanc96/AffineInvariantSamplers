@@ -1,7 +1,7 @@
 """benchmark-hwm-chees Fig 3: warmup robustness, peaches vs NUTS.
 
 ESS/grad vs the gradient-sampler warmup length, on ill-conditioned Gaussian
-(d=100, kappa=e^6) and Rosenbrock (d=8). peaches re-estimates its preconditioner
+(d=100, kappa=e^12) and Rosenbrock (d=8). peaches re-estimates its preconditioner
 from the live ensemble every step, so it needs no mass-matrix warmup and is flat;
 NUTS-dense must fit a dense mass during warmup and is far less efficient until
 warmup >= 500. 3 sampling seeds on a fixed target; median + min--max band.
@@ -16,7 +16,7 @@ FIGS = Path("benchmark/figs"); FIGS.mkdir(parents=True, exist_ok=True)
 WARMS = [50, 100, 200, 500, 1000]
 SS = [("peaches", "#c0392b", "o", "-", "peaches (ChEES h-walk)"),
       ("nuts", "#2c3e50", "v", "--", "NUTS-dense")]
-PANELS = [("gaussian_d100", r"Ill-conditioned Gaussian ($d{=}100$, $\kappa=e^6$)"),
+PANELS = [("gaussian_d100", r"Ill-conditioned Gaussian ($d{=}100$, $\kappa=e^12$)"),
           ("rosenbrock_d8", r"Rosenbrock ($d{=}8$)")]
 
 def seeds(tgt, samp, w):

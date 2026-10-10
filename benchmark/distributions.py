@@ -1,13 +1,14 @@
 """Synthetic benchmark targets with analytic ground truth.
 
 Two families, both with a batched log-density ``log_prob(theta)`` taking
-shape ``(batch, D) -> (batch,)`` (the convention used by every sampler in
-``affine_invariant_samplers``), an ``init`` helper, and an exact analytic
+shape ``(batch, D) -> (batch,)`` for ensemble samplers (the runner adapts
+single-point APIs), an ``init`` helper, and an exact analytic
 ``truth`` dict (per-dimension mean and standard deviation) so that sampler
 bias can be measured without a reference run.
 
 1. Anisotropic Gaussian  N(0, Sigma)
-   Eigenvalues log-spaced over a condition number kappa = exp(log_cond);
+   Eigen-standard-deviations have condition exp(log_cond); the covariance
+   condition is exp(2 * log_cond) (one in dimension one).
    optionally rotated by a random orthogonal matrix so the covariance is
    not axis-aligned. Affine-invariant samplers are invariant to both the
    conditioning and the rotation; non-affine samplers degrade with kappa.
@@ -31,7 +32,10 @@ import numpy as np
 
 def make_gaussian(dim: int, log_cond: float = 6.0, rotate: bool = True,
                   seed: int = 0):
-    """N(0, Sigma) with condition number exp(log_cond).
+    """N(0, Sigma); log_cond is the log standard-deviation condition.
+
+    The covariance condition is exp(2 * log_cond), or one for dim=1.
+    This preserves the historical target distribution for this argument.
 
     Returns (log_prob, truth, meta). ``truth`` has per-dim mean/std; for a
     rotated covariance the per-dim std is sqrt(diag(Sigma)).
@@ -61,7 +65,10 @@ def make_gaussian(dim: int, log_cond: float = 6.0, rotate: bool = True,
     truth = dict(mean=np.zeros(dim), std=diag_std,
                  cov=Sigma, eigen_std=sigma)
     meta = dict(name="gaussian", dim=dim, log_cond=float(log_cond),
-                kappa=float(np.exp(log_cond)), rotated=bool(rotate),
+                log_cond_definition="log eigen-standard-deviation condition",
+                kappa_std=float(sigma.max() / sigma.min()),
+                kappa=float(var.max() / var.min()),
+                kappa_cov=float(var.max() / var.min()), rotated=bool(rotate),
                 param_names=[f"x{i}" for i in range(dim)])
     return log_prob, truth, meta
 

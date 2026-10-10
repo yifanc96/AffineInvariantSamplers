@@ -1,7 +1,7 @@
 """Fig 3 (peaches/peanuts note): warmup robustness.
 
 peaches/peanuts vs NUTS-dense, ESS/grad vs the gradient-sampler warmup length, on
-ill-conditioned Gaussian (d=100, kappa=e^6, rotated) and Rosenbrock (d=8).
+ill-conditioned Gaussian (d=100, kappa=e^12, rotated) and Rosenbrock (d=8).
 
 8 sampling seeds on a fixed target. Gaussian: 400 walkers (tag exp3). Rosenbrock:
 256 walkers (tag exp3b) -- more walkers than the 128 default for cleaner
@@ -24,7 +24,7 @@ RH = 1.03
 SS = [("peaches", "#c0392b", "o", "-"), ("peanuts", "#8e44ad", "s", "-"),
       ("nuts", "#2c3e50", "v", "--")]
 # (target_dir, title, tag)
-PANELS = [("gaussian_d100", r"Ill-conditioned Gaussian ($d{=}100$, $\kappa=e^6$)", "exp3"),
+PANELS = [("gaussian_d100", r"Ill-conditioned Gaussian ($d{=}100$, $\kappa=e^12$)", "exp3"),
           ("rosenbrock_d8", r"Rosenbrock ($d{=}8$)", "exp3b")]
 
 

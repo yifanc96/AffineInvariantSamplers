@@ -20,7 +20,7 @@ FIGS = Path("benchmark/figs"); FIGS.mkdir(parents=True, exist_ok=True)
 # Gaussian w=200 dropped: numpyro's window-adaptation schedule yields an
 # anomalously poor mass at exactly w=200 (ess/grad ~8e-3, systematic and
 # non-monotone vs w=100/500); a schedule quirk orthogonal to the recovery trend.
-TARGETS = [("gaussian_d50", "gaussian", r"Ill-conditioned Gaussian ($\kappa=e^6$, $d{=}50$)",
+TARGETS = [("gaussian_d50", "gaussian", r"Ill-conditioned Gaussian ($\kappa=e^12$, $d{=}50$)",
             [10, 25, 50, 100, 500]),
            ("rosenbrock_d20", "rosenbrock", r"Rosenbrock ($d{=}20$)",
             [10, 25, 50, 100, 200])]

@@ -1,24 +1,12 @@
-"""Statistically rigorous accuracy + mixing metrics.
+"""Accuracy and mixing diagnostics for samples shaped (draw, walker, dim).
 
-Samples have shape (N, n_chains, D). We use ArviZ's rank-normalized,
-split-chain estimators (Vehtari et al. 2021), which are the community
-standard and handle multi-chain ensembles and finite-sample fluctuation
-correctly:
-
-- ESS (bulk): effective sample size per dimension. For antithetic chains
-  (well-tuned NUTS on a Gaussian) ESS can exceed N·C, which is correct.
-- MCSE: Monte-Carlo standard error of the mean, = posterior_sd / sqrt(ESS).
-- IAT: derived from the rigorous ESS as τ = N·C / ESS (worst dim = bottleneck).
-
-Burn-in / systematic bias is measured against the *analytic* truth and
-judged relative to MC fluctuation via a z-score:
-
-    bias_z = |mean_hat − mean_true| / MCSE
-
-Under a converged, unbiased sampler mean_hat ~ Normal(mean_true, MCSE²), so
-bias_z ~ O(1). bias_z ≫ 1 on some coordinate is statistically significant
-evidence of residual burn-in / systematic bias beyond Monte-Carlo noise.
-We report the max over dimensions (the worst coordinate).
+ArviZ rank ESS/R-hat assume independent chains; walkers in one interacting
+ensemble do not satisfy that assumption. They are descriptive cross-checks,
+not a convergence certificate. The ensemble-mean estimator includes cross-
+walker time dependence, but still needs a sufficiently long stationary run.
+Its Sokal window clamps IAT to at least one, so it differs from rank ESS for
+antithetic trajectories. Compare independent ensemble seeds and analytic
+first/second moments alongside both explicitly labeled ESS estimates.
 """
 from __future__ import annotations
 
@@ -66,21 +54,38 @@ def ensemble_ess(samples):
     """Worst-coordinate ensemble ESS from the ensemble-mean autocorrelation.
 
     samples: (N, C, D). Returns (ess_per_dim (D,), tau_m_per_dim (D,))."""
+    samples = np.asarray(samples, dtype=float)
     N, C, D = samples.shape
-    s2 = samples.reshape(N * C, D).var(0)                  # pooled marginal var
-    m = samples.mean(1)                                    # (N, D) ensemble mean
+    if N < 4:
+        return np.zeros(D), np.full(D, np.inf)
+    s2 = samples.reshape(N * C, D).var(0)
+    m = samples.mean(1)
     var_m = m.var(0)
-    tau = np.array([_iat_1d(m[:, j]) for j in range(D)])
-    infl = np.where(var_m > 0, s2 / np.maximum(var_m, 1e-300), C)  # ~C if independent
-    ess = infl * (N / np.maximum(tau, 1.0))
+    # Frozen walkers can have the exact target marginal variance. They provide
+    # no temporal information; a constant ensemble mean has no estimable IAT.
+    moving = np.any(samples[1:] != samples[:-1], axis=(0, 1))
+    valid = (np.all(np.isfinite(samples), axis=(0, 1)) & moving &
+             (s2 > 0) & (var_m > 0))
+    tau = np.full(D, np.inf)
+    ess = np.zeros(D)
+    for j in np.flatnonzero(valid):
+        tau[j] = _iat_1d(m[:, j])
+        ess[j] = (s2[j] / var_m[j]) * N / tau[j]
     return ess, tau
 
 
 def sd_from_ess(samples, ess):
-    """MCSE of the mean per coordinate from a given ESS: sd_pooled / sqrt(ESS)."""
+    """MCSE; an unestimable/zero ESS has infinite uncertainty."""
     N, C, D = samples.shape
     sd = samples.reshape(N * C, D).std(0)
-    return sd / np.sqrt(np.maximum(ess, 1e-30))
+    out = np.full(D, np.inf)
+    np.divide(sd, np.sqrt(ess), out=out, where=np.asarray(ess) > 0)
+    return out
+
+
+def _finite_stat(values, op):
+    values = np.asarray(values)
+    return float(op(values)) if np.all(np.isfinite(values)) else float("nan")
 
 
 def rigorous_metrics(samples, truth, n_grad_evals=None, fast=False):
@@ -88,35 +93,38 @@ def rigorous_metrics(samples, truth, n_grad_evals=None, fast=False):
 
     fast=True replaces the per-chain rank-normalized ArviZ ESS (which does one
     FFT per chain per coordinate and blows up at large walker counts) with the
-    O(D N log N) ensemble-mean ESS. rhat is kept (needed for convergence gating)
-    but computed on a capped subset of chains so it stays cheap. Use fast=True
+    O(D N log N) ensemble-mean ESS. Descriptive R-hat is computed on a capped
+    subset of walkers so it stays cheap. Use fast=True
     for large ensembles (e.g. the high-d scaling sweep)."""
+    samples = np.asarray(samples, dtype=float)
     N, C, D = samples.shape
-
+    ess_ens, tau_ens = ensemble_ess(samples)
+    ess_squared, _ = ensemble_ess(samples ** 2)
+    invalid = ess_ens == 0
     if fast:
-        ess_bulk, tau_ens = ensemble_ess(samples)
-        # split-half stationarity from the ensemble mean (cheap)
+        ess_bulk = ess_ens.copy()
         half = N // 2
-        e1, _ = ensemble_ess(samples[:half]); e2, _ = ensemble_ess(samples[half:])
-        split_ratio = e1 / np.maximum(e2, 1e-30)
-        # rhat on a capped subset of chains (rank-normalized split-Rhat is O(C N log N))
-        cap = min(C, 256)
-        idx = np.linspace(0, C - 1, cap).astype(int)
-        rhat = np.asarray(az.rhat(_chain_draw(samples[:, idx, :])),
-                          dtype=float).reshape(-1)
-        mcse_mean = np.asarray(sd_from_ess(samples, ess_bulk), dtype=float)
+        e1, _ = ensemble_ess(samples[:half])
+        e2, _ = ensemble_ess(samples[half:])
+        rhat_samples = samples[:, np.linspace(0, C - 1, min(C, 256)).astype(int), :]
+        mcse_mean = sd_from_ess(samples, ess_bulk)
     else:
         cd = _chain_draw(samples)
-        ess_bulk = np.asarray(az.ess(cd), dtype=float).reshape(-1)       # (D,)
-        mcse_mean = np.asarray(az.mcse(cd), dtype=float).reshape(-1)     # (D,)
-        rhat = np.asarray(az.rhat(cd), dtype=float).reshape(-1)          # (D,)
-        # split-half stationarity: ESS of 1st vs 2nd half should agree if
-        # stationary; ratio far from 1 flags drift
+        ess_bulk = np.asarray(az.ess(cd), dtype=float).reshape(-1)
+        mcse_mean = np.asarray(az.mcse(cd), dtype=float).reshape(-1)
         half = N // 2
         e1 = np.asarray(az.ess(cd[:, :half, :]), dtype=float).reshape(-1)
         e2 = np.asarray(az.ess(cd[:, half:, :]), dtype=float).reshape(-1)
-        split_ratio = e1 / np.maximum(e2, 1e-30)
-        ess_ens, _ = ensemble_ess(samples)                              # cross-check field
+        rhat_samples = samples
+    rhat = (np.asarray(az.rhat(_chain_draw(rhat_samples)), dtype=float).reshape(-1)
+            if N >= 4 and C >= 2 else np.full(D, np.nan))
+    # Do not let rank normalization or coincidentally correct initial moments
+    # award a frozen ensemble positive ESS or a finite uncertainty estimate.
+    ess_bulk[invalid] = 0
+    mcse_mean[invalid] = np.inf
+    rhat[invalid] = np.inf
+    split_ratio = np.full(D, np.nan)
+    np.divide(e1, e2, out=split_ratio, where=(e1 > 0) & (e2 > 0) & ~invalid)
 
     flat = samples.reshape(N * C, D)
     mu_hat, sd_hat = flat.mean(0), flat.std(0)
@@ -127,7 +135,11 @@ def rigorous_metrics(samples, truth, n_grad_evals=None, fast=False):
     mean_sigma = mean_abs / np.maximum(sd_true, 1e-12)               # bias in posterior σ
     bias_z = mean_abs / np.maximum(mcse_mean, 1e-30)                 # bias vs MC fluctuation
     std_rel = np.abs(sd_hat - sd_true) / np.maximum(sd_true, 1e-12)
-    iat = (N * C) / np.maximum(ess_bulk, 1e-30)                      # effective IAT per dim
+    bias_z[invalid] = np.nan
+    iat = np.full(D, np.inf)
+    np.divide(N * C, ess_bulk, out=iat, where=ess_bulk > 0)
+    second_true = sd_true ** 2 + mu_true ** 2
+    second_rel = np.abs((flat ** 2).mean(0) - second_true) / np.maximum(second_true, 1e-12)
 
     out = dict(
         ess_bulk_min=float(np.nanmin(ess_bulk)),
@@ -137,13 +149,21 @@ def rigorous_metrics(samples, truth, n_grad_evals=None, fast=False):
         mean_err_sigma_max=float(mean_sigma.max()),
         mean_err_sigma_mean=float(mean_sigma.mean()),
         std_rel_err_max=float(std_rel.max()),
-        bias_z_max=float(np.nanmax(bias_z)),
-        bias_z_median=float(np.nanmedian(bias_z)),
+        bias_z_max=_finite_stat(bias_z, np.max),
+        bias_z_median=_finite_stat(bias_z, np.median),
         rhat_max=float(np.nanmax(rhat)),               # ~1.00 if mixed/stationary
-        split_ess_ratio_med=float(np.nanmedian(split_ratio)),  # ~1 if stationary
+        split_ess_ratio_med=_finite_stat(split_ratio, np.median),  # ~1 if stationary
         ess_method=("ensemble" if fast else "arviz_rank"),
+        ess_ensemble_method="ensemble_mean_sokal_iat_clamped_at_one",
+        ess_ensemble_mean_min=float(np.min(ess_ens)),
+        ess_ensemble_second_moment_min=float(np.min(ess_squared)),
+        second_moment_rel_err_max=float(np.max(second_rel)),
+        unestimable_mean_dimensions=np.flatnonzero(invalid).tolist(),
+        unestimable_second_moment_dimensions=np.flatnonzero(ess_squared == 0).tolist(),
+        diagnostic_caveat="Within-ensemble walkers are dependent; rank ESS/R-hat do not certify convergence.",
     )
     if not fast:
+        out["ess_rank_bulk_min"] = float(np.min(ess_bulk))
         out["ess_ens_min"] = float(np.nanmin(ess_ens))    # cheap cross-check field
     if n_grad_evals:
         out["ess_per_grad"] = float(np.nanmin(ess_bulk) / n_grad_evals)

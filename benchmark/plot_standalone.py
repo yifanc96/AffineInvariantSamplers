@@ -148,7 +148,7 @@ for samp, tag, c, mk, ls, lab in [
     x, med, lo, hi, conv = series([(k, "gaussian_d50", samp, tag.format(k)) for k in KAP])
     plot_s(ax, x, med, lo, hi, conv, c, mk, ls, lab)
 ax.set_yscale("log"); ax.set_xticks(KAP)
-ax.set_xlabel(r"$\log\kappa$   (condition number $\kappa=e^{\log\kappa}$)")
+ax.set_xlabel(r"$\log\kappa_\sigma$   (covariance condition $\kappa=e^{2\log\kappa_\sigma}$)")
 ax.set_ylabel("ESS / target evaluation")
 ax.grid(alpha=0.3, which="both")
 ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.19), ncol=2, columnspacing=1.3,

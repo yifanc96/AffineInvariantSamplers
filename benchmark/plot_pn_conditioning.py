@@ -69,7 +69,7 @@ for samp, tagf, c, mk, ls, lab in [
     x, med, lo, hi, conv = series([(k, "gaussian_d50", samp, tagf.format(k)) for k in KAP])
     plot_s(ax[0], x, med, lo, hi, conv, c, mk, ls, lab)
 ax[0].set_yscale("log"); ax[0].set_xticks(KAP)
-ax[0].set_xlabel(r"$\log\kappa$ (condition number $=e^{\log\kappa}$)")
+ax[0].set_xlabel(r"$\log\kappa_\sigma$ (covariance condition $=e^{2\log\kappa_\sigma}$)")
 ax[0].set_ylabel(YLAB); ax[0].grid(alpha=0.3, which="both")
 ax[0].legend(loc="lower left", framealpha=0.92)
 ax[0].set_title(r"(a) Ill-conditioned Gaussian ($d{=}50$)")

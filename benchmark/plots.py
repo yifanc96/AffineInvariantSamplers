@@ -78,12 +78,12 @@ def plot_exp2(rows):
         med = median_over_seeds(r2, ("sampler", "log_cond"), metric)
         for s, c, mk in (("peaches", "#c0392b", "o"), ("chess", "#16a085", "^"),
                          ("stretch", "#2980b9", "s")):
-            pts = sorted((np.exp(lc), v) for (ss, lc), v in med.items() if ss == s)
+            pts = sorted((np.exp(2 * lc), v) for (ss, lc), v in med.items() if ss == s)
             if pts:
                 xs, ys = zip(*pts)
                 ax.plot(xs, ys, marker=mk, color=c, label=s, lw=2, ms=7)
         ax.set_xscale("log"); ax.set_yscale("log")
-        ax.set_xlabel("condition number κ")
+        ax.set_xlabel("covariance condition number κ")
         ax.set_ylabel({"iat_max": "max IAT", "ess_min": "min ESS"}[metric])
         ax.set_title("mixing vs conditioning" if metric == "iat_max"
                      else "efficiency vs conditioning")
