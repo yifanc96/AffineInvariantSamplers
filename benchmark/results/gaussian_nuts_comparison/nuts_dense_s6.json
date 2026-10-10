@@ -1,0 +1,59 @@
+{
+  "sampler": "nuts_dense",
+  "seed": 6,
+  "settings": {
+    "target": "N(1, 10 I)",
+    "dimension": 32,
+    "walkers_or_chains": 16,
+    "warmup": 1000,
+    "draws_per_walker": 4096,
+    "initialization": "N(0, I)",
+    "initialization_seed": 2032,
+    "sampler_seed": 6,
+    "dtype": "float64",
+    "initial_step_size": 0.1,
+    "target_accept": 0.8,
+    "implementation": "NumPyro",
+    "mass": "dense",
+    "max_tree_depth": 10,
+    "chain_method": "vectorized",
+    "find_heuristic_step_size": false,
+    "adapt_step_size": true,
+    "adapt_mass_matrix": true,
+    "production_seed": 100006
+  },
+  "info": {
+    "n_grad_evals": 459380,
+    "n_grad_warmup": 891420,
+    "n_divergences": 0,
+    "n_warmup_divergences": 173,
+    "acceptance_rate": 0.8609793944071749,
+    "mean_L": 7.00958251953125,
+    "final_step_size": 0.5598652828351354,
+    "max_tree_depth_hit_rate": 0.0
+  },
+  "metrics": {
+    "mean_ess_per_gradient": 0.25037298146737275,
+    "mean_ess_per_gradient_double_batch": 0.24126482043972758,
+    "variance_ess_per_gradient": 0.06764286357864635,
+    "variance_ess_per_gradient_double_batch": 0.0665817352285161,
+    "mean_rmse_sigma": 0.0024772131915453714,
+    "variance_relative_rmse": 0.007576626146037316
+  },
+  "sampler_source_sha256": "49200c359acb25f50d9c99ab6fe0f2b1508832ebd85bb138eca9326cdba83b8f",
+  "runner_sha256": "b1c193b207cf764b0fc3903423c700a98a341952a81f0e4eedb273637df2a70a",
+  "sample_sha256": "77bd0916bc855c0f05a12f63e754f19d6cb4af51e456ebbd5b7ef98b61c77cc9",
+  "source_revision": "ea3befcf17fb4df538edccf44a24f84d617d85e0",
+  "environment": {
+    "python": "3.12.13",
+    "jax": "0.9.2",
+    "numpy": "2.4.4",
+    "numpyro": "0.20.1",
+    "devices": [
+      "cuda:0"
+    ],
+    "device_kinds": [
+      "NVIDIA H200 NVL"
+    ]
+  }
+}

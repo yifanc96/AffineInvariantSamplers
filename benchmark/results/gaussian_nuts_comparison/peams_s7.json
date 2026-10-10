@@ -1,0 +1,62 @@
+{
+  "sampler": "peams",
+  "seed": 7,
+  "settings": {
+    "target": "N(1, 10 I)",
+    "dimension": 32,
+    "walkers_or_chains": 128,
+    "warmup": 1000,
+    "draws_per_walker": 4096,
+    "initialization": "N(0, I)",
+    "initialization_seed": 2033,
+    "sampler_seed": 7,
+    "dtype": "float64",
+    "initial_step_size": 0.1,
+    "target_accept": 0.651,
+    "length_adaptation": "ChEES, affine metric",
+    "thin_by": 1,
+    "trajectory_jitter": 0.6,
+    "L": 10,
+    "max_L": 128,
+    "step_size": 0.1,
+    "seed": 7,
+    "verbose": false,
+    "find_init_step_size": true,
+    "adapt_step_size": true,
+    "chees_metric": "affine-invariant"
+  },
+  "info": {
+    "acceptance_rate": 0.7693939208984375,
+    "mean_acceptance_probability": 0.7705349397624955,
+    "mean_harmonic_acceptance_probability": 0.6493076955356709,
+    "max_L_hit_rate": 0.0,
+    "final_step_size": 5.147047065420901,
+    "nominal_L": 2,
+    "mean_L": 1.80859375,
+    "n_grad_evals": 1472512
+  },
+  "metrics": {
+    "mean_ess_per_gradient": 0.10802559636509207,
+    "mean_ess_per_gradient_double_batch": 0.1048680240223113,
+    "variance_ess_per_gradient": 0.1528205248739246,
+    "variance_ess_per_gradient_double_batch": 0.14214264411093844,
+    "mean_rmse_sigma": 0.0026197586716437634,
+    "variance_relative_rmse": 0.0032102099557753294
+  },
+  "sampler_source_sha256": "4446a3f27e1cc94101c7f82ba38db1873bbf218b2ac09ea23cec5ddaae881786",
+  "runner_sha256": "b1c193b207cf764b0fc3903423c700a98a341952a81f0e4eedb273637df2a70a",
+  "sample_sha256": "aa6a46ad4d9ba6c8f643bcaca706adcdeb45a32baff07105d45b878dfc68a9db",
+  "source_revision": "ea3befcf17fb4df538edccf44a24f84d617d85e0",
+  "environment": {
+    "python": "3.12.13",
+    "jax": "0.9.2",
+    "numpy": "2.4.4",
+    "numpyro": "0.20.1",
+    "devices": [
+      "cuda:0"
+    ],
+    "device_kinds": [
+      "NVIDIA H200 NVL"
+    ]
+  }
+}
