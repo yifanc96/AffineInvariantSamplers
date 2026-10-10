@@ -23,6 +23,8 @@ import jax
 import jax.numpy as jnp
 from typing import NamedTuple
 
+from ._dr_utils import _log_accept_ratio, _safe_log1m_exp
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Dual averaging
@@ -149,40 +151,35 @@ def _propose(x, d_x, L_C, h, z):
 
 def _dr_accept_stage1(lp_x, lp_y1, q_xy1, q_y1x):
     """Standard MH log-acceptance for stage 1."""
-    return jnp.minimum(0., lp_y1 - lp_x + q_y1x - q_xy1)
+    log_alpha = _log_accept_ratio(lp_y1 + q_y1x, lp_x + q_xy1)
+    # A proposal outside the target support may have an undefined reverse drift.
+    return jnp.where(jnp.isneginf(lp_y1), -jnp.inf, log_alpha)
 
 
 def _dr_accept_stage2(lp_x, lp_y2, q_xy2, q_y2x, q_xy1, q_y2y1,
                       alpha1_x_y1, alpha1_y2_y1):
     """DR log-acceptance for stage 2, with stage-1 rejection correction."""
-    log_num = lp_y2 + q_y2x + q_y2y1
-    log_den = lp_x  + q_xy2 + q_xy1
-
-    safe_a1_x  = jnp.where(alpha1_x_y1 > -1e-12, -jnp.inf,
-                            jnp.log1p(-jnp.exp(alpha1_x_y1)))
-    safe_a1_y2 = jnp.where(alpha1_y2_y1 > -1e-12, -jnp.inf,
-                            jnp.log1p(-jnp.exp(alpha1_y2_y1)))
-
-    la = log_num - log_den + safe_a1_y2 - safe_a1_x
-    return jnp.where(jnp.isfinite(la), jnp.minimum(0., la), -jnp.inf)
+    log_num = (lp_y2 + q_y2x + q_y2y1
+               + _safe_log1m_exp(alpha1_y2_y1))
+    log_den = (lp_x + q_xy2 + q_xy1
+               + _safe_log1m_exp(alpha1_x_y1))
+    log_alpha = _log_accept_ratio(log_num, log_den)
+    return jnp.where(jnp.isneginf(lp_y2), -jnp.inf, log_alpha)
 
 
 def _dr_accept_stage3(lp_x, lp_y3,
                       q_xy3, q_y3x, q_xy1, q_y3y1, q_xy2, q_y3y2,
                       alpha1_x_y1, alpha1_y3_y1,
                       alpha2_x_y2, alpha2_y3_y2):
-    """DR log-acceptance for stage 3."""
-    log_num = lp_y3 + q_y3x + q_y3y1 + q_y3y2
-    log_den = lp_x  + q_xy3 + q_xy1  + q_xy2
-
-    def safe_log1m(a):
-        return jnp.where(a > -1e-12, -jnp.inf, jnp.log1p(-jnp.exp(a)))
-
-    la = (log_num - log_den
-          + safe_log1m(alpha1_y3_y1) - safe_log1m(alpha1_x_y1)
-          + safe_log1m(alpha2_y3_y2) - safe_log1m(alpha2_x_y2))
-    return jnp.where(jnp.isfinite(la), jnp.minimum(0., la), -jnp.inf)
-
+    """DR stage 3, swapping endpoints and retaining rejected proposal order."""
+    log_num = (lp_y3 + q_y3x + q_y3y1 + q_y3y2
+               + _safe_log1m_exp(alpha1_y3_y1)
+               + _safe_log1m_exp(alpha2_y3_y2))
+    log_den = (lp_x + q_xy3 + q_xy1 + q_xy2
+               + _safe_log1m_exp(alpha1_x_y1)
+               + _safe_log1m_exp(alpha2_x_y2))
+    log_alpha = _log_accept_ratio(log_num, log_den)
+    return jnp.where(jnp.isneginf(lp_y3), -jnp.inf, log_alpha)
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Full DR step for one group

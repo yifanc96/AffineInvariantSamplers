@@ -15,6 +15,8 @@ import jax
 import jax.numpy as jnp
 from typing import NamedTuple
 
+from ._dr_utils import _safe_log1m_exp
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Dual averaging
@@ -46,6 +48,48 @@ def _stretch_z(key, a, W):
     """Sample stretch factor z ~ g(z) with parameter a."""
     u = jax.random.uniform(key, (W,))
     return ((a - 1.) * u + 1.) ** 2 / a
+
+
+def _log_rejection_probability(log_acceptance):
+    """Return log(1 - min(1, exp(log_acceptance))) without cancellation."""
+    return _safe_log1m_exp(jnp.minimum(0., log_acceptance))
+
+
+def _dr_stretch_log_acceptance(lp_active, lp1, lp2, z1, z2, dim, a):
+    """Second-stage stretch ratio, conditional on the same partner in both stages.
+
+    The ray's target density is r**(dim - 1) * pi(x).  The first-stage
+    proposal density ratio q1(prop1 | prop2) / q1(prop1 | active) is
+    z2**(-1/2), while the second-stage radial proposal is symmetric.
+    """
+    la1 = (dim - 1) * jnp.log(z1) + lp1 - lp_active
+    z_rev = z1 / z2
+    in_support = (z_rev >= 1. / a) & (z_rev <= a)
+    la1_rev = (dim - 1) * jnp.log(z_rev) + lp1 - lp2
+    la2 = ((dim - 1.5) * jnp.log(z2) + lp2 - lp_active
+           + _log_rejection_probability(la1_rev)
+           - _log_rejection_probability(la1))
+    # Stage two is unreachable if stage one accepts with probability one.
+    # A zero reverse proposal density forbids the move.  Positive infinity,
+    # however, is a valid acceptance ratio and must remain accepted.
+    valid = (la1 < 0.) & in_support & ~jnp.isnan(la2)
+    return jnp.where(valid, la2, -jnp.inf)
+
+
+def _dr_side_log_acceptance(lp_active, lp1, lp2, noise1, noise2, scale_ratio):
+    """Second-stage side ratio, conditional on the shared difference direction."""
+    la1 = lp1 - lp_active
+    # Each first-stage Gaussian random walk is symmetric, so its MH ratio
+    # contains only target densities.  Its density along the rejected path
+    # still changes when the current position changes from active to prop2.
+    la1_rev = lp1 - lp2
+    noise_rev = noise1 - scale_ratio * noise2
+    log_q1_ratio = -0.5 * (noise_rev**2 - noise1**2)
+    la2 = (lp2 - lp_active + log_q1_ratio
+           + _log_rejection_probability(la1_rev)
+           - _log_rejection_probability(la1))
+    valid = (la1 < 0.) & ~jnp.isnan(la2)
+    return jnp.where(valid, la2, -jnp.inf)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -118,19 +162,8 @@ def sampler_ensemble_dr_stretch(
         prop2 = partner + z2[:, None] * (active - partner)
         lp2 = log_prob_fn(prop2)
 
-        z_rev = z1 / z2
-        in_support = (z_rev >= 1./a_cur) & (z_rev <= a_cur)
-        la1_rev = (dim - 1) * jnp.log(z_rev) + lp1 - lp2
-        la1_rev = jnp.where(in_support, la1_rev, 0.)
-
-        la2_base = (dim - 1) * jnp.log(z2) + lp2 - lp_active
-        dr_rev = jnp.log1p(-jnp.exp(jnp.minimum(0., la1_rev)))
-        dr_fwd = jnp.log1p(-jnp.exp(jnp.minimum(0., la1)))
-        dr_fwd = jnp.where(la1 >= 0., -jnp.inf, dr_fwd)
-        dr_rev = jnp.where(~in_support, -jnp.inf, dr_rev)
-
-        la2 = la2_base + dr_rev - dr_fwd
-        la2 = jnp.where(jnp.isfinite(la2), la2, -jnp.inf)
+        la2 = _dr_stretch_log_acceptance(
+            lp_active, lp1, lp2, z1, z2, dim, a_cur)
         accept2 = (~accept1) & (jnp.log(jax.random.uniform(ka2, (W,), minval=1e-10)) < la2)
 
         new_pos = jnp.where(accept1[:, None], prop1,
@@ -279,15 +312,8 @@ def sampler_ensemble_dr_side(
         prop2 = active + gs2_cur * diff * noise2[:, None]
         lp2 = log_prob_fn(prop2)
 
-        noise_rev = noise1 - (gs2_cur / gs_cur) * noise2
-        la1_rev = lp1 - lp2 + 0.5 * (noise_rev**2 - noise1**2)
-
-        dr_rev = jnp.log1p(-jnp.exp(jnp.minimum(0., la1_rev)))
-        dr_fwd = jnp.log1p(-jnp.exp(jnp.minimum(0., la1)))
-        dr_fwd = jnp.where(la1 >= 0., -jnp.inf, dr_fwd)
-
-        la2 = lp2 - lp_active + dr_rev - dr_fwd
-        la2 = jnp.where(jnp.isfinite(la2), la2, -jnp.inf)
+        la2 = _dr_side_log_acceptance(
+            lp_active, lp1, lp2, noise1, noise2, gs2_cur / gs_cur)
         accept2 = (~accept1) & (jnp.log(jax.random.uniform(ka2, (W,), minval=1e-10)) < la2)
 
         new_pos = jnp.where(accept1[:, None], prop1,
