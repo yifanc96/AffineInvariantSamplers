@@ -12,7 +12,7 @@ import pytest
 from affine_invariant_samplers import sampler_peaches, sampler_peams, sampler_pickles
 
 SAMPLERS = [sampler_peaches, sampler_peams, sampler_pickles]
-REFERENCE = Path(__file__).resolve().parents[1] / 'audit/robustness/ensemble_metric/reference'
+REFERENCE = Path(__file__).resolve().parent / 'fixtures/chees_metric_reference'
 
 
 @pytest.fixture
