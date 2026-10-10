@@ -8,31 +8,33 @@ Same proposal as ``sampler_gndr``:
   noise   = sqrt(2h) * L(x)^{-T} @ z,   L L^T = H_GN(x)
 
 Difference: the existing ``sampler_gndr`` hard-codes the DR acceptance up to
-3 stages.  This version implements the same standard multi-stage DR
-acceptance (Mira 1998 Sec. 5.2; see also Modi/Barnett/Carpenter,
-arXiv:2110.00610) for **any** ``n_try``, via a recursive evaluation that
-is unrolled at JIT trace time (so each extra stage adds work).
+3 stages. This version implements the same ordered endpoint-swap DR
+acceptance for **any** ``n_try``, via a recursive evaluation that is
+unrolled at JIT trace time (so each extra stage adds work). The rejected
+intermediates retain their order when the endpoints are swapped.
 
 Why bother
 ----------
 Light-tailed targets (e.g. ``log pi(x) ~ -|x|^4``) are notorious failure
 cases for vanilla MALA: the Langevin drift ``-grad U`` grows faster than
 the noise, so a too-large step size causes systematic overshoot and the
-chain loses geometric ergodicity.  Multi-stage DR sidesteps this — when
-the first proposal is rejected at the tail, retry with a shrunk step.
-Multi-stage DR is expected to help restore geometric ergodicity in
-practice if enough retries are allowed.  Three stages is sometimes not
-enough; this sampler lets you use as many as you need.
+chain can lose geometric ergodicity. DR offers smaller-step retries when
+the first proposal is rejected in the tail.
+More retries can improve robustness, but a finite shrinking ladder does
+not by itself establish geometric ergodicity or guarantee acceptance.
+This sampler lets you choose the number of retries.
 
 Reference
 ---------
-Standard multi-stage DR acceptance formula (Mira 1998, Sec. 5.2;
-see also Modi/Barnett/Carpenter, arXiv:2110.00610).
+Delayed-rejection detailed-balance construction (Mira 1998, Sec. 5.2;
+see also Modi/Barnett/Carpenter, arXiv:2110.00610, Sec. 2.2).
 """
 
 import jax
 import jax.numpy as jnp
 from typing import NamedTuple
+
+from ._dr_utils import _safe_log1m_exp, _log_accept_ratio
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -101,46 +103,23 @@ def _propose(x, grad_x, L_x, h, z):
     return x + drift + noise
 
 
-def _safe_log1m_exp(la):
-    """Numerically safe log(1 - exp(la)) for la <= 0.
-
-    The naive ``log1p(-exp(0)) = -inf`` is mathematically right (α = 1
-    means rejection has zero probability), but in Mira's DR formula it
-    appears in BOTH the numerator (via reverse inner α) and the
-    denominator (via forward inner α).  When both saturate, ``-inf -
-    (-inf) = NaN`` silently kills the outer acceptance.
-
-    Concrete failure mode on light-tailed targets: when the deep-stage
-    proposal ``y_k ≈ y_{k-1}``, the inner sub-path α(y_k, y_{k-1}) hits
-    1 exactly, every outer α becomes NaN, and stages ≥ 4 *never accept*
-    even though the underlying recursion is algebraically correct.
-
-    We replace ``-inf`` with a large but finite floor so that matching
-    saturated terms cancel in the num/den difference; only genuinely
-    *unbalanced* saturations contribute (correctly) ~ -∞ to log α.
-    """
-    LOG1M_FLOOR = -1e8   # exp(-1e8) is well below any realistic α-bias
-    return jnp.where(la > -1e-30,
-                      LOG1M_FLOOR,
-                      jnp.log1p(-jnp.exp(jnp.minimum(la, -1e-30))))
-
-
 # ──────────────────────────────────────────────────────────────────────────────
-# Recursive DR acceptance — arbitrary depth, Mira (1998) convention
+# Recursive DR acceptance — arbitrary depth, ordered endpoint-swap pairing
 # ──────────────────────────────────────────────────────────────────────────────
 #
 # Path P = (P_0, P_1, ..., P_k) with all proposals generated from P_0 = x
-# at steps h_0, h_1, ..., h_{k-1}.  Every q-evaluation involving P_j uses
-# step h_{j-1} (the one that originally proposed P_j), regardless of source.
-# As deep-stage proposals converge to x, α → 1 monotonically — the
-# "eventual acceptance" property useful for geometric ergodicity on
-# light-tailed targets.
+# at steps h_0, h_1, ..., h_{k-1}. Each intermediate-rejection q-term for
+# P_j uses step h_{j-1}, regardless of its source endpoint.
+# The pairing swaps the endpoints and leaves the rejected intermediates in
+# their original order. It preserves detailed balance for these proposals,
+# which do not depend on the rejected history. Acceptance need not increase
+# monotonically with depth.
 #
 # The same convention is used by the hand-coded sampler_gndr (n_try ≤ 3)
 # and by the original notebook in the initial-samplers branch.
 #
 # The recursion is parameterised by (current_idx, proposal_idx, prev_tuple)
-# where prev_tuple is the forward-index-ordered subset of intermediate
+# where prev_tuple is the forward-index-ordered prefix of intermediate
 # rejected proposals.  At each call:
 #
 #   α(current, proposal | prev) = min(1, N / D),
@@ -180,7 +159,8 @@ def _find_init_eps(key, x, lp, grad_x, L_x, eps0, v_lp, target_accept):
         lp_prop = v_lp(prop)
         q_x_y = _transition_logp(x, prop, grad_x, L_x, eps)
         q_y_x = _transition_logp(prop, x, grad_x, L_x, eps)
-        la = jnp.minimum(0., lp_prop - lp + q_y_x - q_x_y)
+        la = _log_accept_ratio(lp_prop + q_y_x, lp + q_x_y)
+        la = jnp.where(jnp.isneginf(lp_prop), -jnp.inf, la)
         u = jnp.log(jax.random.uniform(ku, (N,), minval=1e-10))
         acc = u < la
         avg = jnp.mean(acc.astype(float))
@@ -198,6 +178,40 @@ def _find_init_eps(key, x, lp, grad_x, L_x, eps0, v_lp, target_accept):
 # ──────────────────────────────────────────────────────────────────────────────
 # Build a single DR step (warmup or production) given step sizes
 # ──────────────────────────────────────────────────────────────────────────────
+
+def _make_dr_accept(path_lp, get_q):
+    """Build memoized log acceptance for ordered endpoint-swap histories.
+
+    ``get_q(src, dest, stage)`` returns a proposal log density at the given
+    ladder position. Rejection histories use prefixes of the original path.
+    """
+    alpha_cache = {}
+    def alpha(current, proposal, prev_tuple):
+        key = (current, proposal, prev_tuple)
+        if key in alpha_cache:
+            return alpha_cache[key]
+        num_rej = len(prev_tuple)
+        cur_idx = num_rej             # main step uses h_{num_rej}
+        qf = get_q(current, proposal, cur_idx)
+        qb = get_q(proposal, current, cur_idx)
+        log_num = path_lp[proposal] + qb
+        log_den = path_lp[current]  + qf
+        for j in prev_tuple:
+            step_idx = j - 1          # prev term uses h_{j-1}
+            log_num = log_num + get_q(proposal, j, step_idx)
+            log_den = log_den + get_q(current,  j, step_idx)
+        for i, j in enumerate(prev_tuple):
+            af = alpha(current,  j, prev_tuple[:i])
+            ar = alpha(proposal, j, prev_tuple[:i])
+            log_num = log_num + _safe_log1m_exp(ar)
+            log_den = log_den + _safe_log1m_exp(af)
+        res = _log_accept_ratio(log_num, log_den)
+        res = jnp.where(jnp.isneginf(path_lp[proposal]), -jnp.inf, res)
+        alpha_cache[key] = res
+        return res
+
+    return alpha
+
 
 def _make_dr_step(n_try, v_lp, v_grad, v_hess, n_chains, dim):
     """Returns step(x, lp, hs, rng) -> (new_x, new_lp, accepted_any, alpha1, rng).
@@ -239,30 +253,7 @@ def _make_dr_step(n_try, v_lp, v_grad, v_hess, n_chains, dim):
                     path_grad[src], path_L[src], hs[step_idx])
             return q_cache[key]
 
-        # Memoized α with proposal-binding pairing.
-        alpha_cache = {}
-        def alpha(current, proposal, prev_tuple):
-            key = (current, proposal, prev_tuple)
-            if key in alpha_cache:
-                return alpha_cache[key]
-            num_rej = len(prev_tuple)
-            cur_idx = num_rej             # main step uses h_{num_rej}
-            qf = get_q(current, proposal, cur_idx)
-            qb = get_q(proposal, current, cur_idx)
-            log_num = path_lp[proposal] + qb
-            log_den = path_lp[current]  + qf
-            for j in prev_tuple:
-                step_idx = j - 1          # prev term uses h_{j-1}
-                log_num = log_num + get_q(proposal, j, step_idx)
-                log_den = log_den + get_q(current,  j, step_idx)
-            for i, j in enumerate(prev_tuple):
-                af = alpha(current,  j, prev_tuple[:i])
-                ar = alpha(proposal, j, prev_tuple[:i])
-                log_num = log_num + _safe_log1m_exp(ar)
-                log_den = log_den + _safe_log1m_exp(af)
-            res = jnp.minimum(0., log_num - log_den)
-            alpha_cache[key] = res
-            return res
+        alpha = _make_dr_accept(path_lp, get_q)
 
         # Stage-by-stage acceptance (sequential).
         accepted_any = jnp.zeros(N, dtype=bool)
@@ -316,13 +307,14 @@ def sampler_gndr_full(
 
     Notes
     -----
-    Acceptance follows Mira (2001).  Stage-j acceptance probability is
+    Acceptance uses an ordered endpoint-swap DR pairing. Stage-j probability is
 
         α_j(P_0, ..., P_j) = min(1,  N_j / D_j)
 
-    with the standard reverse-path / inner-rejection corrections.  At trace
-    time we recursively compute every α(s, e) needed for α(0, n_try) and
-    memoize.  The forward-path proposals are generated all at once from
+    with the reverse endpoint / inner-rejection corrections. Rejected
+    intermediates keep their order in both directions. At trace time we
+    recursively compute and memoize the acceptance probabilities needed for
+    the full path. The forward-path proposals are generated all at once from
     P_0 = x with shrunk steps h * shrink^stage.
 
     Returns

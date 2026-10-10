@@ -21,6 +21,8 @@ import jax.numpy as jnp
 from typing import NamedTuple
 from functools import partial
 
+from ._dr_utils import _safe_log1m_exp, _log_accept_ratio
+
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Dual averaging
@@ -107,53 +109,43 @@ def _propose(x, grad_x, L_x, h, z):
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# Multi-stage DR acceptance (unrolled for n_try ≤ 4)
+# Multi-stage DR acceptance (unrolled for n_try <= 3)
 # ──────────────────────────────────────────────────────────────────────────────
+# The reverse history swaps endpoints and retains rejected intermediates in
+# their original order. This is a valid DR pairing for these proposals, which
+# depend on the origin and stage step size rather than the rejected history.
 
 def _dr_accept_stage1(lp_x, lp_y1, q_xy1, q_y1x):
     """Standard MH log-acceptance for stage 1."""
-    return jnp.minimum(0., lp_y1 - lp_x + q_y1x - q_xy1)
+    la = _log_accept_ratio(lp_y1 + q_y1x, lp_x + q_xy1)
+    # Models and derivatives may be undefined outside the target's support.
+    return jnp.where(jnp.isneginf(lp_y1), -jnp.inf, la)
 
 
 def _dr_accept_stage2(lp_x, lp_y2, q_xy2, q_y2x, q_xy1, q_y2y1, q_y1x, q_y1y2,
                       alpha1_x_y1, alpha1_y2_y1):
     """DR log-acceptance for stage 2, with stage-1 rejection correction."""
-    log_num  = lp_y2 + q_y2x + q_y2y1
-    log_den  = lp_x  + q_xy2 + q_xy1
-
-    # (1 - alpha1) terms.  When alpha is near 1 (la ≈ 0), naive log1p(-exp)
-    # gives -inf in BOTH the num and den paths, and -inf - (-inf) = NaN
-    # silently kills outer acceptance.  Floor to a large finite value so
-    # matching saturated terms cancel; only unbalanced saturations bite.
-    _LOG1M_FLOOR = -1e8
-    safe_a1_x  = jnp.where(alpha1_x_y1 > -1e-30, _LOG1M_FLOOR,
-                            jnp.log1p(-jnp.exp(jnp.minimum(alpha1_x_y1, -1e-30))))
-    safe_a1_y2 = jnp.where(alpha1_y2_y1 > -1e-30, _LOG1M_FLOOR,
-                            jnp.log1p(-jnp.exp(jnp.minimum(alpha1_y2_y1, -1e-30))))
-
-    la = log_num - log_den + safe_a1_y2 - safe_a1_x
-    return jnp.where(jnp.isfinite(la), jnp.minimum(0., la), -jnp.inf)
+    log_num = (lp_y2 + q_y2x + q_y2y1
+               + _safe_log1m_exp(alpha1_y2_y1))
+    log_den = (lp_x + q_xy2 + q_xy1
+               + _safe_log1m_exp(alpha1_x_y1))
+    la = _log_accept_ratio(log_num, log_den)
+    return jnp.where(jnp.isneginf(lp_y2), -jnp.inf, la)
 
 
 def _dr_accept_stage3(lp_x, lp_y3,
                       q_xy3, q_y3x, q_xy1, q_y3y1, q_xy2, q_y3y2,
                       alpha1_x_y1, alpha1_y3_y1,
                       alpha2_x_y2, alpha2_y3_y2):
-    """DR log-acceptance for stage 3."""
-    log_num  = lp_y3 + q_y3x + q_y3y1 + q_y3y2
-    log_den  = lp_x  + q_xy3 + q_xy1  + q_xy2
-
-    _LOG1M_FLOOR = -1e8
-    def safe_log1m(a):
-        # See note in _dr_accept_stage2.  Floor to a large finite value so
-        # matching saturated (a≈0) terms cancel in num/den.
-        return jnp.where(a > -1e-30, _LOG1M_FLOOR,
-                          jnp.log1p(-jnp.exp(jnp.minimum(a, -1e-30))))
-
-    la = (log_num - log_den
-          + safe_log1m(alpha1_y3_y1) - safe_log1m(alpha1_x_y1)
-          + safe_log1m(alpha2_y3_y2) - safe_log1m(alpha2_x_y2))
-    return jnp.where(jnp.isfinite(la), jnp.minimum(0., la), -jnp.inf)
+    """DR log-acceptance for stage 3 with the ordered endpoint-swap pairing."""
+    log_num = (lp_y3 + q_y3x + q_y3y1 + q_y3y2
+               + _safe_log1m_exp(alpha1_y3_y1)
+               + _safe_log1m_exp(alpha2_y3_y2))
+    log_den = (lp_x + q_xy3 + q_xy1 + q_xy2
+               + _safe_log1m_exp(alpha1_x_y1)
+               + _safe_log1m_exp(alpha2_x_y2))
+    la = _log_accept_ratio(log_num, log_den)
+    return jnp.where(jnp.isneginf(lp_y3), -jnp.inf, la)
 
 
 # ──────────────────────────────────────────────────────────────────────────────
@@ -175,7 +167,7 @@ def _find_init_eps(key, x, lp, grad_x, L_x, eps0, v_lp, target_accept):
         # reverse q needs grad at proposal; use current L_x as cheap proxy
         # (sign-correct; the search doesn't need exact detailed balance).
         q_y_x = _transition_logp(prop, x, grad_x, L_x, eps)
-        la = jnp.minimum(0., lp_prop - lp + q_y_x - q_x_y)
+        la = _dr_accept_stage1(lp, lp_prop, q_x_y, q_y_x)
         u = jnp.log(jax.random.uniform(ku, (N,), minval=1e-10))
         acc = u < la
         avg = jnp.mean(acc.astype(float))
