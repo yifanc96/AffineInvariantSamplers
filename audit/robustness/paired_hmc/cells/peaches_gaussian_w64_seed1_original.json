@@ -1,0 +1,97 @@
+{
+  "version": "original",
+  "target": "gaussian",
+  "dim": 2,
+  "walkers": 64,
+  "seed": 1,
+  "sampler": "peaches",
+  "settings": {
+    "num_samples": 1500,
+    "warmup": 1000,
+    "move": "h-walk",
+    "step_size": 0.05,
+    "L": 5,
+    "max_L": 20,
+    "thin_by": 1,
+    "target_accept": 0.8,
+    "chees_metric": "affine-invariant",
+    "grad_log_prob_fn": null,
+    "find_init_step_size": true,
+    "adapt_step_size": true,
+    "adapt_L": true,
+    "seed": 1,
+    "verbose": false
+  },
+  "source": "/tmp/hmc-jitter-original/astro/src",
+  "source_sha256": "e4549dce07061ae564b0384f18bc579db2dc0413f6bdb23080208e63eff9852d",
+  "initial_sha256": "ba362dfa24e624ac5645d179fc763d2139d7669858b3b89cfa0178fd00ee8d0c",
+  "warm_start_requested": 100,
+  "preparation_iterations": 200,
+  "target_metadata": {
+    "name": "gaussian",
+    "dim": 2,
+    "log_cond": 0.0,
+    "log_cond_definition": "log eigen-standard-deviation condition",
+    "kappa_std": 1.0,
+    "kappa": 1.0,
+    "kappa_cov": 1.0,
+    "rotated": true,
+    "param_names": [
+      "x0",
+      "x1"
+    ]
+  },
+  "jax_version": "0.9.2",
+  "device": "TFRT_CPU_0",
+  "wall_s": 4.026624149642885,
+  "n_grad_evals_prod": 226112,
+  "info": {
+    "acceptance_rate": 0.8706770833333333,
+    "final_step_size": 1.0287079869334956,
+    "nominal_L": 1,
+    "mean_L": 1.3553333333333333,
+    "n_grad_evals": 226112
+  },
+  "metrics": {
+    "ess_bulk_min": 79475.30692739633,
+    "ess_bulk_median": 80386.9630814056,
+    "iat_max": 1.20792235615648,
+    "iat_median": 1.1943771095100804,
+    "mean_err_sigma_max": 0.007114762723565164,
+    "mean_err_sigma_mean": 0.0061450277007756215,
+    "std_rel_err_max": 0.0033386714951958445,
+    "bias_z_max": 1.9990744862719187,
+    "bias_z_median": 1.7395976781172129,
+    "rhat_max": 1.0006575087226377,
+    "split_ess_ratio_med": 1.1851617196411286,
+    "ess_method": "ensemble",
+    "ess_ensemble_method": "ensemble_mean_sokal_iat_clamped_at_one",
+    "ess_ensemble_mean_min": 79475.30692739633,
+    "ess_ensemble_second_moment_min": 44938.530167282726,
+    "second_moment_rel_err_max": 0.006739109566317849,
+    "unestimable_mean_dimensions": [],
+    "unestimable_second_moment_dimensions": [],
+    "diagnostic_caveat": "Within-ensemble walkers are dependent; rank ESS/R-hat do not certify convergence.",
+    "ess_per_grad": 0.3514864621399852
+  },
+  "mean": [
+    -0.0051752926779860785,
+    -0.007114762723565163
+  ],
+  "std": [
+    0.9969636363810402,
+    1.0033386714951957
+  ],
+  "second_moment": [
+    0.9939632759203878,
+    1.0067391095663176
+  ],
+  "truth_mean": [
+    0.0,
+    0.0
+  ],
+  "truth_std": [
+    0.9999999999999998,
+    0.9999999999999999
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "recorded_utc": "2026-10-10T00:56:30.359919+00:00",
+  "revision": "b3db5bae94cabc18a48137336710cb15ab5feb13",
+  "branch": "main",
+  "worktree_dirty": true,
+  "dirty_paths": [
+    "M pyproject.toml",
+    " M src/affine_invariant_samplers/aldi.py",
+    " M src/affine_invariant_samplers/diagnostics.py",
+    " M src/affine_invariant_samplers/ensemble_dr.py",
+    " M src/affine_invariant_samplers/gndr.py",
+    " M src/affine_invariant_samplers/gndr_full.py",
+    " M src/affine_invariant_samplers/init.py",
+    " M src/affine_invariant_samplers/kalman_dr.py",
+    " M src/affine_invariant_samplers/kalman_move.py",
+    " M src/affine_invariant_samplers/langevin_walk.py",
+    " M src/affine_invariant_samplers/peaches.py",
+    " M src/affine_invariant_samplers/peams.py",
+    " M src/affine_invariant_samplers/peanuts.py",
+    " M src/affine_invariant_samplers/pickles.py",
+    " M src/affine_invariant_samplers/pickles_unadjusted.py",
+    " M src/affine_invariant_samplers/plotting.py",
+    " M src/affine_invariant_samplers/side.py",
+    " M src/affine_invariant_samplers/stretch.py",
+    " M src/affine_invariant_samplers/walk.py",
+    " M src/samplers/chees.py",
+    " M src/samplers/malt.py",
+    " M src/samplers/mams.py",
+    " M src/samplers/nuts.py",
+    " M tests/test_diagnostics.py",
+    "?? audit/",
+    "?? tests/test_chees_time.py",
+    "?? tests/test_hmc_regressions.py",
+    "?? tests/test_init.py",
+    "?? tests/test_initial_state_validation.py",
+    "?? tests/test_kalman_move.py",
+    "?? tests/test_peanuts_cost.py",
+    "?? tests/test_sampler_precision.py",
+    "?? tests/test_step_size_validation.py",
+    "?? tests/test_stretch_adaptation.py",
+    "?? tests/test_unadjusted_api.py"
+  ],
+  "source_sha256": {
+    "src/affine_invariant_samplers/stretch.py": "7c6c9761fc022c9edbf95d549193d776853f3bc3b7ef0fac829ea9179e4d963f",
+    "src/affine_invariant_samplers/ensemble_dr.py": "f140f49865d4ce68dee81fc26a5f94ebb76af3313a69a830d72b1f2042c97bda",
+    "src/affine_invariant_samplers/_dr_utils.py": "9c74d8a9590acc597d6a4bfbd507cee241a1e6118df72246e2e82060ba77ee07",
+    "src/affine_invariant_samplers/peaches.py": "9b89705330863f069817a40cf3959a237aa134df824eb31a85660b03048f8050",
+    "src/affine_invariant_samplers/side.py": "c56bb5409a4bada8a65edbb310fef826342c57052dfe801f91ce5c8e3c5d1cd0",
+    "src/affine_invariant_samplers/walk.py": "7edda15177b66e3fa053fc8c5cf3daf3e9086e00957d08e146df5748edf11935"
+  },
+  "python": "3.12.13",
+  "jax": "0.9.2",
+  "numpy": "2.4.4",
+  "backend": "cpu",
+  "jax_enable_x64": false,
+  "protocol": {
+    "study": "Gaussian confirmation after ChEES numerical guards",
+    "cases_dim_walkers_seed_initial_scale_production": [
+      [
+        2,
+        6,
+        2,
+        0.1,
+        1000
+      ],
+      [
+        2,
+        24,
+        0,
+        1.0,
+        1000
+      ],
+      [
+        64,
+        256,
+        0,
+        1.0,
+        500
+      ]
+    ],
+    "warmup": 200,
+    "initial_seed": "42 + sampler seed",
+    "maximum_initial_walkers": {
+      "2": 48,
+      "64": 512
+    },
+    "reference": "stored post actual-time-correction, pre numerical-guard size rows"
+  }
+}
