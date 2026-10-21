@@ -3,10 +3,19 @@
 JAX implementations of affine-invariant ensemble MCMC samplers and related
 Hamiltonian Monte Carlo variants.
 
-Paper: [**New affine invariant ensemble samplers and their dimensional
-scaling**](https://arxiv.org/abs/2505.02987)
+Relevant papers:
 
-The numpy implementation that accompanied the paper lives on the
+1. Y. Chen. [New affine invariant ensemble samplers and their dimensional
+   scaling](https://arxiv.org/abs/2505.02987). arXiv preprint
+   arXiv:2505.02987, 2025.
+2. H. Y. Tan and Y. Chen. [Geometric ergodicity of affine invariant ensemble
+   Langevin and its discrete time variants](https://arxiv.org/abs/2609.03326).
+   arXiv preprint arXiv:2609.03326, 2026.
+3. H. Y. Tan, S. Osher, and Y. Chen. [PICKLES: Covariance-preconditioned
+   kinetic Langevin ensemble sampler](https://arxiv.org/abs/2610.24295). arXiv
+   preprint arXiv:2610.24295, 2026.
+
+The numpy implementation that accompanied the first paper lives on the
 [`initial-samplers`](https://github.com/yifanc96/AffineInvariantSamplers/tree/initial-samplers)
 branch.  This `main` branch is a redesigned JAX package targeting
 high-dimensional, curved, and multiscale distributions, with or without
